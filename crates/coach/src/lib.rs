@@ -7,6 +7,7 @@ mod common;
 pub mod consts;
 mod gold;
 mod draft;
+mod enemy_augments;
 mod items;
 mod macro_coach;
 mod late;
@@ -37,6 +38,7 @@ pub use shop::{eta as gold_eta, shopping};
 pub use tracker::Tracker;
 
 pub use draft::{DraftData, Lineup, lineups as draft_lineups};
+pub use enemy_augments::{EnemyAugmentInput, expected as expected_augments, order_candidates, stale_enemies};
 
 /// Inputs for one in-game advice tick.
 pub struct GameInput<'a> {
@@ -52,16 +54,20 @@ pub struct GameInput<'a> {
     pub gold_history: &'a [GoldSample],
     /// Mayhem: augments taken so far (`AugmentTracker::picks`).
     pub my_augments: &'a [MyAugment],
+    /// Mayhem: enemy augments read off the Tab scoreboard.
+    pub enemy_augments: EnemyAugmentInput<'a>,
 }
 
 pub fn game_advice(input: &GameInput) -> GameAdvice {
-    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments } = *input;
+    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments } = *input;
     let me = snap.players.get(snap.me);
     let my_champ = me.map_or(0, |p| p.champ);
     let owned = me.map_or(&[][..], |p| &p.items);
     let rules = modes::rules(snap.mode);
-    let a = threat::assess(snap, sd, stats);
+    let mut a = threat::assess(snap, sd, stats);
+    let aug_tags = enemy_augments::apply(&mut a, &enemy_augments, augments.map(|(_, m)| &m.augment_names));
     let mut needs = needs::needs(&a.foes);
+    enemy_augments::adjust_needs(&mut needs, &a, &aug_tags);
     rules.scale_needs(&mut needs.p);
     let mut ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
     ctx.ahead = me.is_some_and(|p| {
@@ -109,6 +115,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         deaths: windows::deaths(snap),
         my_augments: my_augments.to_vec(),
         gold_sinks,
+        tab_hint: enemy_augments::tab_hint(snap, enemy_augments.seen, enemy_augments.stale_since),
     }
 }
 

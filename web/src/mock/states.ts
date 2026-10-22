@@ -74,11 +74,11 @@ const riftGame: GameAdvice = {
   ],
   owned: [6655, 3020, 4645],
   threats: [
-    { champ: 238, name: 'Zed', score: 92, kills: 7, deaths: 1, assists: 2, level_diff: 2, item_gold_diff: 2100, kills_on_me: 3, lane_opp: true, damage: 'AD', flags: ['assassin', 'burst'], legendaries: 2, legendary_diff: 1, new_items: [3142], ult: { rank: 2, cooldowns: [120, 100, 80], spike: true } },
-    { champ: 145, name: 'Kai’Sa', score: 71, kills: 5, deaths: 2, assists: 4, level_diff: 1, item_gold_diff: 900, kills_on_me: 0, lane_opp: false, damage: 'Mixed', flags: ['on-hit', 'dive'], legendaries: 2, legendary_diff: 1, new_items: [], ult: { rank: 2, cooldowns: [130, 100, 70], spike: false } },
-    { champ: 254, name: 'Vi', score: 48, kills: 3, deaths: 3, assists: 6, level_diff: 0, item_gold_diff: 150, kills_on_me: 1, lane_opp: false, damage: 'AD', flags: ['cc', 'dive'], legendaries: 1, legendary_diff: 0, new_items: [], ult: { rank: 1, cooldowns: [120, 100, 80], spike: false } },
-    { champ: 122, name: 'Darius', score: 35, kills: 2, deaths: 4, assists: 1, level_diff: -1, item_gold_diff: -400, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['heals', 'tank'], legendaries: 1, legendary_diff: 0, new_items: [], ult: { rank: 1, cooldowns: [120, 100, 80], spike: false } },
-    { champ: 111, name: 'Nautilus', score: 22, kills: 0, deaths: 3, assists: 8, level_diff: -2, item_gold_diff: -1200, kills_on_me: 0, lane_opp: false, damage: 'Mixed', flags: ['cc', 'tank'], legendaries: 0, legendary_diff: -1, new_items: [], ult: { rank: 1, cooldowns: [120, 100, 80], spike: false } },
+    { champ: 238, name: 'Zed', score: 92, kills: 7, deaths: 1, assists: 2, level_diff: 2, item_gold_diff: 2100, kills_on_me: 3, lane_opp: true, damage: 'AD', flags: ['assassin', 'burst'], legendaries: 2, legendary_diff: 1, new_items: [3142], augments: [], ult: { rank: 2, cooldowns: [120, 100, 80], spike: true } },
+    { champ: 145, name: 'Kai’Sa', score: 71, kills: 5, deaths: 2, assists: 4, level_diff: 1, item_gold_diff: 900, kills_on_me: 0, lane_opp: false, damage: 'Mixed', flags: ['on-hit', 'dive'], legendaries: 2, legendary_diff: 1, new_items: [], augments: [], ult: { rank: 2, cooldowns: [130, 100, 70], spike: false } },
+    { champ: 254, name: 'Vi', score: 48, kills: 3, deaths: 3, assists: 6, level_diff: 0, item_gold_diff: 150, kills_on_me: 1, lane_opp: false, damage: 'AD', flags: ['cc', 'dive'], legendaries: 1, legendary_diff: 0, new_items: [], augments: [], ult: { rank: 1, cooldowns: [120, 100, 80], spike: false } },
+    { champ: 122, name: 'Darius', score: 35, kills: 2, deaths: 4, assists: 1, level_diff: -1, item_gold_diff: -400, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['heals', 'tank'], legendaries: 1, legendary_diff: 0, new_items: [], augments: [], ult: { rank: 1, cooldowns: [120, 100, 80], spike: false } },
+    { champ: 111, name: 'Nautilus', score: 22, kills: 0, deaths: 3, assists: 8, level_diff: -2, item_gold_diff: -1200, kills_on_me: 0, lane_opp: false, damage: 'Mixed', flags: ['cc', 'tank'], legendaries: 0, legendary_diff: -1, new_items: [], augments: [], ult: { rank: 1, cooldowns: [120, 100, 80], spike: false } },
   ],
   matchups: [
     { champ: 238, vs_wr: 46.8, games: 18420, lane_opp: true, label: 'unfavoured' },
@@ -135,6 +135,7 @@ const riftGame: GameAdvice = {
   my_augments: [],
   defense: riftDefense,
   gold_sinks: [],
+  tab_hint: null,
 };
 
 const mayhemGame: GameAdvice = {
@@ -160,11 +161,11 @@ const mayhemGame: GameAdvice = {
   ],
   owned: [6655, 3020, 4645],
   threats: [
-    { champ: 55, name: 'Katarina', score: 84, kills: 9, deaths: 3, assists: 5, level_diff: 1, item_gold_diff: 1600, kills_on_me: 2, lane_opp: false, damage: 'AP', flags: ['assassin', 'burst'], legendaries: 3, legendary_diff: 1, new_items: [3089], ult: { rank: 2, cooldowns: [60, 52.5, 45], spike: false } },
-    { champ: 11, name: 'Master Yi', score: 66, kills: 6, deaths: 4, assists: 2, level_diff: 0, item_gold_diff: 800, kills_on_me: 1, lane_opp: false, damage: 'Mixed', flags: ['on-hit', 'true'], legendaries: 2, legendary_diff: 0, new_items: [], ult: { rank: 2, cooldowns: [85, 85, 85], spike: false } },
-    { champ: 36, name: 'Dr. Mundo', score: 41, kills: 2, deaths: 5, assists: 7, level_diff: 0, item_gold_diff: 300, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['tank', 'heals'], legendaries: 2, legendary_diff: 0, new_items: [], ult: { rank: 1, cooldowns: [110, 100, 90], spike: true } },
-    { champ: 16, name: 'Soraka', score: 30, kills: 1, deaths: 4, assists: 14, level_diff: -1, item_gold_diff: -500, kills_on_me: 0, lane_opp: false, damage: 'AP', flags: ['heals'], legendaries: 1, legendary_diff: -1, new_items: [], ult: { rank: 1, cooldowns: [160, 145, 130], spike: false } },
-    { champ: 22, name: 'Ashe', score: 27, kills: 3, deaths: 6, assists: 8, level_diff: -1, item_gold_diff: -700, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['cc', 'crit'], legendaries: 1, legendary_diff: -1, new_items: [], ult: { rank: 1, cooldowns: [100, 80, 60], spike: false } },
+    { champ: 55, name: 'Katarina', score: 84, kills: 9, deaths: 3, assists: 5, level_diff: 1, item_gold_diff: 1600, kills_on_me: 2, lane_opp: false, damage: 'AP', flags: ['assassin', 'burst'], legendaries: 3, legendary_diff: 1, new_items: [3089], augments: [{ id: 1048, name: 'Jeweled Gauntlet', rarity: 'prismatic', rank: 1, of: 52, synergy: null }, { id: 1323, name: 'Cruelty', rarity: 'gold', rank: 4, of: 40, synergy: null }], ult: { rank: 2, cooldowns: [60, 52.5, 45], spike: false } },
+    { champ: 11, name: 'Master Yi', score: 66, kills: 6, deaths: 4, assists: 2, level_diff: 0, item_gold_diff: 800, kills_on_me: 1, lane_opp: false, damage: 'Mixed', flags: ['on-hit', 'true'], legendaries: 2, legendary_diff: 0, new_items: [], augments: [{ id: 1087, name: 'Typhoon', rarity: 'gold', rank: 0, of: 40, synergy: null }, { id: 1225, name: 'Dual Wield', rarity: 'prismatic', rank: 6, of: 52, synergy: null }], ult: { rank: 2, cooldowns: [85, 85, 85], spike: false } },
+    { champ: 36, name: 'Dr. Mundo', score: 41, kills: 2, deaths: 5, assists: 7, level_diff: 0, item_gold_diff: 300, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['tank', 'heals'], legendaries: 2, legendary_diff: 0, new_items: [], augments: [{ id: 1018, name: 'Courage of the Colossus', rarity: 'prismatic', rank: 3, of: 52, synergy: null }, { id: 1138, name: 'Goredrink', rarity: 'gold', rank: 11, of: 40, synergy: null }], ult: { rank: 1, cooldowns: [110, 100, 90], spike: true } },
+    { champ: 16, name: 'Soraka', score: 30, kills: 1, deaths: 4, assists: 14, level_diff: -1, item_gold_diff: -500, kills_on_me: 0, lane_opp: false, damage: 'AP', flags: ['heals'], legendaries: 1, legendary_diff: -1, new_items: [], augments: [{ id: 1095, name: 'Windspeaker’s Blessing', rarity: 'gold', rank: 2, of: 40, synergy: null }], ult: { rank: 1, cooldowns: [160, 145, 130], spike: false } },
+    { champ: 22, name: 'Ashe', score: 27, kills: 3, deaths: 6, assists: 8, level_diff: -1, item_gold_diff: -700, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['cc', 'crit'], legendaries: 1, legendary_diff: -1, new_items: [], augments: [{ id: 1326, name: 'Nightstalking (or 3 with this icon)', rarity: 'gold', rank: null, of: 0, synergy: null }], ult: { rank: 1, cooldowns: [100, 80, 60], spike: false } },
   ],
   matchups: [],
   me: {
@@ -209,6 +210,7 @@ const mayhemGame: GameAdvice = {
   my_augments: mayhemPicks,
   defense: mayhemDefense,
   gold_sinks: [],
+  tab_hint: null,
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.
@@ -231,6 +233,7 @@ const mayhemDead: GameAdvice = {
     ],
     allies: [{ champ: 81, in_s: 3 }],
   },
+  tab_hint: { text: 'Hold Tab for 1 s to read enemy augments', reason: '1 enemy has an unread augment · you’re dead, a good moment' },
 };
 
 // Six items, 3k gold, level 13: nothing left to buy, gold sinks instead.

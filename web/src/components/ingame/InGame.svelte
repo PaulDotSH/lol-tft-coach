@@ -13,6 +13,7 @@
   import Defense from './Defense.svelte';
   import MyAugments from './MyAugments.svelte';
   import GoldSinks from './GoldSinks.svelte';
+  import TabHint from './TabHint.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -33,6 +34,7 @@
     <BuildPath owned={game.owned} path={game.path} />
   </div>
   <div class="threats">
+    {#if game.tab_hint}<TabHint hint={game.tab_hint} />{/if}
     <Threats threats={game.threats} />
     <DeathWindows deaths={game.deaths} at={game.time} />
   </div>

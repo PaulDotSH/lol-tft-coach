@@ -12,6 +12,7 @@ import type { MyAugment } from "./MyAugment";
 import type { ObjectiveTimer } from "./ObjectiveTimer";
 import type { SelfStats } from "./SelfStats";
 import type { ShoppingList } from "./ShoppingList";
+import type { TabHint } from "./TabHint";
 import type { Threat } from "./Threat";
 
 export type GameAdvice = { time: number, mode: Mode, my_champ: number, buy_next: ItemPick | null, alternatives: Array<ItemPick>, 
@@ -34,4 +35,8 @@ my_augments: Array<MyAugment>, defense: Defense | null,
 /**
  * Full build: what else gold can buy (anvils, elixirs, swaps).
  */
-gold_sinks: Array<GoldSink>, };
+gold_sinks: Array<GoldSink>, 
+/**
+ * Mayhem: ask the user to hold Tab so enemy augments can be read.
+ */
+tab_hint: TabHint | null, };

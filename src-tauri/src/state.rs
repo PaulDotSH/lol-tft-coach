@@ -51,6 +51,8 @@ pub struct Shared {
     /// Data Dragon R cooldowns per champion, and the last fetch outcome.
     pub ults: Cache<ChampKey, UltCooldowns>,
     pub ddragon_ok: Mutex<Option<bool>>,
+    /// Mayhem Tab scoreboard reader.
+    pub tab: crate::tab::TabShared,
 }
 
 impl Shared {
@@ -90,6 +92,7 @@ impl Shared {
             aram_tiers: Mutex::default(),
             ults: Mutex::default(),
             ddragon_ok: Mutex::new(None),
+            tab: Default::default(),
         }
     }
 

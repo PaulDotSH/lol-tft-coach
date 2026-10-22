@@ -8,6 +8,7 @@ mod orchestrator;
 mod selfcoach;
 mod settings;
 mod state;
+mod tab;
 
 use state::Shared;
 use std::sync::{Arc, Mutex};

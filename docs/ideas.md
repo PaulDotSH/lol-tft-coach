@@ -264,6 +264,55 @@ augments into threat and needs ("Sion took a tank-scaling prismatic: raise %HP
 damage").
 - **Policy:** low only if confirmed visible in the client; high otherwise · **Effort:** L
 
+**Findings (2026-10-22, built on `feat/tabocr`).** Confirmed: the in-game Tab
+scoreboard in ARAM: Mayhem shows **every player's augments, enemies included**,
+as small icons; names only appear on hover, descriptions not at all
+([r/ARAM: "all players augments show on the scoreboard when you press tab"][r-tab],
+[r/ARAM: names only on the Tab scoreboard][r-names], [r/ARAM: Tab screen shows
+the augment icon][r-pandora], [r/ARAM: enemy augments checked via Tab][r-uneven]; players hold Tab at levels 3/7/11/15 to check [r-rounds]).
+What the client draws, from the game's own UI data
+(`KiwiScoreboard/UIBase`, [CommunityDragon][cd-kiwi-sb]) and a 1080p capture:
+- Teams side by side (left half / right half, 1600×1200 source units around
+  the screen centre). Per row: summoner spells, keystone, champion portrait,
+  level, CS, K/D/A, name, 7 item slots, and an **augment grid: 3 + 2 cells**
+  (30-unit icons in 32-unit backdrops; empty cells keep their dark square).
+- Icons are the augments' `*_small` art ([CommunityDragon kiwi icons][cd-kiwi-icons],
+  mapped by id in the kiwi mode bin [cd-kiwi-bin]), tinted by rarity: beige =
+  gold, magenta + purple frame = prismatic. Not the colourful u.gg/bigbrain
+  icons. 249 enabled Mayhem augments use 203 icon files that reduce to ~132
+  distinct images: many augments share art (e.g. Blade Waltz / Blunt Force /
+  Glass Cannon / Nightstalking; the generic ability-augment icons), so a read is
+  often "one of N"; tint + the enemy's u.gg list narrow it.
+- What the Tab scoreboard adds over the Live Client API in Mayhem: enemy
+  augments (and set bonuses while sets existed). Rift: nothing material; items,
+  K/D/A, CS, level, summoner spells, dead/respawn are already in the API, and
+  ward/vision score is too. Relic/objective timers on the ARAM scoreboard are
+  not in the API but are out of scope (R4).
+- Policy: reading the user's own client while they hold Tab is "known
+  information" (allowed); the app never presses Tab or sends input, shows ranks
+  only, never augment win rates.
+
+How it works: a silent "Hold Tab for 1 s" hint appears when an enemy's augment
+count (by level: 1 at start, +1 at 7/11/15) exceeds what was last read, 20 s
+after the round, or 5 s into a death with ≥4 s left; it clears once read. The
+OCR thread then polls every 250 ms (1 s otherwise, only in Mayhem): two small
+column captures check for the grid outlines (≥8 of 10 rows), only then the
+board is captured; rows map to players by their item icons (Live API items,
+Data Dragon art), else API order. Icons are matched by normalised correlation
+(16×16 luma, inner 86 %). Enemy augments add chips to threat rows (rank in that
+champion's u.gg list) and a modest nudge: tank → HP/resists on that foe,
+heal → anti-heal, crit / attack speed → their item stats, burst → anti-burst,
+only when every augment sharing the icon agrees.
+
+[r-tab]: https://www.reddit.com/r/ARAM/comments/1p68wqn/ui_aram_mayhem_buff_section/nqom6f7/
+[r-names]: https://www.reddit.com/r/ARAM/comments/1oe87td/aram_mayhem_is_the_peak_fun_ive_ever_had_in/nl3ibn3/
+[r-pandora]: https://www.reddit.com/r/ARAM/comments/1pisvg3/pandoras_box_is_bugged/
+[r-uneven]: https://www.reddit.com/r/ARAM/comments/1vbtug4/were_the_augment_set_bonuses_not_well_received_by/p1dx3z7/
+[r-rounds]: https://www.reddit.com/r/ARAM/comments/1u76m5s/new_aram_mayhem_patch/orywama/
+[cd-kiwi-sb]: https://raw.communitydragon.org/latest/game/clientstates/gameplay/ux/lol/kiwi/kiwiscoreboard/uibase.cdtb.bin.json
+[cd-kiwi-icons]: https://raw.communitydragon.org/latest/game/assets/ux/kiwi/augments/icons/
+[cd-kiwi-bin]: https://raw.communitydragon.org/latest/game/maps/modespecificdata/kiwi.bin.json
+
 ### A4. Gold/level timeline vs lane opponent
 Post-game chart of item-gold and level vs your lane opponent (or lobby
 average in ARAM) with death/objective markers, from recorder snapshots. Not a
