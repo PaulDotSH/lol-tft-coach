@@ -197,3 +197,31 @@ pub const REASON_SECOND_MIN: f32 = 0.5;
 
 // ---- recap ----
 pub const DEATHS_NOTE: u32 = 6;
+
+// ---- enemy item spikes (V6) ----
+/// Threat z per completed legendary above the lobby average. Item gold already
+/// counts the gold, so this only rewards finished power spikes; kept small.
+pub const W_LEGEND: f32 = 0.15;
+/// A legendary counts as newly finished for this many game seconds.
+pub const ITEM_NEW_WINDOW: f32 = 90.0;
+
+// ---- ult ranks (Q5): levels at which R ranks up, static ----
+pub const ULT_LEVELS: [u32; 3] = [6, 11, 16];
+/// Four-rank ults (Jayce, Elise, Nidalee, Karma) start at level 1.
+pub const ULT_LEVELS_4: [u32; 4] = [1, 6, 11, 16];
+
+// ---- shopping (Q1) / gold ETA (Q2) ----
+pub const INVENTORY_SLOTS: usize = 6;
+/// Path items the shopping list spends on, in order (buy next, then the one after).
+pub const SHOP_PATH_DEPTH: usize = 2;
+pub const CONTROL_WARD: model::ItemId = 2055;
+/// Elixirs of Iron, Sorcery, Wrath; bought only once the build is complete.
+pub const ELIXIR_IRON: model::ItemId = 2138;
+pub const ELIXIR_SORCERY: model::ItemId = 2139;
+pub const ELIXIR_WRATH: model::ItemId = 2140;
+pub const ELIXIR_LEVEL: u32 = 9;
+/// Income is averaged over this much game time; spending drops are skipped.
+pub const INCOME_WINDOW: f32 = 120.0;
+/// No income estimate before this much non-spending time was observed.
+pub const INCOME_MIN_SPAN: f32 = 20.0;
+pub const BACK_PLANS: usize = 2;

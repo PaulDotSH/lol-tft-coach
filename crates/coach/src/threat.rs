@@ -160,6 +160,8 @@ pub fn assess<'a>(snap: &GameSnapshot, sd: &'a StaticData, stats: Option<&ChampS
     let avg_gold = invs.iter().map(|v| v.gold as f32).sum::<f32>() / n;
     let avg_kda = snap.players.iter().map(kda).sum::<f32>() / n;
     let avg_lvl = snap.players.iter().map(|p| p.level as f32).sum::<f32>() / n;
+    let legends: Vec<u32> = snap.players.iter().map(|p| crate::spikes::legendaries(sd, &p.items)).collect();
+    let avg_legend = legends.iter().sum::<u32>() as f32 / n;
     let (mut cs_sum, mut cs_n) = ([0f32; 3], [0f32; 3]);
     for p in &snap.players {
         let g = cs_group(p, snap.mode);
@@ -180,7 +182,8 @@ pub fn assess<'a>(snap: &GameSnapshot, sd: &'a StaticData, stats: Option<&ChampS
             let z = W_GOLD * (inv.gold as f32 - avg_gold) / avg_gold.max(GOLD_FLOOR)
                 + W_KDA * (kda(p) - avg_kda)
                 + W_LEVEL * (p.level as f32 - avg_lvl)
-                + W_CS * (p.cs as f32 - avg_cs) / avg_cs.max(CS_FLOOR);
+                + W_CS * (p.cs as f32 - avg_cs) / avg_cs.max(CS_FLOOR)
+                + W_LEGEND * (legends[i] as f32 - avg_legend);
             let kom = kills_by(snap, i, snap.me);
             let is_opp = lane_opp == Some(i);
             let mult = (1.0 + KILLS_ON_ME_STEP * kom.min(KILLS_ON_ME_CAP) as f32) * if is_opp { LANE_OPP_MULT } else { 1.0 };
@@ -207,6 +210,10 @@ pub fn assess<'a>(snap: &GameSnapshot, sd: &'a StaticData, stats: Option<&ChampS
                 lane_opp: is_opp,
                 damage: foe.damage_label().into(),
                 flags: foe.flags(),
+                legendaries: legends[i],
+                legendary_diff: (legends[i] as f32 - avg_legend).round() as i32,
+                new_items: vec![],
+                ult: None,
             };
             (foe, threat)
         })

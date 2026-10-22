@@ -2,6 +2,7 @@
 
 mod commands;
 mod draft;
+mod ingame;
 mod orchestrator;
 mod settings;
 mod state;

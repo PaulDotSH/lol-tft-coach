@@ -6,6 +6,7 @@ pub mod lolalytics;
 pub mod lolalytics_team;
 pub mod qwik;
 pub mod ugg;
+pub mod ults;
 
 use anyhow::Context;
 use std::path::{Path, PathBuf};

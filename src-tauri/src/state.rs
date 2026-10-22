@@ -46,6 +46,9 @@ pub struct Shared {
     /// Draft: counter-only stats per (champ, lane) and build-team synergy.
     pub lane_stats: Cache<(ChampKey, Option<Lane>), ChampStats>,
     pub team: Cache<(ChampKey, Lane), TeamSynergy>,
+    /// Data Dragon R cooldowns per champion, and the last fetch outcome.
+    pub ults: Cache<ChampKey, UltCooldowns>,
+    pub ddragon_ok: Mutex<Option<bool>>,
 }
 
 impl Shared {
@@ -79,6 +82,8 @@ impl Shared {
             ugg_ok: Mutex::new(None),
             lane_stats: Mutex::default(),
             team: Mutex::default(),
+            ults: Mutex::default(),
+            ddragon_ok: Mutex::new(None),
         }
     }
 

@@ -11,11 +11,17 @@ mod matchups;
 mod needs;
 mod recap;
 mod self_stats;
+mod shop;
+mod spikes;
 mod threat;
 mod timers;
+mod tracker;
+mod windows;
 
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 use model::*;
+pub use shop::{eta as gold_eta, shopping};
+pub use tracker::Tracker;
 
 pub use draft::{DraftData, Lineup, lineups as draft_lineups};
 
@@ -50,6 +56,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let me_stats = self_stats::self_stats(snap, sd, stats, a.lane_opp);
     let my_lane = stats.and_then(|s| s.lane);
     let gold_diff = gold::gold_diff(snap, sd, a.lane_opp, my_lane, me_stats.item_gold_vs_opp, gold_history);
+    let path_ids: Vec<ItemId> = b.path.iter().map(|s| s.id).collect();
     GameAdvice {
         time: snap.time,
         mode: snap.mode,
@@ -64,7 +71,30 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         augments: augments::advice(sd, my_champ, augments, offered),
         threats: a.threats,
         gold: gold_diff,
+        shopping: me.map_or_else(ShoppingList::default, |p| shop::shopping(sd, snap.mode, p, snap.my_gold, &path_ids)),
+        gold_eta: me.filter(|_| !path_ids.is_empty()).map(|p| shop::eta(sd, snap.mode, p, snap.my_gold, &path_ids, None)),
+        deaths: windows::deaths(snap),
     }
+}
+
+/// State the orchestrator keeps or fetches across ticks, for [`live_extras`].
+pub struct LiveInput<'a> {
+    pub snap: &'a GameSnapshot,
+    pub sd: &'a StaticData,
+    pub tracker: &'a Tracker,
+    /// Data Dragon R cooldowns of champions in this game, as fetched so far.
+    pub ults: &'a std::collections::HashMap<ChampKey, UltCooldowns>,
+}
+
+/// Second pass over [`game_advice`]: gold ETA from tracked income, enemy R ranks
+/// and newly finished items.
+pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
+    let LiveInput { snap, sd, tracker, ults } = *input;
+    if let (Some(me), Some(_)) = (snap.players.get(snap.me), &advice.gold_eta) {
+        let path: Vec<ItemId> = advice.path.iter().map(|p| p.item).collect();
+        advice.gold_eta = Some(shop::eta(sd, snap.mode, me, snap.my_gold, &path, tracker.income()));
+    }
+    spikes::annotate(&mut advice.threats, snap, tracker, ults);
 }
 
 pub struct ChampSelectInput<'a> {
