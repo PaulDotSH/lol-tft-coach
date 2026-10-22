@@ -57,7 +57,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
 
         if lcu.is_none() && last_discover.is_none_or(|t| t.elapsed() > Duration::from_secs(5)) {
             last_discover = Some(Instant::now());
-            lcu = clients::lcu::discover();
+            lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
         }
         let flow = match &lcu {
             Some(c) => match c.phase().await {
