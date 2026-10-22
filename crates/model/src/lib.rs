@@ -483,6 +483,28 @@ data! {
         pub record_fixtures: bool,
     }
 
+    pub struct UiChamp {
+        /// Data Dragon id (icon file name).
+        pub id: String,
+        pub name: String,
+    }
+
+    pub struct UiItem {
+        pub name: String,
+        pub cost: u32,
+    }
+
+    /// Names and icon keys for the UI (`get_static` command).
+    pub struct UiStatic {
+        /// Data Dragon version for icon URLs.
+        pub version: String,
+        /// u.gg patch for augment icon URLs.
+        pub ugg_patch: Option<String>,
+        pub champs: HashMap<ChampKey, UiChamp>,
+        pub items: HashMap<ItemId, UiItem>,
+        pub augments: HashMap<AugmentId, String>,
+    }
+
     /// Everything the UI shows; pushed as the `state` event.
     pub struct AppState {
         pub phase: Phase,
