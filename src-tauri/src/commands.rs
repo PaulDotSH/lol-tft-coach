@@ -4,6 +4,7 @@ use crate::state::Shared;
 use crate::{orchestrator, settings};
 use model::*;
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{Emitter, State};
 
 type Sh<'a> = State<'a, Arc<Shared>>;
@@ -13,10 +14,22 @@ pub fn get_state(sh: Sh) -> AppState {
     sh.ui.lock().unwrap().clone()
 }
 
+/// Waits (up to ~20 s) for the orchestrator's first Data Dragon load.
 #[tauri::command]
-pub fn get_static(sh: Sh) -> Result<UiStatic, String> {
-    let sd = sh.static_data().ok_or("static data not loaded yet")?;
-    let mayhem = orchestrator::mayhem(&sh, &sd);
+pub async fn get_static(sh: Sh<'_>) -> Result<UiStatic, String> {
+    let mut sd = sh.static_data();
+    for _ in 0..100 {
+        if sd.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        sd = sh.static_data();
+    }
+    let sd = sd.ok_or("Data Dragon unavailable (offline?)")?;
+    let mayhem = match orchestrator::mayhem(&sh, &sd) {
+        Some(m) => Some(m),
+        None => data::ugg::mayhem(&sh.http, &sd.version).await.ok().map(Arc::new),
+    };
     Ok(UiStatic {
         version: sd.version.clone(),
         ugg_patch: mayhem.as_ref().map(|m| m.patch.clone()),

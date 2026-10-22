@@ -7,7 +7,7 @@ use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetClientRect, IsIcon
 use windows::core::{PCWSTR, w};
 
 /// Fractions of the client area holding the augment cards and their names.
-const REGION_X: (f32, f32) = (0.15, 0.85);
+const REGION_X: (f32, f32) = (0.08, 0.92);
 const REGION_Y: (f32, f32) = (0.10, 0.75);
 
 /// Top-down 32-bit DIB section selected into its own memory DC.

@@ -278,6 +278,10 @@ pub fn reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {
     let pct = |w: u32, g: u32| 100.0 * w as f32 / g.max(1) as f32;
     match (s.src, need_line) {
         (_, Some(l)) if s.sit > (s.stats_score - ctx.base).max(0.0) => l,
+        // Threat matters but stats lead: name both.
+        (Src::Row { wins, games } | Src::Other { wins, games }, Some(l)) if s.sit >= REASON_SIT_MIN => {
+            format!("{l} · {:.0}% on {name}", pct(wins, games))
+        }
         (Src::Row { wins, games }, _) => {
             format!("top pick for {name} ({:.0}% over {} games)", pct(wins, games), fmt_games(games as u64))
         }

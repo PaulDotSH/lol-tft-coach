@@ -75,6 +75,8 @@ pub const MIN_ITEM_SHARE: f32 = 0.02;
 /// Prior strength (games) pulling a slot row's win rate toward the slot average;
 /// tames snowball items (Mejai's) whose small samples are bought only when ahead.
 pub const SHRINK_GAMES: f32 = 1500.0;
+/// Situational score (win-rate units) above which a reason names the threat.
+pub const REASON_SIT_MIN: f32 = 0.01;
 /// Mejai's Soulstealer, Dark Seal: their win rates come from games already won.
 pub const SNOWBALL: [model::ItemId; 2] = [3041, 1082];
 /// "Ahead" for snowball items: (kills + assists/2) ≥ this × (deaths + 1).

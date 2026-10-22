@@ -49,8 +49,8 @@
   <div class="stat">
     <h2>Vision score</h2>
     <div class="big num">
-      <span class:bad={me.vision_benchmark != null && me.vision < me.vision_benchmark}>{me.vision}</span>
-      {#if me.vision_benchmark != null}<small class="muted">/ {me.vision_benchmark} avg</small>{/if}
+      <span class:bad={me.vision_benchmark != null && me.vision < me.vision_benchmark}>{me.vision.toFixed(1)}</span>
+      {#if me.vision_benchmark != null}<small class="muted">/ {me.vision_benchmark.toFixed(1)} avg</small>{/if}
     </div>
   </div>
   {/if}

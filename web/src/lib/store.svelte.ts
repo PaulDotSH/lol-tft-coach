@@ -37,14 +37,22 @@ function apply(s: AppState) {
 
 export async function start() {
   setInterval(() => (now = performance.now()), 1000);
+  const a = await api;
   try {
-    const a = await api;
-    const [u, s] = await Promise.all([a.getStatic(), a.getState()]);
-    ui = u;
-    apply(s);
     await a.onState(apply);
+    apply(await a.getState());
   } catch (e) {
     error = String(e);
+  }
+  // Static data needs the first Data Dragon load (or the network): retry until it arrives.
+  while (!ui) {
+    try {
+      ui = await a.getStatic();
+      error = null;
+    } catch (e) {
+      error = String(e);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
   }
 }
 

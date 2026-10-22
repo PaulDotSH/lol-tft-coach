@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "LoL Coach",
-  "identifier": "dev.lolcoach.app",
+  "identifier": "dev.lolcoach.desktop",
   "build": {
     "frontendDist": "../web/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm --prefix web run dev",
-    "beforeBuildCommand": "npm --prefix web run build"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "windows": [
