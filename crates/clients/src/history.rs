@@ -12,7 +12,7 @@ use std::path::Path;
 /// Games read from the history list, newest first.
 pub const RECENT: u32 = 30;
 /// Bump when parsing changes so cached games are parsed again.
-const CACHE_VERSION: u32 = 1;
+const CACHE_VERSION: u32 = 2;
 
 /// Recent games, newest first. Only games missing from `dir` cost requests; a
 /// game whose details fail is used from the list entry and retried next sync.
@@ -167,5 +167,7 @@ pub fn parse_game(game: &Value, puuid: Option<&str>, timeline: Option<&Value>) -
         first_dragon: first(&["firstDargon", "firstDragon"]),
         first_tower: first(&["firstTower"]),
         first_blood: first(&["firstBlood"]),
+        cs_10: at(10, "minionsKilled", me_id).map(|m| (m + at(10, "jungleMinionsKilled", me_id).unwrap_or(0)) as u32),
+        augments: (1..=6).filter_map(|i| id(&s[&format!("playerAugment{i}")])).collect(),
     })
 }

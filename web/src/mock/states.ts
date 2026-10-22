@@ -6,8 +6,9 @@ import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
 import { mayhemGold, riftGold } from './gold';
 import { macroFewGames, macroReport } from './macro';
+import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals };
 
 const src = (p: Partial<Sources>): Sources => ({
   client: 'ok',
@@ -42,9 +43,12 @@ const recap: Recap = {
     'CS fell behind after 12 minutes (−31 at 25:00).',
     'Vision 19 vs 23 average for mid Syndra at this length.',
   ],
+  review,
+  summary,
+  goals: recapGoals,
 };
 
-const base = { settings, champ_select: null, game: null, recap: null, macro_report: macroReport } satisfies Partial<AppState>;
+const base = { settings, champ_select: null, game: null, recap: null, macro_report: macroReport, trends, goal_progress: [] } satisfies Partial<AppState>;
 
 const riftGame: GameAdvice = {
   time: 1112,
@@ -431,12 +435,12 @@ export const fixtures = {
       },
     },
   },
-  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame },
-  'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame },
-  'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead },
+  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals },
+  'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
+  'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },
   loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
-  'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, sources: src({}) },
+  'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, sources: src({}) },
 } satisfies Record<string, AppState>;
 
 export type FixtureName = keyof typeof fixtures;

@@ -72,6 +72,8 @@ impl Shared {
                 recap: None,
                 settings,
                 macro_report: None,
+                trends: None,
+                goal_progress: vec![],
             }),
             sd: RwLock::new(None),
             mayhem: Mutex::default(),

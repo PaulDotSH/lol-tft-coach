@@ -3,6 +3,7 @@
   import { store } from '../../lib/store.svelte';
   import { champName, gold, signed } from '../../lib/ui';
   import Icon from '../Icon.svelte';
+  import GoalChips from '../GoalChips.svelte';
 
   let { me, laneOpp }: { me: SelfStats; laneOpp: number | null } = $props();
   const oppName = $derived(laneOpp != null && store.ui ? champName(store.ui, laneOpp) : 'lane opponent');
@@ -53,6 +54,9 @@
       {#if me.vision_benchmark != null}<small class="muted">/ {me.vision_benchmark.toFixed(1)} avg</small>{/if}
     </div>
   </div>
+  {/if}
+  {#if store.state?.goal_progress.length}
+    <div class="stat"><h2>Your goals</h2><GoalChips goals={store.state.goal_progress} live /></div>
   {/if}
 </section>
 
