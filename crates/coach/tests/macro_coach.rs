@@ -36,8 +36,8 @@ fn game(i: usize, mode: Mode, champ: ChampKey, win: bool) -> PastGame {
         xp_diff_15: Some(0),
         ours: None,
         theirs: None,
-        first_dragon: Some(i % 2 == 0),
-        first_tower: Some(i % 2 == 1),
+        first_dragon: Some(i.is_multiple_of(2)),
+        first_tower: Some(!i.is_multiple_of(2)),
         first_blood: None,
     }
 }
@@ -164,7 +164,7 @@ fn small_samples_report_nothing() {
 fn champion_trailing_other_picks() {
     // Ahri 5/13, others 9/17.
     let mut h: Vec<PastGame> = (0..13).map(|i| game(i, Mode::Rift, AHRI, i < 5)).collect();
-    h.extend((13..30).map(|i| game(i, Mode::Rift, if i % 2 == 0 { SYNDRA } else { LUX }, i < 22)));
+    h.extend((13..30).map(|i| game(i, Mode::Rift, if i.is_multiple_of(2) { SYNDRA } else { LUX }, i < 22)));
     let r = report(&h);
     let p = find(&r, "champion");
     assert_eq!(p.champ, Some(AHRI));

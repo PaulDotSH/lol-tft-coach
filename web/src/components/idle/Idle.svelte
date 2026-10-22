@@ -2,6 +2,7 @@
   import type { AppState } from '../../lib/bindings/AppState';
   import Recap from './Recap.svelte';
   import Lookup from './Lookup.svelte';
+  import MacroPatterns from './MacroPatterns.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
 
   let { state }: { state: AppState } = $props();
@@ -26,7 +27,10 @@
     {/if}
     <SettingsPanel settings={state.settings} />
   </div>
-  <Lookup />
+  <div class="right">
+    <MacroPatterns report={state.macro_report} connected={state.sources.client === 'ok'} />
+    <Lookup />
+  </div>
 </div>
 
 <style>
@@ -36,7 +40,8 @@
     gap: var(--gap);
     align-items: start;
   }
-  .left {
+  .left,
+  .right {
     display: grid;
     gap: var(--gap);
   }
