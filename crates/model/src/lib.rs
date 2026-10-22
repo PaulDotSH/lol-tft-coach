@@ -427,6 +427,7 @@ data! {
         pub me: SelfStats,
         pub timers: Vec<ObjectiveTimer>,
         pub augments: Option<AugmentAdvice>,
+        pub gold: GoldDiff,
     }
 
     pub struct PickSuggestion {
@@ -515,6 +516,53 @@ data! {
         pub game: Option<GameAdvice>,
         pub recap: Option<Recap>,
         pub settings: Settings,
+    }
+
+    /// One Rift lane pairing; item gold of visible inventories, ally − enemy.
+    pub struct LaneDiff {
+        /// None when positions are unknown and players were paired in scoreboard order.
+        pub lane: Option<Lane>,
+        pub ally: ChampKey,
+        pub enemy: ChampKey,
+        pub gold_diff: i32,
+        pub level_diff: i32,
+        pub mine: bool,
+    }
+
+    pub struct PlayerGold {
+        pub champ: ChampKey,
+        pub ally: bool,
+        pub item_gold: u32,
+        pub level: u32,
+        pub mine: bool,
+    }
+
+    pub struct GoldSample {
+        /// Game time, seconds.
+        pub time: f32,
+        /// Team item-gold diff, mine − enemy.
+        pub team: i32,
+        /// My lane item-gold diff, when I have a lane opponent.
+        pub lane: Option<i32>,
+    }
+
+    /// Item gold (cost of held items, as the scoreboard shows them). The game
+    /// exposes no enemy gold, so this is never an estimate of it.
+    pub struct GoldDiff {
+        /// (my team, enemy team).
+        pub team_item_gold: (u32, u32),
+        /// Mine − enemy.
+        pub diff: i32,
+        /// Team kills (my team, enemy team).
+        pub kills: (u32, u32),
+        /// Average level, mine − enemy.
+        pub level_diff: f32,
+        /// Rift only: top → support, unknown lanes last.
+        pub lanes: Vec<LaneDiff>,
+        /// My team first, most item gold first within a team.
+        pub players: Vec<PlayerGold>,
+        /// Sampled over the game, oldest first; the last point is now.
+        pub history: Vec<GoldSample>,
     }
 }
 
