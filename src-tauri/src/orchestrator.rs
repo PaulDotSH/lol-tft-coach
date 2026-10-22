@@ -31,6 +31,8 @@ struct Memo {
     mode: Option<Mode>,
     my_lane: Option<Lane>,
     queue_checked: bool,
+    /// The running game is not League (TFT): no live coaching.
+    not_lol: bool,
     recommended: Vec<ItemId>,
     last_champ: Option<ChampKey>,
     last_lane: Option<Lane>,
@@ -127,6 +129,9 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             Some("PreEndOfGame" | "WaitingForStats" | "EndOfGame") => Phase::PostGame,
             Some(_) => Phase::Idle,
         };
+        if memo.not_lol && phase == Phase::PostGame {
+            phase = Phase::Idle;
+        }
         let mut champ_select = None;
         let mut game = None;
         let mut game_src = SourceState::Off;
@@ -158,15 +163,26 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             }
             // Live API may answer without the client too (spectate, client closed mid-game).
             Phase::Loading | Phase::NoClient | Phase::Idle => {
+                if phase == Phase::Idle {
+                    // TFT has no champ select to start a new game: reset here.
+                    memo.queue_checked = false;
+                    memo.not_lol = false;
+                }
                 if matches!(phase, Phase::Loading) && !memo.queue_checked
                     && let Some(c) = &lcu {
-                        if let Ok(Some(q)) = c.queue_id().await {
+                        if let Ok(Some((q, game_mode))) = c.queue().await {
+                            memo.not_lol = game_mode == "TFT";
                             memo.mode = Some(Mode::from_queue(q));
-                            tracing::info!("queue {q} → {:?}", memo.mode);
+                            tracing::info!("queue {q} ({game_mode}) → {:?}", memo.mode);
                         }
                         memo.queue_checked = true;
                     }
-                let (state, raw) = live.poll(&sd).await;
+                let (state, raw) = if memo.not_lol {
+                    phase = Phase::Idle;
+                    (LiveState::Unavailable, None)
+                } else {
+                    live.poll(&sd).await
+                };
                 if let Some(raw) = &raw {
                     let parsed = matches!(state, LiveState::InGame(_));
                     if !parsed {
@@ -200,7 +216,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             }
             Phase::PostGame => {
                 *sh.ocr_names.lock().unwrap() = None;
-                if !memo.recap_done && let Some(c) = &lcu {
+                if !memo.recap_done && !memo.not_lol && let Some(c) = &lcu {
                     if debug::on()
                         && let Ok(Some(raw)) = c.get("/lol-end-of-game/v1/eog-stats-block").await
                     {

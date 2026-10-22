@@ -24,7 +24,12 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Size and position only: a window closed to the tray must not come back hidden.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(tauri_plugin_window_state::StateFlags::all() - tauri_plugin_window_state::StateFlags::VISIBLE)
+                .build(),
+        )
         .manage(shared.clone())
         .invoke_handler(tauri::generate_handler![
             commands::get_state,

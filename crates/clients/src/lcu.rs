@@ -143,8 +143,16 @@ impl Lcu {
 
     /// Queue id of the current gameflow session, if any.
     pub async fn queue_id(&self) -> Result<Option<i64>> {
+        Ok(self.queue().await?.map(|q| q.0))
+    }
+
+    /// Queue id and game mode ("CLASSIC", "ARAM", "KIWI", "TFT", …) of the current session.
+    pub async fn queue(&self) -> Result<Option<(i64, String)>> {
         let s = self.get("/lol-gameflow/v1/session").await?;
-        Ok(s.and_then(|s| s.pointer("/gameData/queue/id")?.as_i64()).filter(|&q| q > 0))
+        Ok(s.and_then(|s| {
+            let q = s.pointer("/gameData/queue")?;
+            Some((q["id"].as_i64().filter(|&q| q > 0)?, q["gameMode"].as_str().unwrap_or_default().to_owned()))
+        }))
     }
 
     pub async fn champ_select(&self) -> Result<Option<ChampSelect>> {

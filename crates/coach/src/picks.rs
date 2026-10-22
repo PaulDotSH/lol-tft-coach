@@ -29,7 +29,10 @@ struct Before {
 
 #[derive(Clone)]
 struct Window {
+    /// Every card seen while open (rerolls included): matches a reopened offer.
     cards: Vec<AugmentId>,
+    /// The latest complete offer: rerolled-away cards can't be picked.
+    shown: Vec<AugmentId>,
     before: Before,
 }
 
@@ -48,16 +51,23 @@ impl AugmentTracker {
         let now = Before { stats: snap.my_stats.clone(), items: me.items.clone(), gold: snap.my_gold, level: me.level };
         if !offered.is_empty() {
             match &mut self.open {
-                Some(w) => union(&mut w.cards, offered),
+                Some(w) => {
+                    union(&mut w.cards, offered);
+                    // A reroll flip can read as two cards for a moment.
+                    if offered.len() >= w.shown.len() {
+                        w.shown = offered.to_vec();
+                    }
+                }
                 None => {
                     let reopened = self.last.take().filter(|w| offered.iter().filter(|c| w.cards.contains(c)).count() >= SAME_OFFER);
                     self.open = Some(match reopened {
                         Some(mut w) => {
                             self.picks.pop();
                             union(&mut w.cards, offered);
+                            w.shown = offered.to_vec();
                             w
                         }
-                        None => Window { cards: offered.to_vec(), before: now },
+                        None => Window { cards: offered.to_vec(), shown: offered.to_vec(), before: now },
                     });
                 }
             }
@@ -65,7 +75,7 @@ impl AugmentTracker {
         }
         let Some(w) = self.open.take() else { return };
         let base_as = Some(champ(sd, me.champ).base.attack_speed).filter(|&a| a > 0.0).unwrap_or(FALLBACK_BASE_AS);
-        let mut pick = identify(&w.cards, &w.before, &now, sd, base_as);
+        let mut pick = identify(&w.shown, &w.before, &now, sd, base_as);
         pick.time = snap.time;
         let allowed = modes::rules(snap.mode).augments_by(me.level);
         if allowed > 0 && self.picks.len() >= allowed {

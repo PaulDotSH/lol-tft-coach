@@ -110,6 +110,18 @@ pub fn match_augments(lines: &[String], names: &HashMap<AugmentId, String>) -> V
             taken.push(h);
         }
     }
+    // Card titles are whole lines; a name inside a longer line is other text
+    // (shop tooltips: "Invulnerability", "105 Ability Power"). Lines fully made of
+    // names (titles merged by OCR) still count.
+    let mut covered = vec![false; ocr.len()];
+    for h in &taken {
+        covered[h.start..h.end].fill(true);
+    }
+    let whole = |h: &&Hit| {
+        let lines = ocr[h.start].0..=ocr[h.end - 1].0;
+        ocr.iter().zip(&covered).all(|((l, _), &c)| c || !lines.contains(l))
+    };
+    taken.retain(whole);
     taken.sort_by_key(|h| h.start);
     taken.iter().take(MAX_OFFERS).map(|h| h.id).collect()
 }
@@ -177,14 +189,17 @@ mod tests {
             run(&["Accelerating Sorcery Blade Waltz Courage of the Colossus"]),
             [1, 2, 3]
         );
-        assert_eq!(
-            run(&[
-                "Select an augment",
-                "Back to Basics: your abilities deal more",
-                "Reroll"
-            ]),
-            [9]
-        );
+        assert_eq!(run(&["Select an augment", "Back to Basics", "Reroll"]), [9]);
+    }
+
+    #[test]
+    fn names_inside_longer_lines_are_not_titles() {
+        let names: HashMap<AugmentId, String> =
+            [(1, "Vulnerability"), (2, "POWER")].into_iter().map(|(id, n)| (id, n.to_string())).collect();
+        let lines: Vec<String> =
+            ["500", "& 800", "Zhonya's Hourglass", "C) Invulnerability", "105 Ability Power"].map(String::from).to_vec();
+        assert!(match_augments(&lines, &names).is_empty());
+        assert!(run(&["Back to Basics: your abilities deal more"]).is_empty());
     }
 
     #[test]

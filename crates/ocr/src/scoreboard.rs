@@ -40,6 +40,8 @@ const OPEN_ROWS: usize = 8;
 /// Luma spread below which a cell or item slot is empty.
 const EMPTY_SD: f32 = 7.0;
 const ICON_NCC: f32 = 0.72;
+/// Below this an unmatched cell is not icon art (ally grids draw a faint flat cell).
+const UNKNOWN_NCC: f32 = 0.2;
 /// Icon border share left out of matching (the prismatic frame is drawn over it).
 const ICON_INSET: f32 = 0.07;
 const ITEM_NCC: f32 = 0.8;
@@ -414,7 +416,9 @@ fn tint(img: &Img, x: f32, y: f32, size: f32) -> Option<Rarity> {
 /// One augment icon read off a row: its icon group, correlation and tint.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Seen {
-    pub group: usize,
+    /// None: an icon no template matches. Ability augments show the champion's
+    /// own ability art and some augments ship placeholder art in the game data.
+    pub group: Option<usize>,
     pub score: f32,
     pub rarity: Option<Rarity>,
 }
@@ -436,7 +440,11 @@ fn read_cell(img: &Img, x: f32, y: f32, s: f32, aug: &AugIcons) -> Option<Seen> 
             best = b;
         }
     }
-    (best.0 >= ICON_NCC).then(|| Seen { group: best.1, score: best.0, rarity: tint(img, x, y, size) })
+    (best.0 >= UNKNOWN_NCC).then(|| Seen {
+        group: (best.0 >= ICON_NCC).then_some(best.1),
+        score: best.0,
+        rarity: tint(img, x, y, size),
+    })
 }
 
 /// A player as the Live Client API lists them (scoreboard order within a team).
@@ -563,16 +571,16 @@ pub fn read_all(
             .enumerate()
             .flat_map(|(h, (team, rows))| team.iter().enumerate().map(move |(k, &p)| (h, rows[k], p)))
             .map(|(h, r, p)| {
-                let augments = gr[h][r]
-                    .map(|o| {
-                        SLOTS
-                            .iter()
-                            .filter_map(|&(sx, sy)| {
-                                read_cell(&img, o.0 + sx * PITCH_X * g.s, o.1 + sy * PITCH_Y * g.s, g.s, aug)
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                // The highlighted own row (and sometimes its neighbour) hides the grid outline:
+                // read it at the predicted spot, corrected like the found rows.
+                let o = gr[h][r].unwrap_or_else(|| {
+                    let (p, d) = (g.grid(h, r), offset(h, r));
+                    (p.0 + d.0, p.1 + d.1)
+                });
+                let augments = SLOTS
+                    .iter()
+                    .filter_map(|&(sx, sy)| read_cell(&img, o.0 + sx * PITCH_X * g.s, o.1 + sy * PITCH_Y * g.s, g.s, aug))
+                    .collect();
                 RowRead { player: p, augments }
             })
             .collect(),
@@ -831,7 +839,7 @@ mod tests {
     fn summary(rows: &[RowRead]) -> Vec<(usize, Vec<Short>)> {
         let icons = aug_icons();
         rows.iter()
-            .map(|r| (r.player, r.augments.iter().map(|s| (icons.ids(s.group)[0], s.rarity)).collect()))
+            .map(|r| (r.player, r.augments.iter().map(|s| (s.group.map_or(0, |g| icons.ids(g)[0]), s.rarity)).collect()))
             .collect()
     }
 
@@ -979,7 +987,7 @@ mod tests {
             println!(
                 "{:?}",
                 c.map(|c| (
-                    icons.ids(c.group).iter().map(|&i| names[i as usize].clone()).collect::<Vec<_>>(),
+                    c.group.map_or(vec![], |g| icons.ids(g).iter().map(|&i| names[i as usize].clone()).collect::<Vec<_>>()),
                     c.score,
                     c.rarity
                 ))

@@ -16,6 +16,8 @@ pub const IDLE: Duration = Duration::from_millis(1500);
 /// A job the orchestrator stopped refreshing (game over) is ignored.
 const JOB_TTL: Duration = Duration::from_secs(6);
 const ICON_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
+/// Game-data icon of ability augments; in game they show the champion's ability art.
+const GENERIC_ICON: &str = "genericabilityaugmenticon";
 
 #[derive(Default)]
 pub struct TabShared {
@@ -29,6 +31,9 @@ pub struct TabShared {
 struct Icons {
     aug: AugIcons,
     rarity: HashMap<AugmentId, Rarity>,
+    /// Augments whose scoreboard art no template shows (ability augments,
+    /// placeholder art, failed downloads): the candidates of an unmatched icon.
+    unmatched: Vec<AugmentId>,
 }
 
 struct Job {
@@ -144,12 +149,19 @@ async fn load_icons(http: &data::Http, version: &str) -> anyhow::Result<Icons> {
     let mut bodies = data::icons::fetch_icons(http, &urls).await;
     anyhow::ensure!(!bodies.is_empty(), "no augment icons");
     bodies.sort_by_key(|b| b.0);
-    let aug = tokio::task::spawn_blocking(move || {
-        AugIcons::new(bodies.into_iter().filter_map(|(id, b)| Some((id, scoreboard::decode_png(&b)?))))
+    let decoded: Vec<_> = tokio::task::spawn_blocking(move || {
+        bodies.into_iter().filter_map(|(id, b)| Some((id, scoreboard::decode_png(&b)?))).collect()
     })
     .await?;
-    tracing::info!("scoreboard: {} augments, {} icons", augs.len(), aug.len());
-    Ok(Icons { aug, rarity: augs.into_iter().map(|(id, a)| (id, a.rarity)).collect() })
+    let mut unmatched: Vec<AugmentId> = augs
+        .iter()
+        .filter(|(id, a)| a.icon.contains(GENERIC_ICON) || !decoded.iter().any(|d| d.0 == **id))
+        .map(|(&id, _)| id)
+        .collect();
+    unmatched.sort_unstable();
+    let aug = AugIcons::new(decoded);
+    tracing::info!("scoreboard: {} augments, {} icons, {} without art", augs.len(), aug.len(), unmatched.len());
+    Ok(Icons { aug, rarity: augs.into_iter().map(|(id, a)| (id, a.rarity)).collect(), unmatched })
 }
 
 fn item_desc(sh: &Arc<Shared>, version: &str, id: ItemId) -> Option<Arc<Desc>> {
@@ -199,7 +211,7 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
         return None;
     };
     let candidates = |s: &scoreboard::Seen| {
-        let ids = job.icons.aug.ids(s.group);
+        let ids = s.group.map_or(&job.icons.unmatched[..], |g| job.icons.aug.ids(g));
         // Augments sharing an icon: keep those of the tinted rarity when any are.
         let tinted: Vec<AugmentId> = ids
             .iter()

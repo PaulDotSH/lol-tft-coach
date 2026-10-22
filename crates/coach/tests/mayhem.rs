@@ -285,6 +285,21 @@ fn no_stat_change_rules_out_stat_cards_only() {
 }
 
 #[test]
+fn rerolled_away_card_is_not_a_candidate() {
+    let sd = sd_x();
+    let mut s = mayhem(snap(lobby(STANDARD), vec![]));
+    s.players[0].level = 3;
+    s.my_stats = Some(live(100.0));
+    let mut t = AugmentTracker::default();
+    t.observe(&[JUICED, WITCHFUL, DEFT], &s, &sd);
+    t.observe(&[WITCHFUL, DEFT], &s, &sd); // reroll flip, read mid-animation
+    t.observe(&[RECURSION, WITCHFUL, DEFT], &s, &sd);
+    t.observe(&[], &s, &sd);
+    assert!(!t.picks[0].candidates.contains(&JUICED), "{:?}", t.picks);
+    assert!(t.picks[0].candidates.contains(&RECURSION), "{:?}", t.picks);
+}
+
+#[test]
 fn closer_magnitude_breaks_a_tie() {
     let p = pick(&[SCOPED, SCOPIER, JUICED], |s| s.my_stats.as_mut().unwrap().attack_range += 100.0);
     assert_eq!(p[0].id, Some(SCOPIER));
