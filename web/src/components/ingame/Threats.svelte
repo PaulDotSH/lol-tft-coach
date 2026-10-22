@@ -2,6 +2,7 @@
   import type { Threat } from '../../lib/bindings/Threat';
   import { gold, signed } from '../../lib/ui';
   import Icon from '../Icon.svelte';
+  import ThreatSpikes from './ThreatSpikes.svelte';
 
   let { threats }: { threats: Threat[] } = $props();
   const sorted = $derived([...threats].sort((a, b) => b.score - a.score));
@@ -22,6 +23,7 @@
             {#if t.lane_opp}<span class="lane">Lane</span>{/if}
             <span class="chip dmg">{t.damage}</span>
             {#each t.flags as f (f)}<span class="chip">{f}</span>{/each}
+            <ThreatSpikes {t} />
           </div>
           <div class="stats num">
             <span title="Kills / deaths / assists">{t.kills}/{t.deaths}/{t.assists}</span>
