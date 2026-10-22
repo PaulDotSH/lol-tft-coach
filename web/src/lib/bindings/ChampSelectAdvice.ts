@@ -2,6 +2,7 @@
 import type { BenchRank } from "./BenchRank";
 import type { BuildPlan } from "./BuildPlan";
 import type { DraftReport } from "./DraftReport";
+import type { DraftSide } from "./DraftSide";
 import type { Lane } from "./Lane";
 import type { Mode } from "./Mode";
 import type { PickSuggestion } from "./PickSuggestion";
@@ -14,4 +15,8 @@ bench: Array<BenchRank>, enemies: Array<number>,
 /**
  * Rift draft breakdown for both teams.
  */
-draft: DraftReport | null, };
+draft: DraftReport | null, 
+/**
+ * ARAM / Mayhem: my team's composition (enemies are hidden); Rift has it in `draft`.
+ */
+team: DraftSide | null, };

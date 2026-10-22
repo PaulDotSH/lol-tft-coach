@@ -120,6 +120,9 @@ pub(crate) struct Comp {
     frontline: u32,
     engage: u32,
     cc: f32,
+    peel: f32,
+    /// Champions that need protecting (marksmen, squishy mages).
+    carries: u32,
     n: usize,
 }
 
@@ -127,9 +130,21 @@ fn is_engage(t: &Traits) -> bool {
     t.cc >= ENGAGE_CC && t.tank >= ENGAGE_TANK
 }
 
-fn comp(sd: &StaticData, champs: impl Iterator<Item = ChampKey>) -> Comp {
+/// Primary class Marksman, or a squishy primary Mage.
+fn is_carry(ch: &Champion) -> bool {
+    match ch.classes.first() {
+        Some(ChampClass::Marksman) => true,
+        Some(ChampClass::Mage) => ch.traits.tank < CARRY_MAX_TANK,
+        _ => false,
+    }
+}
+
+pub(crate) fn comp(sd: &StaticData, champs: impl Iterator<Item = ChampKey>) -> Comp {
     let mut c = Comp::default();
-    for t in champs.filter_map(|k| sd.champs.get(&k)).map(|ch| &ch.traits) {
+    for ch in champs.filter_map(|k| sd.champs.get(&k)) {
+        let t = &ch.traits;
+        c.peel += t.peel;
+        c.carries += is_carry(ch) as u32;
         let (w, tr) = (1.0 - DMG_TANK_DISCOUNT * t.tank, t.true_damage * TRUE_FRAC);
         c.physical += w * (1.0 - t.magic_share) * (1.0 - tr);
         c.magic += w * t.magic_share * (1.0 - tr);
@@ -166,7 +181,37 @@ fn gaps(c: &Comp, min: usize) -> Vec<(f32, String)> {
     if c.engage == 0 && c.n >= 4 {
         g.push((GAP_ENGAGE, "No engage".to_string()));
     }
+    if c.carries > 0 && c.peel < PEEL_MIN {
+        g.push((GAP_PEEL, "No peel for carries".to_string()));
+    }
     g
+}
+
+/// A team's damage mix, frontline, engage, peel, CC and gaps, with the gaps as
+/// its only factor (ARAM, where lanes and synergy don't apply).
+pub(crate) fn comp_side(sd: &StaticData, champs: &[ChampKey]) -> DraftSide {
+    let c = comp(sd, champs.iter().copied());
+    let gaps = gaps(&c, GAP_MIN_CHAMPS);
+    let factors: Vec<DraftFactor> = if gaps.is_empty() {
+        vec![]
+    } else {
+        let detail = gaps.iter().map(|g| g.1.as_str()).collect::<Vec<_>>().join(", ");
+        vec![DraftFactor { label: "Composition".into(), points: -gaps.iter().map(|g| g.0).sum::<f32>(), detail }]
+    };
+    DraftSide {
+        champs: champs.to_vec(),
+        physical: c.physical,
+        magic: c.magic,
+        true_dmg: c.true_dmg,
+        frontline: c.frontline,
+        engage: c.engage,
+        cc: c.cc,
+        duos: vec![],
+        gaps: gaps.into_iter().map(|g| g.1).collect(),
+        total: factors.iter().map(|f| f.points).sum(),
+        factors,
+        peel: c.peel,
+    }
 }
 
 fn lane_name(l: Lane) -> &'static str {
@@ -203,7 +248,6 @@ pub fn report(inp: &ChampSelectInput) -> Option<DraftReport> {
         })
         .collect();
     let side = |me: &Lineup, ally: bool| {
-        let c = comp(sd, me.iter().map(|x| x.0));
         let mut factors = Vec::new();
         // Lanes: this side's win rate in each known matchup.
         let mut lane_pts = (0.0, Vec::new());
@@ -252,28 +296,12 @@ pub fn report(inp: &ChampSelectInput) -> Option<DraftReport> {
             let detail = format!("{} + {} {}", sd.champ_name(d.a), sd.champ_name(d.b), signed(d.delta));
             factors.push(DraftFactor { label: "Synergy".into(), points: pts, detail });
         }
-        let gaps = gaps(&c, GAP_MIN_CHAMPS);
-        if !gaps.is_empty() {
-            let detail = gaps.iter().map(|g| g.1.as_str()).collect::<Vec<_>>().join(", ");
-            factors.push(DraftFactor {
-                label: "Composition".into(),
-                points: -gaps.iter().map(|g| g.0).sum::<f32>(),
-                detail,
-            });
-        }
-        DraftSide {
-            champs: me.iter().map(|x| x.0).collect(),
-            physical: c.physical,
-            magic: c.magic,
-            true_dmg: c.true_dmg,
-            frontline: c.frontline,
-            engage: c.engage,
-            cc: c.cc,
-            duos: duos.into_iter().map(|d| d.1).collect(),
-            gaps: gaps.into_iter().map(|g| g.1).collect(),
-            total: factors.iter().map(|f| f.points).sum(),
-            factors,
-        }
+        let mut s = comp_side(sd, &me.iter().map(|x| x.0).collect::<Vec<_>>());
+        factors.append(&mut s.factors);
+        s.total = factors.iter().map(|f| f.points).sum();
+        s.factors = factors;
+        s.duos = duos.into_iter().map(|d| d.1).collect();
+        s
     };
     Some(DraftReport { allies: side(&al, true), enemies: side(&en, false), lanes })
 }
@@ -313,8 +341,15 @@ pub(crate) fn pick_terms(inp: &ChampSelectInput, ctx: &PickCtx, cand: ChampKey) 
             v.push((sum, format!("synergy with {} {}%", inp.sd.champ_name(a), signed(d))));
         }
     }
-    let Some(t) = inp.sd.champs.get(&cand).map(|c| &c.traits) else { return v };
-    let c = &ctx.comp;
+    if let Some(ch) = inp.sd.champs.get(&cand) {
+        v.extend(fills(&ctx.comp, ch));
+    }
+    v
+}
+
+/// (points, reason) for each gap of the allies' `c` that champion `ch` fills.
+pub(crate) fn fills(c: &Comp, ch: &Champion) -> Vec<(f32, String)> {
+    let (t, mut v) = (&ch.traits, Vec::new());
     if c.n < PICK_GAP_MIN_ALLIES {
         return v;
     }
@@ -330,6 +365,9 @@ pub(crate) fn pick_terms(inp: &ChampSelectInput, ctx: &PickCtx, cand: ChampKey) 
         v.push((GAP_ENGAGE, "adds engage: team has none".into()));
     } else if c.cc < LOW_CC_PER_CHAMP * c.n as f32 && t.cc >= FILL_CC {
         v.push((GAP_CC, "adds CC: team has little".into()));
+    }
+    if c.carries > 0 && c.peel < PEEL_MIN && t.peel >= FILL_PEEL {
+        v.push((GAP_PEEL, "adds peel for the carries".into()));
     }
     v
 }

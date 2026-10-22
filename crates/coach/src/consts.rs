@@ -188,12 +188,24 @@ pub const GAP_FRONTLINE: f32 = 1.0;
 pub const GAP_DAMAGE: f32 = 1.0;
 pub const GAP_CC: f32 = 0.5;
 pub const GAP_ENGAGE: f32 = 0.5;
+pub const GAP_PEEL: f32 = 0.75;
+/// Team peel (summed trait) below which carries count as unprotected.
+pub const PEEL_MIN: f32 = 0.5;
+/// Mages tankier than this don't count as carries needing peel.
+pub const CARRY_MAX_TANK: f32 = 0.3;
 /// Candidate traits that fill a gap.
 pub const FILL_MAGIC: f32 = 0.6;
 pub const FILL_PHYSICAL: f32 = 0.4;
 pub const FILL_CC: f32 = 0.6;
+pub const FILL_PEEL: f32 = 0.6;
 /// A second pick reason is appended when its term is worth at least this.
 pub const REASON_SECOND_MIN: f32 = 0.5;
+
+// ---- bench (ARAM / Mayhem) ----
+/// Win-rate points per u.gg tier letter (S = +3, A = +1.5, B = 0, C = −1.5, …).
+pub const MAYHEM_TIER_STEP: f32 = 1.5;
+/// ARAM win rates are shrunk toward the list mean with this many prior games.
+pub const ARAM_SHRINK_K: f32 = 1000.0;
 
 // ---- recap ----
 pub const DEATHS_NOTE: u32 = 6;

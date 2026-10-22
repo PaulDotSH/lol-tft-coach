@@ -227,7 +227,8 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         cs.enemies.iter().filter_map(|&e| stats(sh, sd, e, lane, cs.mode)).map(|s| (*s).clone()).collect();
     let tiers = match (cs.mode, lane) {
         (Mode::Rift, Some(l)) => tier_list(sh, l),
-        _ => None,
+        (Mode::Rift, None) => None,
+        _ => crate::draft::aram_tiers(sh),
     };
     let mayhem = if cs.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
     let known: Vec<&ChampStats> = mine.as_deref().into_iter().chain(&enemies).collect();

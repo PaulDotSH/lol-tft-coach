@@ -1,5 +1,5 @@
-//! Draft data for Rift champ select: per-lane matchups and teammate synergy
-//! for every revealed champion, fetched in the background like the rest.
+//! Draft data for champ select: Rift per-lane matchups and teammate synergy for
+//! revealed champions, the ARAM tier list for the bench; fetched in the background.
 
 use crate::state::{Shared, ensure};
 use model::*;
@@ -26,6 +26,18 @@ fn team(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane) -> Optio
         |s| &s.lola_ok,
         (champ, lane),
         move || async move { data::lolalytics_team::team(&http, &c, lane, &s.tier, &s.region, &patch).await },
+    )
+}
+
+/// ARAM win rates and tiers for the ARAM / Mayhem bench.
+pub fn aram_tiers(sh: &Arc<Shared>) -> Option<Arc<Vec<TierEntry>>> {
+    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    ensure(
+        sh,
+        |s| &s.aram_tiers,
+        |s| &s.lola_ok,
+        (),
+        move || async move { data::lolalytics_aram::aram_tier_list(&http, &s.tier, &s.region, &patch).await },
     )
 }
 

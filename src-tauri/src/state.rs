@@ -46,6 +46,8 @@ pub struct Shared {
     /// Draft: counter-only stats per (champ, lane) and build-team synergy.
     pub lane_stats: Cache<(ChampKey, Option<Lane>), ChampStats>,
     pub team: Cache<(ChampKey, Lane), TeamSynergy>,
+    /// ARAM tier list (all champions) for the ARAM / Mayhem bench.
+    pub aram_tiers: Cache<(), Vec<TierEntry>>,
 }
 
 impl Shared {
@@ -79,6 +81,7 @@ impl Shared {
             ugg_ok: Mutex::new(None),
             lane_stats: Mutex::default(),
             team: Mutex::default(),
+            aram_tiers: Mutex::default(),
         }
     }
 
@@ -101,6 +104,7 @@ impl Shared {
         self.stats.lock().unwrap().clear();
         self.tiers.lock().unwrap().clear();
         self.lane_stats.lock().unwrap().clear();
+        self.aram_tiers.lock().unwrap().clear();
         self.team.lock().unwrap().clear();
     }
 }

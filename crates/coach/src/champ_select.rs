@@ -1,6 +1,6 @@
-//! Champ select: counter-picks, bans, build plan, ARAM bench ranking.
+//! Champ select: counter-picks, bans, build plan (ARAM bench and team comp: `team`).
 
-use crate::{ChampSelectInput, common::*, consts::*, draft, items, needs, threat};
+use crate::{ChampSelectInput, common::*, consts::*, draft, items, needs, team, threat};
 use model::*;
 
 /// Percent from a percent or a fraction.
@@ -19,9 +19,10 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
         picks: if rift { picks(inp, mine) } else { vec![] },
         bans: if rift { bans(inp, mine) } else { vec![] },
         build: mine.and_then(|c| build_plan(inp, c)),
-        bench: if rift { vec![] } else { bench(inp, mine) },
+        bench: if rift { vec![] } else { team::bench(inp, mine) },
         enemies: cs.enemies.clone(),
         draft: if rift { draft::report(inp) } else { None },
+        team: if rift { None } else { team::side(inp, mine) },
     }
 }
 
@@ -178,27 +179,4 @@ fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> 
         core: b.path.iter().filter(|s| !is_boots(s.id)).take(CORE_ITEMS).map(pick).collect(),
         boots: b.path.iter().find(|s| is_boots(s.id)).map(pick),
     })
-}
-
-fn bench(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<BenchRank> {
-    let cs = inp.cs;
-    let mut list: Vec<ChampKey> = Vec::with_capacity(cs.bench.len() + 1);
-    for c in mine.into_iter().chain(cs.bench.iter().copied()) {
-        if !list.contains(&c) {
-            list.push(c);
-        }
-    }
-    let entry = |c: ChampKey| inp.tier_list.iter().find(|t| t.champ == c);
-    let tier = |c: ChampKey| match (cs.mode, inp.mayhem) {
-        (Mode::Mayhem, Some(m)) => m.champ_tiers.get(&c).cloned(),
-        _ => entry(c).and_then(|t| t.tier.clone()),
-    };
-    match (cs.mode, inp.mayhem) {
-        (Mode::Mayhem, Some(_)) => list.sort_by_key(|&c| tier(c).map_or(100, |t| tier_rank(&t))),
-        _ => list.sort_by(|&a, &b| {
-            let wr = |c| entry(c).map_or(f32::NEG_INFINITY, |t| pct(t.win_rate));
-            wr(b).total_cmp(&wr(a))
-        }),
-    }
-    list.into_iter().map(|c| BenchRank { champ: c, tier: tier(c), mine: Some(c) == mine }).collect()
 }

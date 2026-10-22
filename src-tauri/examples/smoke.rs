@@ -80,6 +80,29 @@ async fn main() -> anyhow::Result<()> {
         println!("start {:?}", b.start.iter().map(|i| sd.item_name(*i)).collect::<Vec<_>>());
         println!("core  {:?}", b.core.iter().map(|p| &p.name).collect::<Vec<_>>());
     }
+    // ARAM / Mayhem bench: tier or ARAM win rate + team fit, my team only.
+    let aram_tiers = data::lolalytics_aram::aram_tier_list(&http, "emerald_plus", "all", &patch).await?;
+    let mut acs = clients::lcu::parse_champ_select(&fixture("champ_select_aram.json")?, 450).expect("aram fixture parses");
+    for mode in [Mode::Aram, Mode::Mayhem] {
+        acs.mode = mode;
+        let a = coach::champ_select_advice(&coach::ChampSelectInput {
+            cs: &acs,
+            sd: &sd,
+            mine: None,
+            enemies: &[],
+            tier_list: &aram_tiers,
+            mayhem: Some(&m),
+            draft: Default::default(),
+        });
+        println!("
+== {mode:?} bench, allies {:?} ==", acs.allies.iter().map(|c| sd.champ_name(*c)).collect::<Vec<_>>());
+        for b in &a.bench {
+            println!("bench {:<12} {:>5} {:?}  {}", sd.champ_name(b.champ), b.score.map_or("-".into(), |s| format!("{s:+.1}")), b.tier, b.reasons.join(" · "));
+        }
+        if let Some(t) = &a.team {
+            println!("team: AD {:.0}% AP {:.0}% front {} engage {} peel {:.1} cc {:.1} gaps {:?}", t.physical * 100.0, t.magic * 100.0, t.frontline, t.engage, t.peel, t.cc, t.gaps);
+        }
+    }
     if let Some(d) = &adv.draft {
         for l in &d.lanes {
             let name = |c: Option<ChampKey>| c.map_or("-", |c| sd.champ_name(c));

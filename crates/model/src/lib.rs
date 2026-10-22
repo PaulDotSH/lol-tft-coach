@@ -140,6 +140,8 @@ data_default! {
         pub burst: f32,
         pub on_hit: f32,
         pub tank: f32,
+        /// Protecting carries: shields, heals on allies, disengage, body-blocking.
+        pub peel: f32,
     }
 
     /// Per-champion averages from lolalytics for the chosen rank (per game).
@@ -448,6 +450,12 @@ data! {
         pub champ: ChampKey,
         pub tier: Option<String>,
         pub mine: bool,
+        /// ARAM win rate (lolalytics), percent.
+        pub win_rate: Option<f32>,
+        /// Tier / win rate + team fit, win-rate points; None without tier or win rate.
+        pub score: Option<f32>,
+        /// Why, strongest first: "Mayhem tier S", "adds frontline: team has none".
+        pub reasons: Vec<String>,
     }
 
     pub struct ChampSelectAdvice {
@@ -462,6 +470,8 @@ data! {
         pub enemies: Vec<ChampKey>,
         /// Rift draft breakdown for both teams.
         pub draft: Option<DraftReport>,
+        /// ARAM / Mayhem: my team's composition (enemies are hidden); Rift has it in `draft`.
+        pub team: Option<DraftSide>,
     }
 
     pub struct Recap {
@@ -633,6 +643,8 @@ data! {
         pub factors: Vec<DraftFactor>,
         /// Sum of `factors`.
         pub total: f32,
+        /// Summed peel trait.
+        pub peel: f32,
     }
 
     pub struct DraftReport {
