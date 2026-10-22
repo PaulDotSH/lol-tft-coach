@@ -520,6 +520,103 @@ data! {
         pub game: Option<GameAdvice>,
         pub recap: Option<Recap>,
         pub settings: Settings,
+        /// Loss patterns from recent games (idle dashboard).
+        pub macro_report: Option<MacroReport>,
+    }
+
+    // ---- macro coach (own match history) ----
+
+    pub struct TeamObjectives {
+        pub dragons: u32,
+        pub barons: u32,
+        pub heralds: u32,
+        /// Void grubs (`hordeKills`).
+        pub grubs: u32,
+        pub towers: u32,
+    }
+
+    /// One of my past games (LCU match history). Immutable, cached on disk.
+    pub struct PastGame {
+        #[ts(type = "number")]
+        pub game_id: u64,
+        /// Unix ms.
+        #[ts(type = "number")]
+        pub created: u64,
+        #[ts(type = "number")]
+        pub queue_id: i64,
+        pub mode: Mode,
+        pub champ: ChampKey,
+        pub lane: Option<Lane>,
+        pub win: bool,
+        /// Early surrender / under 5 minutes: ignored by the coach.
+        pub remake: bool,
+        pub duration_s: u32,
+        pub kills: u32,
+        pub deaths: u32,
+        pub assists: u32,
+        pub cs: u32,
+        pub gold: u32,
+        pub damage_to_champs: u32,
+        pub vision: u32,
+        /// Game times (s) of my deaths; None without a timeline.
+        pub death_times: Option<Vec<u32>>,
+        /// Me minus my lane opponent (timeline + a single opponent in my lane).
+        pub gold_diff_10: Option<i32>,
+        pub gold_diff_15: Option<i32>,
+        pub xp_diff_15: Option<i32>,
+        /// Objectives of my team and the enemy's (game details).
+        pub ours: Option<TeamObjectives>,
+        pub theirs: Option<TeamObjectives>,
+        /// Some(true) = my team got it first; None = nobody / unknown.
+        pub first_dragon: Option<bool>,
+        pub first_tower: Option<bool>,
+        pub first_blood: Option<bool>,
+    }
+
+    pub struct ModeRecord {
+        pub mode: Mode,
+        pub games: u32,
+        pub wins: u32,
+    }
+
+    pub struct ChampRecord {
+        pub mode: Mode,
+        pub champ: ChampKey,
+        pub games: u32,
+        pub wins: u32,
+    }
+
+    /// A fact that separates my losses from my wins, with the numbers behind it.
+    pub struct Pattern {
+        pub mode: Mode,
+        /// Stable id: "early_deaths", "deaths", "cs", "gold_15", "first_dragon", "champion", "bench_cs", …
+        pub kind: String,
+        pub champ: Option<ChampKey>,
+        pub title: String,
+        /// One line, e.g. "In 7 of 9 losses you died 2+ times before 14:00 (2 of 8 wins)".
+        pub evidence: String,
+        /// Short note phrased as information, not an order.
+        pub focus: String,
+        /// The compared values, e.g. [("Losses", 78), ("Wins", 25)].
+        pub bars: Vec<(String, f32)>,
+        /// Unit of `bars`: "%", "/min", "/10 min", "g".
+        pub unit: String,
+        /// Games behind the comparison.
+        pub games: u32,
+        /// Impact × confidence, 0..=1; patterns are sorted by it.
+        pub score: f32,
+    }
+
+    pub struct MacroReport {
+        /// Games analysed (remakes excluded).
+        pub games: u32,
+        /// Of those, games with a timeline (death times, gold at 15).
+        pub with_timeline: u32,
+        pub modes: Vec<ModeRecord>,
+        /// Most played first.
+        pub champs: Vec<ChampRecord>,
+        /// Strongest first, at most a handful.
+        pub patterns: Vec<Pattern>,
     }
 
     /// One Rift lane pairing; item gold of visible inventories, ally − enemy.
