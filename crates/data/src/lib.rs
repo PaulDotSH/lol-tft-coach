@@ -2,6 +2,7 @@
 //! Every fetch goes through [`Http`], which keeps a disk cache.
 
 pub mod ddragon;
+pub mod icons;
 pub mod lolalytics;
 pub mod lolalytics_aram;
 pub mod lolalytics_team;

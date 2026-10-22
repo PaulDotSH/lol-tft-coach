@@ -64,7 +64,7 @@ fn sd_x() -> StaticData {
 }
 
 fn advise(sd: &StaticData, snap: &GameSnapshot, stats: Option<&ChampStats>, mine: &[MyAugment]) -> GameAdvice {
-    game_advice(&GameInput { snap, sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: mine })
+    game_advice(&GameInput { snap, sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: mine, enemy_augments: Default::default() })
 }
 
 fn picked(id: AugmentId) -> MyAugment {
@@ -234,7 +234,7 @@ fn augment_matching_owned_items_gets_tie_break_reason() {
     let md = MayhemData { patch: "16_21".into(), augment_names: [(JUICED, "Juiced".into()), (WITCHFUL, "Witchful Thinking".into())].into(), champ_tiers: Default::default() };
     let mut s = mayhem(snap(lobby(STANDARD), vec![]));
     let run = |s: &GameSnapshot| {
-        game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[JUICED, WITCHFUL], gold_history: &[], my_augments: &[] })
+        game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[JUICED, WITCHFUL], gold_history: &[], my_augments: &[], enemy_augments: Default::default() })
             .augments
             .unwrap()
     };

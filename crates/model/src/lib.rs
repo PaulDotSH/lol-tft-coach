@@ -418,6 +418,8 @@ data! {
         pub new_items: Vec<ItemId>,
         /// R rank their visible level allows and its static base cooldown; None before R.
         pub ult: Option<UltInfo>,
+        /// Mayhem: augments read off the Tab scoreboard, ranked in this champion's u.gg list.
+        pub augments: Vec<AugmentRank>,
     }
 
     pub struct MatchupTip {
@@ -491,6 +493,8 @@ data! {
         pub defense: Option<Defense>,
         /// Full build: what else gold can buy (anvils, elixirs, swaps).
         pub gold_sinks: Vec<GoldSink>,
+        /// Mayhem: ask the user to hold Tab so enemy augments can be read.
+        pub tab_hint: Option<TabHint>,
     }
 
     pub struct PickSuggestion {
@@ -1050,6 +1054,31 @@ data! {
         /// Item to sell first (boots, the weakest slot).
         pub sell: Option<ItemId>,
         pub cost: u32,
+        pub reason: String,
+    }
+
+    // ---- Tab scoreboard (Mayhem) ----
+
+    /// One augment icon read off the scoreboard. Several augments share an
+    /// icon, so `ids` holds every candidate, likeliest first.
+    pub struct SeenAugment {
+        pub ids: Vec<AugmentId>,
+        /// From the icon tint.
+        pub rarity: Option<Rarity>,
+    }
+
+    /// An enemy's augments as last read from the Tab scoreboard.
+    pub struct EnemyAugments {
+        pub champ: ChampKey,
+        pub augments: Vec<SeenAugment>,
+        /// Game time (s) and their level when read.
+        pub time: f32,
+        pub level: u32,
+    }
+
+    /// Silent prompt to hold Tab; gone once the scoreboard was read.
+    pub struct TabHint {
+        pub text: String,
         pub reason: String,
     }
 }

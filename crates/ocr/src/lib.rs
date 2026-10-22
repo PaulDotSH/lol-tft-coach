@@ -6,6 +6,7 @@ use model::AugmentId;
 use std::collections::HashMap;
 
 mod matching;
+pub mod scoreboard;
 #[cfg(windows)]
 mod win;
 
@@ -25,6 +26,25 @@ pub fn capture_league() -> Option<Frame> {
     return win::capture_league();
     #[cfg(not(windows))]
     None
+}
+
+/// Size of the League window's client area.
+pub fn league_client() -> Option<(u32, u32)> {
+    #[cfg(windows)]
+    return win::client_size();
+    #[cfg(not(windows))]
+    None
+}
+
+/// Capture a rectangle of the League window's client area.
+pub fn capture_client(r: scoreboard::Rect) -> Option<Frame> {
+    #[cfg(windows)]
+    return win::capture_client(r);
+    #[cfg(not(windows))]
+    {
+        let _ = r;
+        None
+    }
 }
 
 /// OCR text lines from a frame.

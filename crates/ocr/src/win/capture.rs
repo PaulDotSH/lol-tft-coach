@@ -84,7 +84,7 @@ impl Drop for Dib {
     }
 }
 
-fn league_window() -> Option<HWND> {
+pub(crate) fn league_window() -> Option<HWND> {
     unsafe {
         FindWindowW(w!("RiotWindowClass"), PCWSTR::null())
             .or_else(|_| FindWindowW(PCWSTR::null(), w!("League of Legends (TM) Client")))

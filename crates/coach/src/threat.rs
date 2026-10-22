@@ -214,6 +214,7 @@ pub fn assess<'a>(snap: &GameSnapshot, sd: &'a StaticData, stats: Option<&ChampS
                 legendary_diff: (legends[i] as f32 - avg_legend).round() as i32,
                 new_items: vec![],
                 ult: None,
+                augments: vec![],
             };
             (foe, threat)
         })

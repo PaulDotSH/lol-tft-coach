@@ -31,6 +31,7 @@ struct Memo {
     goal_progress: Vec<GoalProgress>,
     /// Mayhem: augments I took, detected as offers close.
     augs: coach::AugmentTracker,
+    tab: crate::tab::TabMemo,
 }
 
 impl Memo {
@@ -224,7 +225,7 @@ pub fn mayhem(sh: &Arc<Shared>, sd: &StaticData) -> Option<Arc<MayhemData>> {
     ensure(sh, |s| &s.mayhem, |s| &s.ugg_ok, (), move || async move { data::ugg::mayhem(&http, &version).await })
 }
 
-fn augments(sh: &Arc<Shared>, champ: ChampKey, patch: &str) -> Option<Arc<ChampAugments>> {
+pub fn augments(sh: &Arc<Shared>, champ: ChampKey, patch: &str) -> Option<Arc<ChampAugments>> {
     let (http, patch) = (sh.http.clone(), patch.to_string());
     ensure(sh, |s| &s.augments, |s| &s.ugg_ok, champ, move || async move {
         data::ugg::champ_augments(&http, &patch, champ).await
@@ -283,6 +284,8 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
     }
 
     memo.tracker.observe(snap, sd);
+    let mayhem_data = if snap.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
+    let enemy_ranks = crate::tab::tick(sh, sd, snap, &mut memo.tab, mayhem_data.as_deref());
     let mut advice = coach::game_advice(&coach::GameInput {
         snap,
         sd,
@@ -291,6 +294,11 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         offered: &offered,
         gold_history: &memo.gold.samples,
         my_augments: &memo.augs.picks,
+        enemy_augments: coach::EnemyAugmentInput {
+            seen: &memo.tab.seen,
+            ranks: &enemy_ranks,
+            stale_since: memo.tab.stale_since,
+        },
     });
     let ults = crate::ingame::ults(sh, sd, snap);
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults });
@@ -344,8 +352,13 @@ pub fn spawn_ocr(sh: Arc<Shared>) {
     std::thread::Builder::new()
         .name("ocr".into())
         .spawn(move || {
+            let mut last_offer: Option<Instant> = None;
             loop {
-                std::thread::sleep(Duration::from_millis(1500));
+                std::thread::sleep(crate::tab::poll(&sh));
+                if last_offer.is_some_and(|t| t.elapsed() < crate::tab::IDLE) {
+                    continue;
+                }
+                last_offer = Some(Instant::now());
                 let Some(names) = sh.ocr_names.lock().unwrap().clone() else {
                     *sh.ocr_state.lock().unwrap() = SourceState::Off;
                     continue;
