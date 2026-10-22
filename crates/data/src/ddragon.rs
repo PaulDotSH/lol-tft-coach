@@ -76,11 +76,8 @@ pub fn parse_items(json: &str) -> anyhow::Result<HashMap<ItemId, Item>> {
     struct File {
         data: HashMap<String, DItem>,
     }
-    let raw: HashMap<ItemId, DItem> = serde_json::from_str::<File>(json)?
-        .data
-        .into_iter()
-        .filter_map(|(k, v)| Some((k.parse().ok()?, v)))
-        .collect();
+    let raw: HashMap<ItemId, DItem> =
+        serde_json::from_str::<File>(json)?.data.into_iter().filter_map(|(k, v)| Some((k.parse().ok()?, v))).collect();
     let shop = |id: ItemId, d: &DItem| {
         id < 200_000
             && d.gold.purchasable
@@ -93,9 +90,13 @@ pub fn parse_items(json: &str) -> anyhow::Result<HashMap<ItemId, Item>> {
     };
     let mut keep: HashSet<ItemId> = raw.iter().filter(|(id, d)| shop(**id, d)).map(|(id, _)| *id).collect();
     // Transforms (Seraph's, Muramana, …) aren't purchasable but show up in live games.
-    keep.extend(raw.iter().filter(|(_, d)| d.special_recipe.is_some_and(|b| keep.contains(&b))).map(|(id, _)| *id));
+    let transforms: Vec<ItemId> =
+        raw.iter().filter(|(_, d)| d.special_recipe.is_some_and(|b| keep.contains(&b))).map(|(id, _)| *id).collect();
+    keep.extend(transforms);
 
-    let ids = |v: &[String]| -> Vec<ItemId> { v.iter().filter_map(|s| s.parse().ok()).filter(|i| keep.contains(i)).collect() };
+    let ids = |v: &[String]| -> Vec<ItemId> {
+        v.iter().filter_map(|s| s.parse().ok()).filter(|i| keep.contains(i)).collect()
+    };
     let boot_tag = |s: &String| s.parse().ok().and_then(|i: ItemId| raw.get(&i)).is_some_and(|d| d.tag("Boots"));
     Ok(keep
         .iter()
@@ -188,14 +189,16 @@ fn stats_from_ddragon(m: &HashMap<String, f32>) -> ItemStats {
 }
 
 /// Answers text parsing misses. Keep short.
-const OVERRIDES: &[(ItemId, fn(&mut Profile))] = &[
+type Override = (ItemId, fn(&mut Profile));
+const OVERRIDES: &[Override] = &[
     (3302, |p| (p.armor_pen, p.magic_pen) = (0.5, 0.5)), // Terminus: stacking pen passive
     (8020, |p| p.magic_pen = 0.4),                       // Abyssal Mask: amplifies magic damage taken
 ];
 
 /// What an item answers, 0..=1 per field, from stats + description keywords.
 pub fn answers(id: ItemId, s: &ItemStats, desc: &str, tags: &[String]) -> Profile {
-    let has = |k: &str| desc.contains(k);
+    let text = strip_tags(desc);
+    let has = |k: &str| text.contains(k);
     let pick = |rules: &[(bool, f32)]| rules.iter().filter(|r| r.0).map(|r| r.1).fold(0.0, f32::max);
     let tenacity_stat = parse_tenacity(desc);
     let mut p = Profile {
@@ -220,7 +223,7 @@ pub fn answers(id: ItemId, s: &ItemStats, desc: &str, tags: &[String]) -> Profil
             (has("reduces their Magic Resist"), 0.6),
         ]),
         anti_crit: pick(&[(has("damage from Critical Strikes"), 1.0)]),
-        anti_attack_speed: pick(&[(has("Reduce the <attackSpeed>Attack Speed"), 1.0), (has("damage from Attacks"), 0.4)]),
+        anti_attack_speed: pick(&[(has("Reduce the Attack Speed"), 1.0), (has("damage from Attacks"), 0.4)]),
     };
     for (oid, f) in OVERRIDES {
         if *oid == id {
@@ -228,6 +231,21 @@ pub fn answers(id: ItemId, s: &ItemStats, desc: &str, tags: &[String]) -> Profil
         }
     }
     p
+}
+
+/// Description text without markup, for keyword checks.
+fn strip_tags(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            c if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out
 }
 
 fn parse_tenacity(desc: &str) -> f32 {
@@ -309,10 +327,28 @@ fn default_traits(c: &DChamp) -> Traits {
         magic_share: if a + m > 0.0 { m / (a + m) } else { 0.5 },
         true_damage: 0.0,
         heals: 0.0,
-        cc: if has("Tank") { 0.6 } else if has("Support") { 0.5 } else { 0.25 },
-        burst: if has("Assassin") { 0.8 } else if has("Mage") { 0.5 } else { 0.2 },
+        cc: if has("Tank") {
+            0.6
+        } else if has("Support") {
+            0.5
+        } else {
+            0.25
+        },
+        burst: if has("Assassin") {
+            0.8
+        } else if has("Mage") {
+            0.5
+        } else {
+            0.2
+        },
         on_hit: if has("Marksman") { 0.5 } else { 0.0 },
-        tank: if has("Tank") { 0.8 } else if has("Fighter") { 0.4 } else { 0.1 },
+        tank: if has("Tank") {
+            0.8
+        } else if has("Fighter") {
+            0.4
+        } else {
+            0.1
+        },
     }
 }
 

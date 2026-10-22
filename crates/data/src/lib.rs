@@ -26,11 +26,8 @@ pub struct Http {
 impl Http {
     pub fn new(cache_dir: PathBuf) -> anyhow::Result<Http> {
         std::fs::create_dir_all(&cache_dir).with_context(|| format!("create {cache_dir:?}"))?;
-        let client = reqwest::Client::builder()
-            .user_agent(USER_AGENT)
-            .gzip(true)
-            .timeout(Duration::from_secs(15))
-            .build()?;
+        let client =
+            reqwest::Client::builder().user_agent(USER_AGENT).gzip(true).timeout(Duration::from_secs(15)).build()?;
         Ok(Http { client, cache_dir, polite: Arc::default() })
     }
 
@@ -42,7 +39,12 @@ impl Http {
 
     /// Like [`Http::get_cached`], but a body is only cached (and only served from
     /// cache) if `parse` accepts it, so error pages never poison the cache.
-    pub async fn get_parsed<T>(&self, url: &str, ttl: Duration, parse: impl Fn(&str) -> anyhow::Result<T>) -> anyhow::Result<T> {
+    pub async fn get_parsed<T>(
+        &self,
+        url: &str,
+        ttl: Duration,
+        parse: impl Fn(&str) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
         let path = self.cache_path(url);
         let cached = read_cache(&path).await;
         if let Some((body, age)) = &cached
@@ -133,7 +135,7 @@ mod tests {
         write_cache(&http.cache_path(url), "old").await.unwrap();
         // ttl 0 forces a fetch, which fails (discard port), so the stale body is served.
         assert_eq!(http.get_cached(url, Duration::ZERO).await.unwrap(), "old");
-        let rejected = http.get_parsed(url, Duration::ZERO, |_| anyhow::bail!("bad")).await;
+        let rejected = http.get_parsed(url, Duration::ZERO, |_| -> anyhow::Result<()> { anyhow::bail!("bad") }).await;
         assert!(rejected.is_err());
     }
 

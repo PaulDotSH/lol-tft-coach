@@ -1,0 +1,110 @@
+# Hand-curated champion flags Data Dragon lacks, keyed by Data Dragon id.
+# Fields (0..=1): magic_share, true_damage, heals, cc, burst, on_hit, tank.
+# Unlisted fields/champions fall back to defaults derived from tags + info.
+
+Aatrox = { heals = 0.7, magic_share = 0.0 }
+Ahri = { magic_share = 1.0, burst = 0.7, cc = 0.4 }
+Akali = { magic_share = 0.9, burst = 0.9 }
+Alistar = { cc = 0.9, tank = 0.9, heals = 0.3 }
+Amumu = { magic_share = 0.9, cc = 0.9, tank = 0.9 }
+Annie = { magic_share = 1.0, burst = 0.8, cc = 0.6 }
+Ashe = { on_hit = 0.7, cc = 0.6 }
+Belveth = { on_hit = 0.9, heals = 0.4, true_damage = 0.3 }
+Blitzcrank = { cc = 0.8 }
+Brand = { magic_share = 1.0, burst = 0.6 }
+Braum = { cc = 0.7, tank = 0.9 }
+Briar = { heals = 0.8 }
+Camille = { true_damage = 0.5, burst = 0.6 }
+Chogath = { magic_share = 0.9, true_damage = 0.4, cc = 0.7, tank = 0.9 }
+Darius = { true_damage = 0.4, tank = 0.6 }
+Diana = { magic_share = 0.9, burst = 0.8, cc = 0.5 }
+DrMundo = { magic_share = 0.3, heals = 0.9, tank = 1.0 }
+Draven = { burst = 0.6 }
+Ekko = { magic_share = 0.9, burst = 0.8 }
+Evelynn = { magic_share = 1.0, burst = 0.9 }
+Ezreal = { magic_share = 0.3 }
+Fiddlesticks = { magic_share = 1.0, heals = 0.6, cc = 0.7 }
+Fiora = { true_damage = 0.6, heals = 0.5 }
+Fizz = { magic_share = 1.0, burst = 0.9 }
+Galio = { magic_share = 1.0, cc = 0.8, tank = 0.8 }
+Garen = { true_damage = 0.5, tank = 0.6 }
+Gragas = { magic_share = 0.9, cc = 0.6 }
+Gwen = { magic_share = 1.0, true_damage = 0.5, heals = 0.5, on_hit = 0.7 }
+Illaoi = { heals = 0.6 }
+Irelia = { heals = 0.4, on_hit = 0.8 }
+JarvanIV = { cc = 0.8, tank = 0.6 }
+Jax = { magic_share = 0.4, on_hit = 0.7 }
+Jinx = { magic_share = 0.1, on_hit = 0.7 }
+Kaisa = { magic_share = 0.4, on_hit = 0.7, burst = 0.6 }
+Kalista = { on_hit = 0.8 }
+Kassadin = { magic_share = 1.0, burst = 0.7 }
+Katarina = { magic_share = 0.7, burst = 0.8 }
+Kayle = { magic_share = 0.6, on_hit = 0.9 }
+Kayn = { heals = 0.6, burst = 0.8 }
+Kennen = { magic_share = 0.9, cc = 0.8 }
+Khazix = { burst = 0.9 }
+KogMaw = { magic_share = 0.5, on_hit = 1.0 }
+KSante = { tank = 0.9, cc = 0.7 }
+Leblanc = { magic_share = 1.0, burst = 1.0, cc = 0.5 }
+Leona = { cc = 1.0, tank = 0.9 }
+Lillia = { magic_share = 1.0, heals = 0.3, cc = 0.6 }
+Lissandra = { magic_share = 1.0, cc = 0.8, burst = 0.6 }
+Lux = { magic_share = 1.0, burst = 0.8, cc = 0.6 }
+Malphite = { magic_share = 0.8, cc = 0.9, tank = 1.0, burst = 0.6 }
+Maokai = { magic_share = 0.9, cc = 0.9, tank = 1.0, heals = 0.3 }
+MasterYi = { true_damage = 0.4, heals = 0.6, on_hit = 0.9 }
+Milio = { heals = 0.6 }
+MonkeyKing = { cc = 0.7, burst = 0.6 }
+Mordekaiser = { magic_share = 1.0, heals = 0.4, tank = 0.6 }
+Morgana = { magic_share = 1.0, cc = 0.8 }
+Nami = { heals = 0.7, cc = 0.7 }
+Nautilus = { cc = 1.0, tank = 0.9 }
+Nidalee = { magic_share = 0.9, heals = 0.5, burst = 0.8 }
+Nunu = { magic_share = 0.9, cc = 0.7, tank = 0.8 }
+Olaf = { true_damage = 0.4, heals = 0.6 }
+Ornn = { cc = 0.9, tank = 1.0 }
+Pantheon = { burst = 0.8 }
+Poppy = { cc = 0.7, tank = 0.8 }
+Pyke = { true_damage = 0.3, burst = 0.8, cc = 0.6 }
+Qiyana = { burst = 0.9 }
+Rakan = { cc = 0.8 }
+Rammus = { magic_share = 0.8, cc = 0.8, tank = 1.0 }
+Rell = { cc = 0.9, tank = 0.9 }
+Rengar = { burst = 1.0 }
+Rumble = { magic_share = 1.0 }
+Samira = { heals = 0.5, burst = 0.7 }
+Sejuani = { magic_share = 0.7, cc = 0.9, tank = 0.9 }
+Seraphine = { magic_share = 1.0, heals = 0.5, cc = 0.7 }
+Sett = { true_damage = 0.3, tank = 0.6 }
+Shaco = { burst = 0.8 }
+Shen = { tank = 0.8, true_damage = 0.2 }
+Shyvana = { magic_share = 0.6, on_hit = 0.6 }
+Singed = { magic_share = 1.0, tank = 0.7 }
+Sion = { cc = 0.8, tank = 0.9 }
+Skarner = { cc = 0.9, tank = 0.9 }
+Sona = { heals = 0.8 }
+Soraka = { heals = 1.0 }
+Swain = { magic_share = 1.0, heals = 0.7, tank = 0.5 }
+Sylas = { magic_share = 1.0, heals = 0.7, burst = 0.6 }
+Syndra = { magic_share = 1.0, burst = 0.9 }
+TahmKench = { tank = 0.9, heals = 0.4 }
+Talon = { burst = 1.0 }
+Taric = { heals = 0.6, cc = 0.7, tank = 0.8 }
+Teemo = { magic_share = 0.9, on_hit = 0.6 }
+Thresh = { cc = 0.9, tank = 0.6 }
+Trundle = { heals = 0.6, tank = 0.6 }
+Twitch = { on_hit = 0.8 }
+TwistedFate = { magic_share = 0.8, cc = 0.5, burst = 0.6 }
+Varus = { magic_share = 0.4, on_hit = 0.8, cc = 0.6 }
+Vayne = { true_damage = 0.6, on_hit = 1.0 }
+Veigar = { magic_share = 1.0, burst = 0.9, cc = 0.7 }
+Vex = { magic_share = 1.0, burst = 0.8 }
+Vi = { cc = 0.7, tank = 0.5 }
+Viego = { heals = 0.5, on_hit = 0.5 }
+Vladimir = { magic_share = 1.0, heals = 0.9 }
+Volibear = { magic_share = 0.6, heals = 0.5, tank = 0.6 }
+Warwick = { heals = 0.8, on_hit = 0.6, cc = 0.6 }
+Yuumi = { heals = 0.9 }
+Zac = { magic_share = 0.9, heals = 0.5, cc = 0.8, tank = 1.0 }
+Zed = { burst = 1.0 }
+Zoe = { magic_share = 1.0, burst = 0.9 }

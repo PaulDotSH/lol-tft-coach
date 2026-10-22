@@ -12,9 +12,14 @@ const TTL: Duration = Duration::from_secs(12 * 3600);
 pub async fn mayhem(http: &crate::Http, ddragon_version: &str) -> anyhow::Result<MayhemData> {
     let mut last = anyhow::anyhow!("bad Data Dragon version {ddragon_version}");
     for p in patches(ddragon_version) {
-        let manifest = http.get_parsed(&format!("{BASE}/{p}/aram-mayhem-augment-manifest-{p}.json"), TTL, parse_manifest);
-        let tiers = http.get_parsed(&format!("{BASE}/{p}/tierlist-champions-{p}.json"), TTL, parse_champ_tiers);
-        match tokio::try_join!(manifest, tiers) {
+        let (manifest, tiers) = (
+            format!("{BASE}/{p}/aram-mayhem-augment-manifest-{p}.json"),
+            format!("{BASE}/{p}/tierlist-champions-{p}.json"),
+        );
+        match tokio::try_join!(
+            http.get_parsed(&manifest, TTL, parse_manifest),
+            http.get_parsed(&tiers, TTL, parse_champ_tiers)
+        ) {
             Ok((augment_names, champ_tiers)) => return Ok(MayhemData { patch: p, augment_names, champ_tiers }),
             Err(e) => last = e,
         }
@@ -23,7 +28,8 @@ pub async fn mayhem(http: &crate::Http, ddragon_version: &str) -> anyhow::Result
 }
 
 pub async fn champ_augments(http: &crate::Http, patch: &str, champ: ChampKey) -> anyhow::Result<ChampAugments> {
-    let url = |p: &str| format!("{BASE}/{p}/tierlist-per-champion-augments-rarity-{p}/tierlist-augments-{champ}-{p}.json");
+    let url =
+        |p: &str| format!("{BASE}/{p}/tierlist-per-champion-augments-rarity-{p}/tierlist-augments-{champ}-{p}.json");
     match http.get_parsed(&url(patch), TTL, |s| parse_augments(s, champ)).await {
         Err(e) => match previous(patch) {
             Some(prev) => http.get_parsed(&url(&prev), TTL, |s| parse_augments(s, champ)).await.map_err(|_| e),

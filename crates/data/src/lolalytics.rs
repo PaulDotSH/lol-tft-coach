@@ -94,11 +94,15 @@ pub async fn champ_stats(
 }
 
 /// Tier list for one lane (meta bans, pick candidates).
-pub async fn tier_list(http: &crate::Http, lane: Lane, tier: &str, region: &str, patch: &str) -> anyhow::Result<Vec<TierEntry>> {
-    let url = format!(
-        "{MEGA}?ep=list&v=1&patch={patch}&lane={}&tier={tier}&queue=ranked&region={region}",
-        lane.as_str()
-    );
+pub async fn tier_list(
+    http: &crate::Http,
+    lane: Lane,
+    tier: &str,
+    region: &str,
+    patch: &str,
+) -> anyhow::Result<Vec<TierEntry>> {
+    let url =
+        format!("{MEGA}?ep=list&v=1&patch={patch}&lane={}&tier={tier}&queue=ranked&region={region}", lane.as_str());
     http.get_parsed(&url, TTL, |s| parse_tier_list(s, lane)).await
 }
 
@@ -160,7 +164,8 @@ fn set_rows(sets: &Value, key: &str) -> Vec<Row> {
 }
 
 fn ranked(agg: HashMap<ItemId, (u32, u32)>) -> Vec<ItemStat> {
-    let mut v: Vec<_> = agg.into_iter().filter(|(_, (g, _))| *g > 0).map(|(id, (games, wins))| ItemStat { id, games, wins }).collect();
+    let mut v: Vec<_> =
+        agg.into_iter().filter(|(_, (g, _))| *g > 0).map(|(id, (games, wins))| ItemStat { id, games, wins }).collect();
     v.sort_unstable_by(|a, b| b.games.cmp(&a.games).then(a.id.cmp(&b.id)));
     v
 }
@@ -217,7 +222,7 @@ pub fn parse_earlysets(json: &str) -> anyhow::Result<Vec<EarlySet>> {
             })
         })
         .collect();
-    v.sort_by(|a, b| b.games.cmp(&a.games));
+    v.sort_by_key(|e| std::cmp::Reverse(e.games));
     v.truncate(MAX_EARLY);
     Ok(v)
 }
@@ -276,12 +281,12 @@ pub struct PageStats {
 /// Errors only when the page has no Qwik state at all (error/challenge page).
 pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
     let q = crate::qwik::parse(html).ok_or_else(|| anyhow::anyhow!("no qwik/json state"))?;
-    let header = q.find_map(2, &["queue", "cid", "n", "wr", "pr"], |h| Some((num(&h["n"])?, num(&h["wr"]), num(&h["pr"]))));
+    let header =
+        q.find_map(2, &["queue", "cid", "n", "wr", "pr"], |h| Some((num(&h["n"])?, num(&h["wr"]), num(&h["pr"]))));
     let averages: HashMap<String, f64> = q
         .find_map(4, &["stats", "count"], |v| {
             let rows = v["stats"].as_array()?;
-            let m: HashMap<_, _> =
-                rows.iter().filter_map(|r| Some((r[0].as_str()?.to_owned(), num(&r[2])?))).collect();
+            let m: HashMap<_, _> = rows.iter().filter_map(|r| Some((r[0].as_str()?.to_owned(), num(&r[2])?))).collect();
             (!m.is_empty()).then_some(m)
         })
         .unwrap_or_default();
@@ -434,7 +439,14 @@ mod tests {
 
     #[test]
     fn urls() {
-        let q = Query { slug: "ahri", lane: Some(Lane::Middle), mode: Mode::Rift, tier: "emerald_plus", region: "all", patch: "16.21".into() };
+        let q = Query {
+            slug: "ahri",
+            lane: Some(Lane::Middle),
+            mode: Mode::Rift,
+            tier: "emerald_plus",
+            region: "all",
+            patch: "16.21".into(),
+        };
         assert_eq!(
             q.mega("counter"),
             "https://a1.lolalytics.com/mega/?ep=counter&v=1&patch=16.21&c=ahri&lane=middle&tier=emerald_plus&queue=ranked&region=all"
@@ -445,7 +457,14 @@ mod tests {
     }
 
     fn ahri() -> Champion {
-        Champion { key: 103, id: "Ahri".into(), name: "Ahri".into(), slug: "ahri".into(), classes: vec![], traits: Default::default() }
+        Champion {
+            key: 103,
+            id: "Ahri".into(),
+            name: "Ahri".into(),
+            slug: "ahri".into(),
+            classes: vec![],
+            traits: Default::default(),
+        }
     }
 
     fn live_http() -> crate::Http {
@@ -457,7 +476,8 @@ mod tests {
     async fn live_champ_stats() {
         let http = live_http();
         for mode in [Mode::Rift, Mode::Aram] {
-            let s = champ_stats(&http, &ahri(), Some(Lane::Middle), mode, "emerald_plus", "all", "16.21").await.unwrap();
+            let s =
+                champ_stats(&http, &ahri(), Some(Lane::Middle), mode, "emerald_plus", "all", "16.21").await.unwrap();
             assert!(s.games >= MIN_GAMES || s.patch == "30", "{mode:?}: {} games on {}", s.games, s.patch);
             assert!(!s.slots.is_empty() && !s.boots.is_empty() && !s.early.is_empty());
             assert!(s.benchmarks.cs_per_min.is_some(), "{mode:?} benchmarks");
