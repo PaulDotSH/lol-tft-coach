@@ -129,8 +129,14 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             Some("PreEndOfGame" | "WaitingForStats" | "EndOfGame") => Phase::PostGame,
             Some(_) => Phase::Idle,
         };
-        if memo.not_lol && phase == Phase::PostGame {
-            phase = Phase::Idle;
+        match phase {
+            // TFT has no champ select to start a new game: reset once the client is out of it.
+            Phase::Idle | Phase::ChampSelect => {
+                memo.queue_checked = false;
+                memo.not_lol = false;
+            }
+            Phase::PostGame if memo.not_lol => phase = Phase::Idle,
+            _ => {}
         }
         let mut champ_select = None;
         let mut game = None;
@@ -163,11 +169,6 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             }
             // Live API may answer without the client too (spectate, client closed mid-game).
             Phase::Loading | Phase::NoClient | Phase::Idle => {
-                if phase == Phase::Idle {
-                    // TFT has no champ select to start a new game: reset here.
-                    memo.queue_checked = false;
-                    memo.not_lol = false;
-                }
                 if matches!(phase, Phase::Loading) && !memo.queue_checked
                     && let Some(c) = &lcu {
                         if let Ok(Some((q, game_mode))) = c.queue().await {
