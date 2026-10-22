@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         data::lolalytics::champ_stats(&http, &sd.champs[&me.champ], me.position, snap.mode, "emerald_plus", "all", &patch).await?;
     println!("\nlolalytics {} {:?}: patch {} games {} ({:?})", sd.champ_name(me.champ), me.position, stats.patch, stats.games, t.elapsed());
     let t = Instant::now();
-    let a = coach::game_advice(&coach::GameInput { snap: &snap, sd: &sd, stats: Some(&stats), augments: None, offered: &[] });
+    let a = coach::game_advice(&coach::GameInput { snap: &snap, sd: &sd, stats: Some(&stats), augments: None, offered: &[], gold_history: &[] });
     println!("coach tick: {:?}", t.elapsed());
     print_game(&sd, &a);
 
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     let mut ms = snap.clone();
     ms.mode = Mode::Mayhem;
     let aram = data::lolalytics::champ_stats(&http, &sd.champs[&me.champ], None, Mode::Mayhem, "all", "all", &patch).await?;
-    let a = coach::game_advice(&coach::GameInput { snap: &ms, sd: &sd, stats: Some(&aram), augments: Some((&aug, &m)), offered: &offered });
+    let a = coach::game_advice(&coach::GameInput { snap: &ms, sd: &sd, stats: Some(&aram), augments: Some((&aug, &m)), offered: &offered, gold_history: &[] });
     println!("\n== Mayhem (u.gg {}) ==", m.patch);
     print_game(&sd, &a);
 

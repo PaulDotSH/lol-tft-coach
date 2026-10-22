@@ -25,6 +25,7 @@ struct Memo {
     recap_done: bool,
     recap: Option<Recap>,
     last_record: Option<Instant>,
+    gold: coach::GoldHistory,
 }
 
 impl Memo {
@@ -267,7 +268,11 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         stats: my_stats.as_deref(),
         augments: pool.as_ref().map(|(a, m)| (&**a, &**m)),
         offered: &offered,
+        gold_history: &memo.gold.samples,
     });
+    if let Some(s) = advice.gold.history.last() {
+        memo.gold.push(s.clone());
+    }
     if let Some(p) = &advice.buy_next
         && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);

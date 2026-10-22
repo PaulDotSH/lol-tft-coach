@@ -109,7 +109,7 @@ pub fn inventory(sd: &StaticData, items: &[ItemId]) -> Inv {
     let mut v = Inv::default();
     for it in items.iter().filter_map(|id| sd.items.get(id)) {
         let s = &it.stats;
-        v.gold += it.cost;
+        v.gold += held_value(it);
         let ad = s.ad + s.lethality * LETHALITY_TO_AD;
         if s.ap + ad > 0.0 {
             v.dmg_gold += it.cost;
@@ -123,6 +123,12 @@ pub fn inventory(sd: &StaticData, items: &[ItemId]) -> Inv {
         v.attack_speed += frac(s.attack_speed);
     }
     v
+}
+
+/// Item gold an item adds to an inventory: full cost, except consumables
+/// (potions, wards, elixirs), which are spent rather than held.
+pub fn held_value(it: &Item) -> u32 {
+    if it.tags.iter().any(|t| t == "Consumable") { 0 } else { it.cost }
 }
 
 /// Lower is better: "S+" < "S" < "S-" < "A+" … ; unknown labels sort last.
