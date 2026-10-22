@@ -1,0 +1,25 @@
+[package]
+name = "lol-coach"
+edition.workspace = true
+version.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+model.workspace = true
+data.workspace = true
+clients.workspace = true
+coach.workspace = true
+ocr.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+toml.workspace = true
+dirs.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-window-state = "2"
+tauri-plugin-single-instance = "2"

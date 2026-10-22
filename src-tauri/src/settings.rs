@@ -1,0 +1,29 @@
+//! Settings (`%APPDATA%\lol-coach\settings.toml`) and app directories.
+
+use model::Settings;
+use std::path::PathBuf;
+
+pub fn config_dir() -> PathBuf {
+    dirs::config_dir().unwrap_or_else(std::env::temp_dir).join("lol-coach")
+}
+
+/// `%LOCALAPPDATA%\lol-coach\<sub>`, created on demand.
+pub fn local_dir(sub: &str) -> PathBuf {
+    let dir = dirs::data_local_dir().unwrap_or_else(std::env::temp_dir).join("lol-coach").join(sub);
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+pub fn load() -> Settings {
+    std::fs::read_to_string(config_dir().join("settings.toml"))
+        .ok()
+        .and_then(|s| toml::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+pub fn save(s: &Settings) -> anyhow::Result<()> {
+    let dir = config_dir();
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join("settings.toml"), toml::to_string(s)?)?;
+    Ok(())
+}
