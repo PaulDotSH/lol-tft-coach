@@ -4,6 +4,7 @@
   import Lookup from './Lookup.svelte';
   import MacroPatterns from './MacroPatterns.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+  import Trends from './Trends.svelte';
 
   let { state }: { state: AppState } = $props();
 
@@ -29,6 +30,7 @@
   </div>
   <div class="right">
     <MacroPatterns report={state.macro_report} connected={state.sources.client === 'ok'} />
+    <Trends trends={state.trends} settings={state.settings} />
     <Lookup />
   </div>
 </div>

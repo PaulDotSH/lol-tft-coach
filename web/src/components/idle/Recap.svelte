@@ -3,6 +3,8 @@
   import { store } from '../../lib/store.svelte';
   import { champName, clockText, MODE_NAMES } from '../../lib/ui';
   import Icon from '../Icon.svelte';
+  import GoalChips from '../GoalChips.svelte';
+  import DeathReview from './DeathReview.svelte';
 
   let { recap }: { recap: Recap } = $props();
   const s = $derived(recap.stats);
@@ -61,6 +63,10 @@
       {#each recap.notes as n, i (i)}<li>{n}</li>{/each}
     </ul>
   {/if}
+  {#if recap.goals.length}
+    <div class="goals"><h2>Goals</h2><GoalChips goals={recap.goals} /></div>
+  {/if}
+  {#if recap.review}<DeathReview review={recap.review} />{/if}
 </section>
 
 <style>
@@ -106,6 +112,9 @@
     display: inline-flex;
     border-radius: 4px;
     box-shadow: 0 0 0 2px var(--warn);
+  }
+  .goals {
+    margin-top: 12px;
   }
   .notes {
     margin: 12px 0 0;
