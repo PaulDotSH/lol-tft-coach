@@ -70,7 +70,8 @@ impl Foe<'_> {
     pub fn flags(&self) -> Vec<String> {
         let t = &self.champ.traits;
         [
-            ("assassin", self.has(ChampClass::Assassin) || t.burst >= FLAG),
+            // Mages default to burst 0.5: only curated high-burst champions count.
+            ("assassin", self.has(ChampClass::Assassin) || t.burst >= ASSASSIN_FLAG_BURST),
             ("heals", t.heals >= FLAG),
             ("cc", t.cc >= FLAG),
             ("tank", self.has(ChampClass::Tank) || self.armor_tank().max(self.mr_tank()) >= FLAG),

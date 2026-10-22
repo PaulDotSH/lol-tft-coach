@@ -152,7 +152,13 @@ fn conflicts(sd: &StaticData, it: &Item, have: &[ItemId]) -> bool {
         ]
     };
     let g = groups(it);
-    have.iter().filter_map(|h| sd.items.get(h)).any(|h| groups(h).iter().zip(g).any(|(a, b)| *a && b))
+    // The game's own one-per-inventory groups (e.g. Black Cleaver vs Lord Dominik's).
+    let shared = |h: &ItemId| match (sd.item_groups.get(&it.id), sd.item_groups.get(h)) {
+        (Some(a), Some(b)) => a.iter().any(|x| b.contains(x)),
+        _ => false,
+    };
+    have.iter().any(shared)
+        || have.iter().filter_map(|h| sd.items.get(h)).any(|h| groups(h).iter().zip(g).any(|(a, b)| *a && b))
 }
 
 /// Crit chance and attack speed already reached (live stats, else owned items) plus the path so far.

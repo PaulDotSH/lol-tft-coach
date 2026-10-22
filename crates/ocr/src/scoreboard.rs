@@ -485,12 +485,12 @@ fn assign(m: &[[u32; 5]; 5], n: usize) -> (u32, [usize; 5]) {
 
 /// Read the enemy team's augments off a capture of [`Geometry::board`].
 /// None when the scoreboard is not open.
-pub fn read(
+/// Every row of both teams (player index into `players`, augments read).
+pub fn read_all(
     f: &Frame,
     origin: (i32, i32),
     g: &Geometry,
     players: &[BoardPlayer],
-    enemy: Team,
     aug: &AugIcons,
     items: &HashMap<ItemId, Desc>,
 ) -> Option<Vec<RowRead>> {
@@ -555,17 +555,15 @@ pub fn read(
         (a.0 + b.0, [(l, a.1), (r, b.1)])
     };
     let (order_left, flipped) = (layout(teams[0]), layout(teams[1]));
-    let (left, halves) = if flipped.0 > order_left.0 { (Team::Chaos, flipped.1) } else { (Team::Order, order_left.1) };
-    let h = if enemy == left { 0 } else { 1 };
-    let (team, rows) = &halves[h];
+    let halves = if flipped.0 > order_left.0 { flipped.1 } else { order_left.1 };
 
     Some(
-        team.iter()
+        halves
+            .iter()
             .enumerate()
-            .map(|(k, &p)| {
-                let r = rows[k];
-                let o = gr[h][r];
-                let augments = o
+            .flat_map(|(h, (team, rows))| team.iter().enumerate().map(move |(k, &p)| (h, rows[k], p)))
+            .map(|(h, r, p)| {
+                let augments = gr[h][r]
                     .map(|o| {
                         SLOTS
                             .iter()
@@ -579,6 +577,20 @@ pub fn read(
             })
             .collect(),
     )
+}
+
+/// Enemy rows only (see [`read_all`]).
+pub fn read(
+    f: &Frame,
+    origin: (i32, i32),
+    g: &Geometry,
+    players: &[BoardPlayer],
+    enemy: Team,
+    aug: &AugIcons,
+    items: &HashMap<ItemId, Desc>,
+) -> Option<Vec<RowRead>> {
+    let rows = read_all(f, origin, g, players, aug, items)?;
+    Some(rows.into_iter().filter(|r| players.get(r.player).is_none_or(|p| p.team == enemy)).collect())
 }
 
 #[cfg(test)]

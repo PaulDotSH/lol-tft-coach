@@ -322,6 +322,7 @@ pub fn sd() -> StaticData {
         version: "16.21.1".into(),
         items: items().into_iter().map(|i| (i.id, i)).collect(),
         champs: champs().into_iter().map(|c| (c.key, c)).collect(),
+        item_groups: Default::default(),
     }
 }
 

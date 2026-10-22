@@ -30,6 +30,8 @@ pub const AP_LABEL: f32 = 0.65;
 pub const AD_LABEL: f32 = 0.35;
 pub const TRUE_LABEL: f32 = 0.5;
 pub const FLAG: f32 = 0.5;
+/// Burst needed for the "assassin" flag without the Assassin class (above the Mage default).
+pub const ASSASSIN_FLAG_BURST: f32 = 0.75;
 pub const CRIT_FLAG: f32 = 0.4;
 
 // ---- needs ----

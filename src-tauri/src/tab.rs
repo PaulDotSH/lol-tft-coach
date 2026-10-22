@@ -37,7 +37,6 @@ struct Job {
     items: HashMap<ItemId, Desc>,
     /// Live API order: (champion, team, items).
     players: Vec<(ChampKey, Team, Vec<ItemId>)>,
-    enemy: Team,
     urgent: bool,
 }
 
@@ -55,6 +54,8 @@ struct Read {
 #[derive(Default)]
 pub struct TabMemo {
     pub seen: Vec<EnemyAugments>,
+    /// My own row, read from the same scoreboard (exact, unlike stat-diff detection).
+    pub mine: Vec<SeenAugment>,
     /// Game time since which some enemy has unread augments.
     pub stale_since: Option<f32>,
 }
@@ -75,7 +76,7 @@ pub fn tick(
     let ranks: Vec<ChampAugments> = mayhem.map_or(vec![], |m| {
         snap.players
             .iter()
-            .filter(|p| p.team == enemy)
+            .filter(|p| p.team == enemy || p.champ == me.champ)
             .filter_map(|p| crate::orchestrator::augments(sh, p.champ, &m.patch).map(|a| (*a).clone()))
             .collect()
     });
@@ -90,6 +91,15 @@ pub fn tick(
                 .map(|(ids, rarity)| SeenAugment { ids: coach::order_candidates(&ids, rarity, rank), rarity })
                 .collect();
             tracing::debug!("scoreboard: {} {:?}", p.champ, augments);
+            if i == snap.me {
+                if augments.len() >= memo.mine.len() {
+                    memo.mine = augments;
+                }
+                continue;
+            }
+            if p.team != enemy {
+                continue;
+            }
             // A capture mid fade-in can miss icons: never replace a fuller read.
             if memo.seen.iter().any(|e| e.champ == p.champ && e.augments.len() > augments.len()) {
                 continue;
@@ -121,7 +131,6 @@ pub fn tick(
             icons,
             items,
             players: snap.players.iter().map(|p| (p.champ, p.team, p.items.clone())).collect(),
-            enemy,
             urgent: stale > 0,
         })
     });
@@ -185,7 +194,7 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
     let f = ocr::capture_client(r)?;
     crate::debug::frame("tab-board", Duration::from_secs(15), &f);
     let players: Vec<BoardPlayer> = job.players.iter().map(|p| BoardPlayer { team: p.1, items: &p.2 }).collect();
-    let Some(rows) = scoreboard::read(&f, (r.x, r.y), &g, &players, job.enemy, &job.icons.aug, &job.items) else {
+    let Some(rows) = scoreboard::read_all(&f, (r.x, r.y), &g, &players, &job.icons.aug, &job.items) else {
         tracing::debug!("scoreboard open ({w}x{h}) but rows unreadable");
         return None;
     };
@@ -204,4 +213,12 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
             .map(|row| (row.player, row.augments.iter().map(|s| (candidates(s), s.rarity)).collect()))
             .collect(),
     )
+}
+
+/// Every Mayhem augment id from the game data, once the icon set has loaded.
+pub fn pool(sh: &Shared) -> Option<Vec<AugmentId>> {
+    match sh.tab.icons.lock().unwrap().get(&()) {
+        Some(crate::state::Slot::Ready(i)) => Some(i.rarity.keys().copied().collect()),
+        _ => None,
+    }
 }

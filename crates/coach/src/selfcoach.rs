@@ -34,6 +34,8 @@ struct Moment {
 pub struct GameLog {
     /// Game time of the first tick seen.
     first_seen: Option<f32>,
+    /// ARAM/Mayhem: shopping only happens while dead, so gold held at death is normal.
+    shop_on_death: bool,
     prev: Option<Moment>,
     levels: Vec<u32>,
     /// (player index, level, game time first seen).
@@ -64,6 +66,7 @@ fn new_items(before: &[ItemId], now: &[ItemId]) -> Vec<ItemId> {
 impl GameLog {
     pub fn observe(&mut self, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData) {
         let Some(me) = snap.players.get(snap.me) else { return };
+        self.shop_on_death = snap.mode != Mode::Rift;
         let now = Moment {
             time: snap.time,
             gold: snap.my_gold,
@@ -185,7 +188,7 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
     }
 
     let holding = d.iter().filter(|n| n.unspent >= HOLDING_GOLD).count();
-    if holding > 0 {
+    if holding > 0 && !log.shop_on_death {
         let times = if holding == 1 { "once".to_string() } else { format!("{holding}×") };
         notes.push(format!("Died {times} with {HOLDING_GOLD}+ g unspent"));
     }

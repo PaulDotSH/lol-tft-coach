@@ -225,6 +225,10 @@ data! {
         pub version: String,
         pub items: HashMap<ItemId, Item>,
         pub champs: HashMap<ChampKey, Champion>,
+        /// Item → one-per-inventory groups it belongs to (Last Whisper, Lifeline, …);
+        /// two items sharing a group can't be owned together. Empty if unavailable.
+        #[serde(default)]
+        pub item_groups: HashMap<ItemId, Vec<u32>>,
     }
 
     // ---- lolalytics ----

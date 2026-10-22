@@ -413,3 +413,14 @@ fn survives_empty_or_odd_snapshots() {
     assert!(a.buy_next.is_some());
 }
 
+
+#[test]
+fn game_item_groups_block_items_that_cannot_be_owned_together() {
+    // Zhonya's is buy next here; put it in a one-per-inventory group with an owned item.
+    let s = fed_zed(&[LUDENS, RABADONS, SORCS]);
+    let mut sd = sd();
+    sd.item_groups = [(ZHONYAS, vec![0]), (RABADONS, vec![0])].into();
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&ahri_stats()), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    assert!(!all_ids(&a).contains(&ZHONYAS), "{:?}", all_ids(&a));
+    assert!(a.buy_next.is_some());
+}

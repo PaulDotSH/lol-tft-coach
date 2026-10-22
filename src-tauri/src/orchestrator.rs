@@ -9,8 +9,20 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-/// How long an OCR offer stays shown after it was last seen.
-const OFFER_TTL: Duration = Duration::from_secs(6);
+/// OCR cards count as "on screen" this long after they were last read.
+const OFFER_TTL: Duration = Duration::from_secs(3);
+/// A pending offer (cards hidden behind the shop, respawn, …) is dropped after this many game seconds unseen.
+const OFFER_HOLD_S: f32 = 120.0;
+/// Offer OCR cadence while a Mayhem game runs.
+const OFFER_SCAN: Duration = Duration::from_millis(500);
+
+struct PendingOffer {
+    ids: Vec<AugmentId>,
+    /// Game time the cards were last read.
+    last_seen: f32,
+    /// My scoreboard augment count when the offer appeared; a higher count means it was picked.
+    mine: usize,
+}
 const RECORD_EVERY: Duration = Duration::from_secs(30);
 
 /// Per-game memory across ticks.
@@ -32,6 +44,9 @@ struct Memo {
     /// Mayhem: augments I took, detected as offers close.
     augs: coach::AugmentTracker,
     tab: crate::tab::TabMemo,
+    offer: Option<PendingOffer>,
+    /// Every augment shown on a card this game (narrows lookalike scoreboard icons).
+    offer_history: Vec<AugmentId>,
 }
 
 impl Memo {
@@ -50,6 +65,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
     let mut self_coach = crate::selfcoach::SelfCoach::default();
     let (mut last_flow, mut last_phase, mut probed): (Option<String>, Option<Phase>, bool) = (None, None, false);
+    let mut lcu_misses = 0u32;
 
     loop {
         if sh.static_data().is_none() {
@@ -78,10 +94,21 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         }
         let flow = match &lcu {
             Some(c) => match c.phase().await {
-                Ok(p) => Some(p),
+                Ok(p) => {
+                    lcu_misses = 0;
+                    Some(p)
+                }
+                // The client stalls for a few seconds while launching the game: keep the
+                // last phase on timeouts, drop it only when it's gone or keeps failing.
+                Err(e) if !e.chain().any(is_connect) && lcu_misses < 3 => {
+                    lcu_misses += 1;
+                    tracing::debug!("League client slow ({lcu_misses}): {e:#}");
+                    last_flow.clone()
+                }
                 Err(e) => {
                     tracing::info!("League client lost: {e:#}");
                     lcu = None;
+                    lcu_misses = 0;
                     None
                 }
             },
@@ -180,7 +207,11 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                         debug::dump("lcu-eog", Duration::from_secs(5), &raw);
                     }
                     match c.eog_stats().await {
-                        Ok(Some(eog)) => {
+                        Ok(Some(mut eog)) => {
+                            // The queue seen at game start beats the end-of-game block's mode.
+                            if let Some(m) = memo.mode {
+                                eog.mode = m;
+                            }
                             let r = recap(&sh, &sd, &eog, &memo);
                             debug::dump("recap", Duration::ZERO, &r);
                             tracing::info!("recap saved: {:?} win={} {}s", eog.mode, eog.win, eog.duration_s);
@@ -236,6 +267,11 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         };
         tokio::time::sleep(Duration::from_millis(tick)).await;
     }
+}
+
+/// Connection refused / reset: the client is really gone.
+fn is_connect(e: &(dyn std::error::Error + 'static)) -> bool {
+    e.downcast_ref::<reqwest::Error>().is_some_and(|r| r.is_connect())
 }
 
 fn flag(ok: Option<bool>) -> SourceState {
@@ -323,27 +359,52 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
             && let Some(a) = augments(sh, me.champ, &m.patch) {
                 pool = Some((a, m));
             }
+    // OCR matches card titles against every Mayhem augment (game data), not just
+    // the champion's u.gg list, which misses newer augments.
     *sh.ocr_names.lock().unwrap() = match (&pool, sh.settings().ocr_enabled) {
-        (Some((a, m)), true) => Some(Arc::new(
-            a.prismatic.iter().chain(&a.gold).chain(&a.silver).filter_map(|id| Some((*id, m.augment_names.get(id)?.clone()))).collect(),
-        )),
+        (Some((a, m)), true) => {
+            let ids: Vec<AugmentId> = crate::tab::pool(sh)
+                .unwrap_or_else(|| a.prismatic.iter().chain(&a.gold).chain(&a.silver).copied().collect());
+            Some(Arc::new(ids.into_iter().filter_map(|id| Some((id, m.augment_names.get(&id)?.clone()))).collect()))
+        }
         _ => None,
     };
-    let offered = {
-        let o = sh.offered.lock().unwrap();
-        if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
-    };
-    if snap.mode == Mode::Mayhem {
-        let before = memo.augs.picks.len();
-        memo.augs.observe(&offered, snap, sd);
-        if memo.augs.picks.len() != before {
-            tracing::info!("augment picks: {:?} (stats {:?})", memo.augs.picks, snap.my_stats);
-        }
-    }
 
     memo.tracker.observe(snap, sd);
     let mayhem_data = if snap.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
     let enemy_ranks = crate::tab::tick(sh, sd, snap, &mut memo.tab, mayhem_data.as_deref());
+
+    // Cards on screen right now; the offer itself stays pending while they are
+    // hidden (shop, respawn) until it is replaced, my scoreboard row grows, or it ages out.
+    let seen = {
+        let o = sh.offered.lock().unwrap();
+        if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
+    };
+    let mine = memo.tab.mine.len();
+    if seen.len() >= 2 {
+        for &id in &seen {
+            if !memo.offer_history.contains(&id) {
+                memo.offer_history.push(id);
+            }
+        }
+        match &mut memo.offer {
+            Some(p) if p.ids == seen => p.last_seen = snap.time,
+            _ => memo.offer = Some(PendingOffer { ids: seen, last_seen: snap.time, mine }),
+        }
+    }
+    if memo.offer.as_ref().is_some_and(|p| mine > p.mine || snap.time - p.last_seen > OFFER_HOLD_S) {
+        memo.offer = None;
+    }
+    let offered = memo.offer.as_ref().map_or(vec![], |p| p.ids.clone());
+    if snap.mode == Mode::Mayhem {
+        let before = memo.augs.picks.len();
+        memo.augs.observe(&offered, snap, sd);
+        if memo.augs.picks.len() != before {
+            tracing::info!("augment picks (stat diff): {:?} (stats {:?})", memo.augs.picks, snap.my_stats);
+        }
+    }
+    let my_augments = my_augments(memo, snap.time);
+
     let mut advice = coach::game_advice(&coach::GameInput {
         snap,
         sd,
@@ -351,7 +412,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         augments: pool.as_ref().map(|(a, m)| (&**a, &**m)),
         offered: &offered,
         gold_history: &memo.gold.samples,
-        my_augments: &memo.augs.picks,
+        my_augments: &my_augments,
         enemy_augments: coach::EnemyAugmentInput {
             seen: &memo.tab.seen,
             ranks: &enemy_ranks,
@@ -371,6 +432,23 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice
+}
+
+/// My augments: the Tab scoreboard row when read (an icon shared by several
+/// augments is narrowed to the one I was offered), else stat-diff detection.
+fn my_augments(memo: &Memo, time: f32) -> Vec<MyAugment> {
+    if memo.tab.mine.len() < memo.augs.picks.len() {
+        return memo.augs.picks.clone();
+    }
+    memo.tab
+        .mine
+        .iter()
+        .map(|s| {
+            let offered: Vec<AugmentId> = s.ids.iter().copied().filter(|id| memo.offer_history.contains(id)).collect();
+            let candidates = if offered.is_empty() { s.ids.clone() } else { offered };
+            MyAugment { id: (candidates.len() == 1).then(|| candidates[0]), candidates, time }
+        })
+        .collect()
 }
 
 fn recap(sh: &Arc<Shared>, sd: &StaticData, eog: &EogStats, memo: &Memo) -> Recap {
@@ -439,8 +517,8 @@ pub fn spawn_ocr(sh: Arc<Shared>) {
             let mut last_offer: Option<Instant> = None;
             let mut last_lines = Vec::new();
             loop {
-                std::thread::sleep(crate::tab::poll(&sh));
-                if last_offer.is_some_and(|t| t.elapsed() < crate::tab::IDLE) {
+                std::thread::sleep(crate::tab::poll(&sh).min(OFFER_SCAN));
+                if last_offer.is_some_and(|t| t.elapsed() < OFFER_SCAN) {
                     continue;
                 }
                 last_offer = Some(Instant::now());

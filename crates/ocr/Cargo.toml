@@ -20,3 +20,6 @@ windows = { version = "0.62", features = [
   "Win32_UI_WindowsAndMessaging",
   "Win32_System_WinRT",
 ] }
+
+[dev-dependencies]
+serde_json.workspace = true

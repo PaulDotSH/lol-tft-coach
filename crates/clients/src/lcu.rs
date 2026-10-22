@@ -242,8 +242,12 @@ pub fn parse_eog(json: &Value) -> Option<EogStats> {
     };
     let mode = match json["queueId"].as_i64().filter(|&q| q > 0) {
         Some(q) => Mode::from_queue(q),
-        None if json["gameMode"] == "ARAM" => Mode::Aram,
-        None => Mode::Rift,
+        None => match json["gameMode"].as_str().or(json["queueType"].as_str()) {
+            Some("ARAM") => Mode::Aram,
+            // ARAM: Mayhem (queue 2400) reports itself as KIWI.
+            Some("KIWI") => Mode::Mayhem,
+            _ => Mode::Rift,
+        },
     };
     let s = |k: &str| stat(k).unwrap_or(0);
     Some(EogStats {

@@ -29,6 +29,7 @@ fn sd() -> StaticData {
     StaticData {
         version: "16.21.1".into(),
         items: Default::default(),
+        item_groups: Default::default(),
         champs: champs
             .into_iter()
             .map(|(key, id, name)| {
@@ -236,4 +237,15 @@ async fn real_live_unavailable() {
     let (state, raw) = live::Live::new().poll(&sd()).await;
     assert!(matches!(state, live::LiveState::Unavailable) && raw.is_none());
     println!("refused in {:?}", t.elapsed());
+}
+
+#[test]
+fn eog_mayhem_reports_kiwi_without_queue_id() {
+    // Real Mayhem end-of-game blocks carry no queueId, only gameMode/queueType "KIWI".
+    let mut j = fixture("eog_stats.json");
+    j.as_object_mut().unwrap().remove("queueId");
+    j["gameMode"] = "KIWI".into();
+    assert_eq!(lcu::parse_eog(&j).unwrap().mode, Mode::Mayhem);
+    j["gameMode"] = "CLASSIC".into();
+    assert_eq!(lcu::parse_eog(&j).unwrap().mode, Mode::Rift);
 }

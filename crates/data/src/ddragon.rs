@@ -17,7 +17,12 @@ pub async fn load(http: &crate::Http) -> anyhow::Result<StaticData> {
     // Per-version files never change.
     let items = http.get_parsed(&file("item"), 720 * hour, parse_items).await?;
     let champs = http.get_parsed(&file("champion"), 720 * hour, parse_champions).await?;
-    Ok(StaticData { version, items, champs })
+    let known = items.keys().copied().collect();
+    let item_groups = crate::item_groups::load(http, &version, &known).await.unwrap_or_else(|e| {
+        tracing::warn!("item groups unavailable, using stat rules only: {e:#}");
+        Default::default()
+    });
+    Ok(StaticData { version, items, champs, item_groups })
 }
 
 pub fn parse_version(json: &str) -> anyhow::Result<String> {

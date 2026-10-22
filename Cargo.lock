@@ -2183,6 +2183,7 @@ dependencies = [
  "model",
  "ocr",
  "png",
+ "reqwest",
  "serde",
  "serde_json",
  "tauri",
@@ -2587,6 +2588,7 @@ dependencies = [
  "anyhow",
  "model",
  "png",
+ "serde_json",
  "strsim",
  "windows",
 ]

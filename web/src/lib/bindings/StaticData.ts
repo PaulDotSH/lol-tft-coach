@@ -6,4 +6,9 @@ export type StaticData = {
 /**
  * Data Dragon version, e.g. "16.21.1".
  */
-version: string, items: { [key in number]: Item }, champs: { [key in number]: Champion }, };
+version: string, items: { [key in number]: Item }, champs: { [key in number]: Champion }, 
+/**
+ * Item → one-per-inventory groups it belongs to (Last Whisper, Lifeline, …);
+ * two items sharing a group can't be owned together. Empty if unavailable.
+ */
+item_groups: { [key in number]: Array<number> }, };

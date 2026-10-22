@@ -6,9 +6,13 @@ use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetClientRect, IsIconic};
 use windows::core::{PCWSTR, w};
 
-/// Fractions of the client area holding the augment cards and their names.
-const REGION_X: (f32, f32) = (0.08, 0.92);
-const REGION_Y: (f32, f32) = (0.10, 0.75);
+/// Fractions of the client area holding the three augment card *titles* (and the
+/// category tag under them). Measured on real 1440p Mayhem offers, normal and
+/// prismatic: cards span x 22–78 %, titles sit at y ≈ 41 %, descriptions start at
+/// ≈ 47 %. Only this strip is read, so chat, kill feed and pings (which often
+/// name augments) can't produce false offers.
+const REGION_X: (f32, f32) = (0.18, 0.82);
+const REGION_Y: (f32, f32) = (0.365, 0.462);
 
 /// Top-down 32-bit DIB section selected into its own memory DC.
 pub(crate) struct Dib {
