@@ -142,12 +142,27 @@ fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> 
     let b = items::build(&ctx, &[], &needs);
     let is_boots = |id: ItemId| sd.items.get(&id).is_some_and(|i| i.boots);
     let pick = |s: &items::Scored| items::to_pick(&ctx, s, &needs, &foes, None);
-    let start = mine
-        .early
-        .iter()
-        .max_by(|a, b| wilson_p(frac(a.win_rate), a.games).total_cmp(&wilson_p(frac(b.win_rate), b.games)))
-        .map(|e| e.items.clone())
-        .unwrap_or_default();
+    // Early sets include the first back; keep the opening purchases that fit in
+    // starting gold and pick the most played opening.
+    let mut openings: Vec<(Vec<ItemId>, u32)> = Vec::new();
+    for e in &mine.early {
+        let mut gold = 0;
+        let open: Vec<ItemId> = e
+            .items
+            .iter()
+            .copied()
+            .take_while(|id| {
+                gold += sd.items.get(id).map_or(0, |i| i.cost);
+                gold <= START_GOLD
+            })
+            .collect();
+        match openings.iter_mut().find(|(o, _)| *o == open) {
+            Some((_, g)) => *g += e.games,
+            None if !open.is_empty() => openings.push((open, e.games)),
+            None => {}
+        }
+    }
+    let start = openings.into_iter().max_by_key(|(_, g)| *g).map(|(o, _)| o).unwrap_or_default();
     Some(BuildPlan {
         start,
         core: b.path.iter().filter(|s| !is_boots(s.id)).take(CORE_ITEMS).map(pick).collect(),

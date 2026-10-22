@@ -33,7 +33,10 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let owned = me.map_or(&[][..], |p| &p.items);
     let a = threat::assess(snap, sd, stats);
     let needs = needs::needs(&a.foes);
-    let ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
+    let mut ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
+    ctx.ahead = me.is_some_and(|p| {
+        p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0)
+    });
     let b = if me.is_some() { items::build(&ctx, owned, &needs) } else { items::Build { path: vec![], alts: vec![] } };
     let gold = Some((snap.my_gold, owned));
     let pick = |s: &items::Scored, g| items::to_pick(&ctx, s, &needs, &a.foes, g);

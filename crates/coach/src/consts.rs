@@ -71,7 +71,16 @@ pub const NEED_DECAY: f32 = 0.6;
 pub const WILSON_Z: f32 = 1.28;
 pub const PR_BONUS: f32 = 0.02;
 pub const MIN_ITEM_GAMES: u32 = 50;
-pub const MIN_ITEM_SHARE: f32 = 0.01;
+pub const MIN_ITEM_SHARE: f32 = 0.02;
+/// Prior strength (games) pulling a slot row's win rate toward the slot average;
+/// tames snowball items (Mejai's) whose small samples are bought only when ahead.
+pub const SHRINK_GAMES: f32 = 1500.0;
+/// Mejai's Soulstealer, Dark Seal: their win rates come from games already won.
+pub const SNOWBALL: [model::ItemId; 2] = [3041, 1082];
+/// "Ahead" for snowball items: (kills + assists/2) ≥ this × (deaths + 1).
+pub const AHEAD_KDA: f32 = 2.5;
+/// Starting gold: the start set is the opening purchases that fit in it.
+pub const START_GOLD: u32 = 500;
 /// Item my champ builds, but in another slot.
 pub const OFF_SLOT_PENALTY: f32 = 0.01;
 /// Item my champ does not build at all (vs the champ's own win rate).

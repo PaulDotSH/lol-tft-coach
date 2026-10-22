@@ -87,24 +87,22 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                 if memo.recap_done || memo.last_champ.is_some() {
                     memo.new_game();
                 }
-                if let Some(c) = &lcu {
-                    if let Ok(Some(cs)) = c.champ_select().await {
+                if let Some(c) = &lcu
+                    && let Ok(Some(cs)) = c.champ_select().await {
                         memo.mode = Some(cs.mode);
                         memo.my_lane = cs.my_lane;
                         champ_select = Some(champ_select_advice(&sh, &sd, &cs));
                     }
-                }
             }
             // Live API may answer without the client too (spectate, client closed mid-game).
             Phase::Loading | Phase::NoClient | Phase::Idle => {
-                if matches!(phase, Phase::Loading) && !memo.queue_checked {
-                    if let Some(c) = &lcu {
+                if matches!(phase, Phase::Loading) && !memo.queue_checked
+                    && let Some(c) = &lcu {
                         if let Ok(Some(q)) = c.queue_id().await {
                             memo.mode = Some(Mode::from_queue(q));
                         }
                         memo.queue_checked = true;
                     }
-                }
                 let (state, raw) = live.poll(&sd).await;
                 match state {
                     LiveState::InGame(mut snap) => {
@@ -131,14 +129,12 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             }
             Phase::PostGame => {
                 *sh.ocr_names.lock().unwrap() = None;
-                if !memo.recap_done {
-                    if let Some(c) = &lcu {
-                        if let Ok(Some(eog)) = c.eog_stats().await {
+                if !memo.recap_done
+                    && let Some(c) = &lcu
+                        && let Ok(Some(eog)) = c.eog_stats().await {
                             memo.recap = Some(recap(&sh, &sd, &eog, &memo));
                             memo.recap_done = true;
                         }
-                    }
-                }
             }
             Phase::InGame => unreachable!("set only after a live poll"),
         }
@@ -249,13 +245,11 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
     let my_stats = stats(sh, sd, me.champ, lane, snap.mode);
 
     let mut pool = None;
-    if snap.mode == Mode::Mayhem {
-        if let Some(m) = mayhem(sh, sd) {
-            if let Some(a) = augments(sh, me.champ, &m.patch) {
+    if snap.mode == Mode::Mayhem
+        && let Some(m) = mayhem(sh, sd)
+            && let Some(a) = augments(sh, me.champ, &m.patch) {
                 pool = Some((a, m));
             }
-        }
-    }
     *sh.ocr_names.lock().unwrap() = match (&pool, sh.settings().ocr_enabled) {
         (Some((a, m)), true) => Some(Arc::new(
             a.prismatic.iter().chain(&a.gold).chain(&a.silver).filter_map(|id| Some((*id, m.augment_names.get(id)?.clone()))).collect(),
@@ -274,11 +268,10 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         augments: pool.as_ref().map(|(a, m)| (&**a, &**m)),
         offered: &offered,
     });
-    if let Some(p) = &advice.buy_next {
-        if !memo.recommended.contains(&p.item) {
+    if let Some(p) = &advice.buy_next
+        && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);
         }
-    }
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice

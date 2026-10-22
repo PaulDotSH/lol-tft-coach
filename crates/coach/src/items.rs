@@ -64,6 +64,8 @@ pub struct Ctx<'a> {
     agg: HashMap<ItemId, (u32, u32)>,
     /// stats_score of an item my champion does not build.
     base: f32,
+    /// Snowball items (Mejai's, Dark Seal) are only offered while ahead.
+    pub ahead: bool,
 }
 
 impl<'a> Ctx<'a> {
@@ -89,7 +91,7 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, agg, base }
+        Ctx { sd, stats, champ, pool, agg, base, ahead: false }
     }
 }
 
@@ -139,13 +141,20 @@ fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], out: &m
         (None, _) => &empty,
     };
     let total: u32 = rows.iter().map(|r| r.games).sum();
+    let avg = rows.iter().map(|r| r.wins).sum::<u32>() as f32 / total.max(1) as f32;
+    let k = if dec == Decision::Boots { 0.0 } else { SHRINK_GAMES };
+    let shrunk = |w: u32, g: u32| (w as f32 + k * avg) / (g as f32 + k).max(1.0);
     let min_games = MIN_ITEM_GAMES.max((MIN_ITEM_SHARE * total as f32) as u32);
     let weight = match dec {
         Decision::Slot(k) => SLOT_WEIGHT[k.min(SLOT_WEIGHT.len() - 1)],
         Decision::Boots => BOOTS_WEIGHT,
     };
     for &(it, fit, defensive) in &ctx.pool {
-        if it.boots != (dec == Decision::Boots) || have.contains(&it.id) || conflicts(ctx.sd, it, have) {
+        if it.boots != (dec == Decision::Boots)
+            || have.contains(&it.id)
+            || conflicts(ctx.sd, it, have)
+            || (!ctx.ahead && SNOWBALL.contains(&it.id))
+        {
             continue;
         }
         let ans = arr(&it.answers);
@@ -160,7 +169,7 @@ fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], out: &m
         let fits = fit >= FIT_MIN || (it.boots && defensive);
         let (stats_score, src) = if let Some(r) = rows.iter().find(|r| r.id == it.id && r.games >= min_games) {
             let pr = PR_BONUS * r.games as f32 / total.max(1) as f32;
-            (wilson(r.wins, r.games) + pr, Src::Row { wins: r.wins, games: r.games })
+            (shrunk(r.wins, r.games) + pr, Src::Row { wins: r.wins, games: r.games })
         } else if let Some(&(w, g)) = ctx.agg.get(&it.id).filter(|a| a.1 >= MIN_ITEM_GAMES) {
             (wilson(w, g) - OFF_SLOT_PENALTY, Src::Other { wins: w, games: g })
         } else if fits && (ctx.stats.is_none() || dot >= ANSWER_MIN) {
