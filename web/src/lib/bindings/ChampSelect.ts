@@ -10,4 +10,8 @@ bench: Array<number>,
 /**
  * "PLANNING" | "BAN_PICK" | "FINALIZATION" | …
  */
-timer_phase: string, };
+timer_phase: string, 
+/**
+ * Allies' assigned positions (visible to your team in draft queues).
+ */
+ally_lanes: Array<[number, Lane]>, };

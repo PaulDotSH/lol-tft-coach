@@ -52,6 +52,14 @@ async fn main() -> anyhow::Result<()> {
         enemies.push(data::lolalytics::champ_stats(&http, &sd.champs[e], Some(lane), Mode::Rift, "emerald_plus", "all", &patch).await?);
     }
     let tiers = data::lolalytics::tier_list(&http, lane, "emerald_plus", "all", &patch).await?;
+    // Draft: lane matchups + synergy for every revealed champion but me.
+    let (al, en) = coach::draft_lineups(&cs, &mine.iter().chain(&enemies).collect::<Vec<_>>());
+    let (mut lane_stats, mut synergy) = (vec![], vec![]);
+    for &(c, l) in al.iter().chain(&en) {
+        let (Some(l), false) = (l, Some(c) == cs.my_pick.or(cs.my_hover)) else { continue };
+        lane_stats.push(data::lolalytics_team::lane_stats(&http, &sd.champs[&c], Some(l), "emerald_plus", "all", &patch).await?);
+        synergy.push(data::lolalytics_team::team(&http, &sd.champs[&c], l, "emerald_plus", "all", &patch).await?);
+    }
     let adv = coach::champ_select_advice(&coach::ChampSelectInput {
         cs: &cs,
         sd: &sd,
@@ -59,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
         enemies: &enemies,
         tier_list: &tiers,
         mayhem: None,
+        draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
     });
     println!("\n== Champ select {lane:?} vs {:?} ==", cs.enemies.iter().map(|e| sd.champ_name(*e)).collect::<Vec<_>>());
     for p in &adv.picks {
@@ -70,6 +79,21 @@ async fn main() -> anyhow::Result<()> {
     if let Some(b) = &adv.build {
         println!("start {:?}", b.start.iter().map(|i| sd.item_name(*i)).collect::<Vec<_>>());
         println!("core  {:?}", b.core.iter().map(|p| &p.name).collect::<Vec<_>>());
+    }
+    if let Some(d) = &adv.draft {
+        for l in &d.lanes {
+            let name = |c: Option<ChampKey>| c.map_or("-", |c| sd.champ_name(c));
+            println!("lane {:<8} {:<10} vs {:<10} {:?} ({})", l.lane.as_str(), name(l.ally), name(l.enemy), l.ally_wr, l.games);
+        }
+        for (side, s) in [("allies", &d.allies), ("enemies", &d.enemies)] {
+            println!(
+                "{side}: {:+.1} pts  AD {:.0}% AP {:.0}% true {:.0}%  front {} engage {} cc {:.1}  gaps {:?}",
+                s.total, s.physical * 100.0, s.magic * 100.0, s.true_dmg * 100.0, s.frontline, s.engage, s.cc, s.gaps
+            );
+            for f in &s.factors {
+                println!("  {:<12} {:+5.1}  {}", f.label, f.points, f.detail);
+            }
+        }
     }
     Ok(())
 }

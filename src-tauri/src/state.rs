@@ -43,6 +43,9 @@ pub struct Shared {
     /// Last lolalytics / u.gg fetch outcome.
     pub lola_ok: Mutex<Option<bool>>,
     pub ugg_ok: Mutex<Option<bool>>,
+    /// Draft: counter-only stats per (champ, lane) and build-team synergy.
+    pub lane_stats: Cache<(ChampKey, Option<Lane>), ChampStats>,
+    pub team: Cache<(ChampKey, Lane), TeamSynergy>,
 }
 
 impl Shared {
@@ -74,6 +77,8 @@ impl Shared {
             ocr_state: Mutex::new(SourceState::Off),
             lola_ok: Mutex::new(None),
             ugg_ok: Mutex::new(None),
+            lane_stats: Mutex::default(),
+            team: Mutex::default(),
         }
     }
 
@@ -95,6 +100,8 @@ impl Shared {
     pub fn clear_stats(&self) {
         self.stats.lock().unwrap().clear();
         self.tiers.lock().unwrap().clear();
+        self.lane_stats.lock().unwrap().clear();
+        self.team.lock().unwrap().clear();
     }
 }
 

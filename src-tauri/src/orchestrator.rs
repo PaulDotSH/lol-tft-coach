@@ -230,6 +230,8 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         _ => None,
     };
     let mayhem = if cs.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
+    let known: Vec<&ChampStats> = mine.as_deref().into_iter().chain(&enemies).collect();
+    let (lane_stats, synergy) = crate::draft::fetch(sh, sd, cs, &known);
     coach::champ_select_advice(&coach::ChampSelectInput {
         cs,
         sd,
@@ -237,6 +239,7 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         enemies: &enemies,
         tier_list: tiers.as_deref().map_or(&[], |t| t.as_slice()),
         mayhem: mayhem.as_deref(),
+        draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
     })
 }
 

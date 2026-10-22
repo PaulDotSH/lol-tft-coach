@@ -112,9 +112,30 @@ pub fn items() -> Vec<Item> {
         comp(item(DAGGER, "Dagger", 250, &[], ItemStats { attack_speed: 0.1, ..s() }, a())),
         comp(item(CLOAK, "Cloak of Agility", 600, &[], ItemStats { crit: 0.15, ..s() }, a())),
         comp(item(SEEKERS, "Seeker's Armguard", 1000, &[TOME, CLOTH], ItemStats { ap: 20.0, armor: 15.0, ..s() }, a())),
-        comp(item(OBLIVION, "Oblivion Orb", 800, &[TOME], ItemStats { ap: 25.0, ..s() }, Profile { anti_heal: 0.6, ..a() })),
-        comp(item(EXECUTIONERS, "Executioner's Calling", 800, &[LONG_SWORD], ItemStats { ad: 15.0, ..s() }, Profile { anti_heal: 0.6, ..a() })),
-        boots(item(SORCS, "Sorcerer's Shoes", 1100, &[BOOTS], ItemStats { magic_pen_flat: 12.0, ..s() }, Profile { magic_pen: 0.4, ..a() })),
+        comp(item(
+            OBLIVION,
+            "Oblivion Orb",
+            800,
+            &[TOME],
+            ItemStats { ap: 25.0, ..s() },
+            Profile { anti_heal: 0.6, ..a() },
+        )),
+        comp(item(
+            EXECUTIONERS,
+            "Executioner's Calling",
+            800,
+            &[LONG_SWORD],
+            ItemStats { ad: 15.0, ..s() },
+            Profile { anti_heal: 0.6, ..a() },
+        )),
+        boots(item(
+            SORCS,
+            "Sorcerer's Shoes",
+            1100,
+            &[BOOTS],
+            ItemStats { magic_pen_flat: 12.0, ..s() },
+            Profile { magic_pen: 0.4, ..a() },
+        )),
         boots(item(
             MERCS,
             "Mercury's Treads",
@@ -131,11 +152,46 @@ pub fn items() -> Vec<Item> {
             ItemStats { armor: 20.0, ..s() },
             Profile { armor: 0.5, anti_attack_speed: 0.8, anti_crit: 0.3, ..a() },
         )),
-        boots(item(BERSERKERS, "Berserker's Greaves", 1100, &[BOOTS, DAGGER], ItemStats { attack_speed: 0.25, ..s() }, a())),
-        item(ZHONYAS, "Zhonya's Hourglass", 3250, &[SEEKERS, WAND], ItemStats { ap: 105.0, armor: 50.0, ..s() }, Profile { anti_burst: 1.0, armor: 0.5, ..a() }),
-        item(MORELLO, "Morellonomicon", 2950, &[OBLIVION, RUBY], ItemStats { ap: 75.0, hp: 350.0, ..s() }, Profile { anti_heal: 1.0, hp: 0.3, ..a() }),
-        item(BANSHEES, "Banshee's Veil", 3000, &[WAND, MANTLE], ItemStats { ap: 105.0, mr: 40.0, ..s() }, Profile { mr: 0.6, anti_burst: 0.6, ..a() }),
-        item(VOID_STAFF, "Void Staff", 3000, &[WAND, TOME], ItemStats { ap: 95.0, magic_pen_pct: 0.4, ..s() }, Profile { magic_pen: 1.0, ..a() }),
+        boots(item(
+            BERSERKERS,
+            "Berserker's Greaves",
+            1100,
+            &[BOOTS, DAGGER],
+            ItemStats { attack_speed: 0.25, ..s() },
+            a(),
+        )),
+        item(
+            ZHONYAS,
+            "Zhonya's Hourglass",
+            3250,
+            &[SEEKERS, WAND],
+            ItemStats { ap: 105.0, armor: 50.0, ..s() },
+            Profile { anti_burst: 1.0, armor: 0.5, ..a() },
+        ),
+        item(
+            MORELLO,
+            "Morellonomicon",
+            2950,
+            &[OBLIVION, RUBY],
+            ItemStats { ap: 75.0, hp: 350.0, ..s() },
+            Profile { anti_heal: 1.0, hp: 0.3, ..a() },
+        ),
+        item(
+            BANSHEES,
+            "Banshee's Veil",
+            3000,
+            &[WAND, MANTLE],
+            ItemStats { ap: 105.0, mr: 40.0, ..s() },
+            Profile { mr: 0.6, anti_burst: 0.6, ..a() },
+        ),
+        item(
+            VOID_STAFF,
+            "Void Staff",
+            3000,
+            &[WAND, TOME],
+            ItemStats { ap: 95.0, magic_pen_pct: 0.4, ..s() },
+            Profile { magic_pen: 1.0, ..a() },
+        ),
         item(LUDENS, "Luden's Companion", 2900, &[WAND, TOME, TOME], ItemStats { ap: 95.0, mana: 600.0, ..s() }, a()),
         item(RABADONS, "Rabadon's Deathcap", 3500, &[ROD, WAND], ItemStats { ap: 130.0, ..s() }, a()),
         item(
@@ -154,8 +210,22 @@ pub fn items() -> Vec<Item> {
             ItemStats { armor: 75.0, hp: 150.0, ..s() },
             Profile { armor: 0.8, anti_heal: 0.8, anti_attack_speed: 0.3, ..a() },
         ),
-        item(SPIRIT_VISAGE, "Spirit Visage", 2700, &[RUBY, MANTLE], ItemStats { hp: 400.0, mr: 50.0, ..s() }, Profile { mr: 0.8, hp: 0.4, ..a() }),
-        item(INFINITY_EDGE, "Infinity Edge", 3450, &[LONG_SWORD, CLOAK], ItemStats { ad: 65.0, crit: 0.25, ..s() }, a()),
+        item(
+            SPIRIT_VISAGE,
+            "Spirit Visage",
+            2700,
+            &[RUBY, MANTLE],
+            ItemStats { hp: 400.0, mr: 50.0, ..s() },
+            Profile { mr: 0.8, hp: 0.4, ..a() },
+        ),
+        item(
+            INFINITY_EDGE,
+            "Infinity Edge",
+            3450,
+            &[LONG_SWORD, CLOAK],
+            ItemStats { ad: 65.0, crit: 0.25, ..s() },
+            a(),
+        ),
         item(
             LORD_DOMINIKS,
             "Lord Dominik's Regards",
@@ -172,7 +242,14 @@ pub fn items() -> Vec<Item> {
             ItemStats { ad: 35.0, crit: 0.25, armor_pen_pct: 0.3, ..s() },
             Profile { anti_heal: 1.0, armor_pen: 0.6, ..a() },
         ),
-        item(GUARDIAN_ANGEL, "Guardian Angel", 3200, &[LONG_SWORD, CLOTH], ItemStats { ad: 55.0, armor: 45.0, ..s() }, Profile { anti_burst: 0.8, armor: 0.3, ..a() }),
+        item(
+            GUARDIAN_ANGEL,
+            "Guardian Angel",
+            3200,
+            &[LONG_SWORD, CLOTH],
+            ItemStats { ad: 55.0, armor: 45.0, ..s() },
+            Profile { anti_burst: 0.8, armor: 0.3, ..a() },
+        ),
         item(YOUMUUS, "Youmuu's Ghostblade", 2800, &[LONG_SWORD], ItemStats { ad: 55.0, lethality: 18.0, ..s() }, a()),
         item(
             EDGE_OF_NIGHT,
@@ -183,7 +260,14 @@ pub fn items() -> Vec<Item> {
             Profile { anti_burst: 0.3, ..a() },
         ),
         {
-            let mut i = item(GUARDIANS_ORB, "Guardian's Orb", 950, &[], ItemStats { ap: 90.0, ..s() }, Profile { magic_pen: 1.0, anti_burst: 1.0, ..a() });
+            let mut i = item(
+                GUARDIANS_ORB,
+                "Guardian's Orb",
+                950,
+                &[],
+                ItemStats { ap: 90.0, ..s() },
+                Profile { magic_pen: 1.0, anti_burst: 1.0, ..a() },
+            );
             i.rift = false;
             i
         },
@@ -318,8 +402,13 @@ pub fn killed_me(killer: usize, n: usize) -> Vec<GameEvent> {
 
 pub const STANDARD: [(ChampKey, Lane); 5] =
     [(DARIUS, Lane::Top), (LEE_SIN, Lane::Jungle), (ZED, Lane::Middle), (JINX, Lane::Bottom), (THRESH, Lane::Support)];
-pub const HEALERS: [(ChampKey, Lane); 5] =
-    [(AATROX, Lane::Top), (MUNDO, Lane::Jungle), (VLADIMIR, Lane::Middle), (JINX, Lane::Bottom), (SORAKA, Lane::Support)];
+pub const HEALERS: [(ChampKey, Lane); 5] = [
+    (AATROX, Lane::Top),
+    (MUNDO, Lane::Jungle),
+    (VLADIMIR, Lane::Middle),
+    (JINX, Lane::Bottom),
+    (SORAKA, Lane::Support),
+];
 
 // ---- lolalytics ----
 
@@ -344,7 +433,12 @@ pub fn ahri_stats() -> ChampStats {
         slots: vec![
             vec![row(LUDENS, 20_000, 55.0), row(ZHONYAS, 2_000, 50.0)],
             vec![row(RABADONS, 10_000, 54.0), row(LUDENS, 3_000, 53.0), row(ZHONYAS, 2_000, 51.0)],
-            vec![row(VOID_STAFF, 8_000, 55.0), row(BANSHEES, 3_000, 53.0), row(ZHONYAS, 4_000, 51.0), row(MORELLO, 1_000, 49.0)],
+            vec![
+                row(VOID_STAFF, 8_000, 55.0),
+                row(BANSHEES, 3_000, 53.0),
+                row(ZHONYAS, 4_000, 51.0),
+                row(MORELLO, 1_000, 49.0),
+            ],
             vec![
                 row(VOID_STAFF, 3_000, 55.0),
                 row(RABADONS, 3_000, 54.0),
@@ -352,7 +446,12 @@ pub fn ahri_stats() -> ChampStats {
                 row(BANSHEES, 2_000, 53.0),
                 row(MORELLO, 1_500, 49.0),
             ],
-            vec![row(BANSHEES, 2_000, 54.0), row(ZHONYAS, 1_500, 53.0), row(MORELLO, 1_000, 50.0), row(VOID_STAFF, 1_000, 54.0)],
+            vec![
+                row(BANSHEES, 2_000, 54.0),
+                row(ZHONYAS, 1_500, 53.0),
+                row(MORELLO, 1_000, 50.0),
+                row(VOID_STAFF, 1_000, 54.0),
+            ],
         ],
         boots: vec![row(SORCS, 30_000, 54.0), row(MERCS, 4_000, 51.0), row(PLATED, 3_000, 51.0)],
         early: vec![
@@ -367,6 +466,11 @@ pub fn ahri_stats() -> ChampStats {
             matchup(DARIUS, 51.0, 200, Lane::Top),
             matchup(JINX, 50.0, 200, Lane::Bottom),
         ],
-        benchmarks: Benchmarks { cs_per_min: Some(7.4), gold_per_min: Some(420.0), damage_per_min: Some(950.0), vision_per_min: None },
+        benchmarks: Benchmarks {
+            cs_per_min: Some(7.4),
+            gold_per_min: Some(420.0),
+            damage_per_min: Some(950.0),
+            vision_per_min: None,
+        },
     }
 }

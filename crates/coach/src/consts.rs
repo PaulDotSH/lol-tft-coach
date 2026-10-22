@@ -153,5 +153,47 @@ pub const BAN_META_W: f32 = 0.6;
 pub const BAN_OFFLANE_W: f32 = 0.3;
 pub const CORE_ITEMS: usize = 3;
 
+// ---- draft ----
+/// Lane share (percent) below which a champion is not placed in that lane.
+pub const MIN_LANE_SHARE: f32 = 1.0;
+/// Duo rows with fewer games are ignored (their deltas swing ±15).
+pub const SYN_MIN_GAMES: u32 = 150;
+/// Prior games pulling a duo's synergy delta toward 0.
+pub const SYN_SHRINK_K: f32 = 500.0;
+/// How much a duo's synergy counts, by lane pair; other pairs DUO_W_OTHER.
+pub const DUO_W: [(model::Lane, model::Lane, f32); 4] = [
+    (model::Lane::Bottom, model::Lane::Support, 1.0),
+    (model::Lane::Jungle, model::Lane::Middle, 0.8),
+    (model::Lane::Jungle, model::Lane::Top, 0.6),
+    (model::Lane::Middle, model::Lane::Support, 0.5),
+];
+pub const DUO_W_OTHER: f32 = 0.3;
+/// Pick score points per (weighted, shrunk) synergy point with a revealed ally.
+pub const SYN_PICK_W: f32 = 1.0;
+/// A champion's damage counts less the tankier it is (1 − this·tank).
+pub const DMG_TANK_DISCOUNT: f32 = 0.5;
+pub const FRONTLINE_TANK: f32 = 0.6;
+pub const ENGAGE_CC: f32 = 0.7;
+pub const ENGAGE_TANK: f32 = 0.5;
+/// Damage share at which a team counts as one-dimensional.
+pub const ONE_SIDED: f32 = 0.8;
+/// Team CC below this per champion counts as little CC.
+pub const LOW_CC_PER_CHAMP: f32 = 0.3;
+/// Comp gaps are judged once a team shows this many champions (report) …
+pub const GAP_MIN_CHAMPS: usize = 3;
+/// … and pick bonuses once this many allies are revealed.
+pub const PICK_GAP_MIN_ALLIES: usize = 2;
+/// Draft points lost per gap (win-rate points, first guesses).
+pub const GAP_FRONTLINE: f32 = 1.0;
+pub const GAP_DAMAGE: f32 = 1.0;
+pub const GAP_CC: f32 = 0.5;
+pub const GAP_ENGAGE: f32 = 0.5;
+/// Candidate traits that fill a gap.
+pub const FILL_MAGIC: f32 = 0.6;
+pub const FILL_PHYSICAL: f32 = 0.4;
+pub const FILL_CC: f32 = 0.6;
+/// A second pick reason is appended when its term is worth at least this.
+pub const REASON_SECOND_MIN: f32 = 0.5;
+
 // ---- recap ----
 pub const DEATHS_NOTE: u32 = 6;
