@@ -7,6 +7,7 @@
   import SelfCoach from './SelfCoach.svelte';
   import Matchups from './Matchups.svelte';
   import Timers from './Timers.svelte';
+  import GoldDiff from './GoldDiff.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -23,6 +24,7 @@
   </div>
   <div class="threats"><Threats threats={game.threats} /></div>
   <div class="me"><SelfCoach me={game.me} {laneOpp} /></div>
+  <div class="gold"><GoldDiff g={game.gold} /></div>
   {#if rift}
     <div class="side">
       <Matchups matchups={game.matchups} />
@@ -40,6 +42,7 @@
       'aug aug'
       'build threats'
       'me me'
+      'gold gold'
       'side side';
     align-content: start;
   }
@@ -60,6 +63,10 @@
   .me {
     grid-area: me;
   }
+  .gold {
+    grid-area: gold;
+    min-width: 0;
+  }
   .side {
     grid-area: side;
     display: grid;
@@ -73,7 +80,8 @@
       grid-template-areas:
         'aug aug aug'
         'build threats side'
-        'me me side';
+        'me me side'
+        'gold gold side';
     }
     .side {
       grid-template-columns: 1fr;
@@ -83,7 +91,7 @@
   @media (max-width: 760px) {
     .ingame {
       grid-template-columns: 1fr;
-      grid-template-areas: 'aug' 'build' 'threats' 'me' 'side';
+      grid-template-areas: 'aug' 'build' 'threats' 'me' 'gold' 'side';
     }
   }
 </style>

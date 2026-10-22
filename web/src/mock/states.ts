@@ -4,6 +4,7 @@ import type { GameAdvice } from '../lib/bindings/GameAdvice';
 import type { Recap } from '../lib/bindings/Recap';
 import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
+import { mayhemGold, riftGold } from './gold';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false };
 
@@ -100,6 +101,7 @@ const riftGame: GameAdvice = {
     { name: 'Atakhan', next_spawn: null },
   ],
   augments: null,
+  gold: riftGold,
 };
 
 const mayhemGame: GameAdvice = {
@@ -157,6 +159,7 @@ const mayhemGame: GameAdvice = {
     best: 1030,
     reason: 'Eureka is Ahri’s #1 prismatic on u.gg',
   },
+  gold: mayhemGold,
 };
 
 export const fixtures = {
