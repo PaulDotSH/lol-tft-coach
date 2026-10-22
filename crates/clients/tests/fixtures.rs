@@ -63,6 +63,7 @@ fn champ_select_draft_mid_pick() {
             bans: vec![157, 777, 555, 875, 122, 266, 11, 84, 245],
             bench: vec![],
             timer_phase: "BAN_PICK".into(),
+            ally_lanes: vec![(86, Lane::Top), (64, Lane::Jungle)],
         }
     );
 }

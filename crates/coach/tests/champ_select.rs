@@ -19,6 +19,7 @@ fn cs(mode: Mode) -> ChampSelect {
         bans: vec![],
         bench: vec![],
         timer_phase: "BAN_PICK".into(),
+        ally_lanes: vec![],
     }
 }
 
@@ -51,7 +52,7 @@ fn zed_stats() -> ChampStats {
 
 fn run(c: &ChampSelect, mine: Option<&ChampStats>, enemies: &[ChampStats], tiers: &[TierEntry], mayhem: Option<&MayhemData>) -> ChampSelectAdvice {
     let sd = sd();
-    champ_select_advice(&ChampSelectInput { cs: c, sd: &sd, mine, enemies, tier_list: tiers, mayhem })
+    champ_select_advice(&ChampSelectInput { cs: c, sd: &sd, mine, enemies, tier_list: tiers, mayhem, draft: Default::default() })
 }
 
 #[test]

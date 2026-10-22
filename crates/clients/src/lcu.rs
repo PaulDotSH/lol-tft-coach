@@ -208,6 +208,11 @@ pub fn parse_champ_select(json: &Value, queue_id: i64) -> Option<ChampSelect> {
         bans,
         bench,
         timer_phase: json["timer"]["phase"].as_str().unwrap_or_default().to_string(),
+        ally_lanes: my_team
+            .iter()
+            .filter(|p| !is_me(p))
+            .filter_map(|p| Some((id(&p["championId"])?, Lane::from_riot(p["assignedPosition"].as_str()?)?)))
+            .collect(),
     })
 }
 

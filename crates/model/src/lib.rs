@@ -319,6 +319,8 @@ data! {
         pub bench: Vec<ChampKey>,
         /// "PLANNING" | "BAN_PICK" | "FINALIZATION" | …
         pub timer_phase: String,
+        /// Allies' assigned positions (visible to your team in draft queues).
+        pub ally_lanes: Vec<(ChampKey, Lane)>,
     }
 
     /// LCU end-of-game stats for the local player.
@@ -457,6 +459,8 @@ data! {
         /// ARAM / Mayhem: you + bench, best first.
         pub bench: Vec<BenchRank>,
         pub enemies: Vec<ChampKey>,
+        /// Rift draft breakdown for both teams.
+        pub draft: Option<DraftReport>,
     }
 
     pub struct Recap {
@@ -515,6 +519,78 @@ data! {
         pub game: Option<GameAdvice>,
         pub recap: Option<Recap>,
         pub settings: Settings,
+    }
+
+    // ---- draft (champ select) ----
+
+    /// lolalytics `build-team` row: one teammate of `TeamSynergy::champ`.
+    pub struct Teammate {
+        pub champ: ChampKey,
+        pub lane: Lane,
+        /// Win rate together, percent.
+        pub win_rate: f32,
+        /// Win rate minus the expectation from both champions' own win rates, points.
+        pub delta: f32,
+        pub games: u32,
+    }
+
+    pub struct TeamSynergy {
+        pub champ: ChampKey,
+        pub lane: Lane,
+        pub patch: String,
+        /// The champion's games in `lane`.
+        pub games: u32,
+        pub mates: Vec<Teammate>,
+    }
+
+    /// One lane: your champion vs the enemy most likely there.
+    pub struct DraftLane {
+        pub lane: Lane,
+        pub ally: Option<ChampKey>,
+        pub enemy: Option<ChampKey>,
+        /// Ally win rate in this matchup, percent.
+        pub ally_wr: Option<f32>,
+        pub games: u32,
+    }
+
+    pub struct DraftDuo {
+        pub a: ChampKey,
+        pub b: ChampKey,
+        /// Synergy (win rate vs expectation), points.
+        pub delta: f32,
+        pub games: u32,
+    }
+
+    /// One term of a side's draft estimate.
+    pub struct DraftFactor {
+        pub label: String,
+        /// Win-rate points for this side vs an even draft.
+        pub points: f32,
+        pub detail: String,
+    }
+
+    pub struct DraftSide {
+        pub champs: Vec<ChampKey>,
+        /// Damage shares (sum to 1 once anyone is revealed).
+        pub physical: f32,
+        pub magic: f32,
+        pub true_dmg: f32,
+        pub frontline: u32,
+        pub engage: u32,
+        /// Summed CC trait (≈ champions' worth of reliable CC).
+        pub cc: f32,
+        pub duos: Vec<DraftDuo>,
+        /// Short gap notes, e.g. "No frontline", "Mostly physical (88%)".
+        pub gaps: Vec<String>,
+        pub factors: Vec<DraftFactor>,
+        /// Sum of `factors`.
+        pub total: f32,
+    }
+
+    pub struct DraftReport {
+        pub allies: DraftSide,
+        pub enemies: DraftSide,
+        pub lanes: Vec<DraftLane>,
     }
 }
 

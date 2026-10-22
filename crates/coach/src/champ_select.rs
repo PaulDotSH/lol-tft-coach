@@ -1,10 +1,10 @@
 //! Champ select: counter-picks, bans, build plan, ARAM bench ranking.
 
-use crate::{ChampSelectInput, common::*, consts::*, items, needs, threat};
+use crate::{ChampSelectInput, common::*, consts::*, draft, items, needs, threat};
 use model::*;
 
 /// Percent from a percent or a fraction.
-fn pct(x: f32) -> f32 {
+pub(crate) fn pct(x: f32) -> f32 {
     if x <= 1.0 { x * 100.0 } else { x }
 }
 
@@ -21,6 +21,7 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
         build: mine.and_then(|c| build_plan(inp, c)),
         bench: if rift { vec![] } else { bench(inp, mine) },
         enemies: cs.enemies.clone(),
+        draft: if rift { draft::report(inp) } else { None },
     }
 }
 
@@ -48,6 +49,7 @@ fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> 
         })
         .collect();
     let lane_name = cs.my_lane.map_or("your role", Lane::as_str);
+    let ctx = draft::pick_ctx(inp);
     let v = inp
         .tier_list
         .iter()
@@ -68,11 +70,19 @@ fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> 
                 }
             }
             let score = if sw > 0.0 { MATCHUP_BLEND * s / sw + (1.0 - MATCHUP_BLEND) * base } else { base };
-            let reason = match best {
-                Some((k, wr, es, lane)) if k > 0.0 => {
-                    format!("{wr:.1}% vs {}{}", sd.champ_name(es.champ), if lane { " (lane)" } else { "" })
-                }
-                _ => format!("{:.1}% win rate in {lane_name}", pct(t.win_rate)),
+            // Reasons: the terms that raised the score most (matchup, synergy, comp gap).
+            let terms = draft::pick_terms(inp, &ctx, t.champ);
+            let score = score + terms.iter().map(|x| x.0).sum::<f32>();
+            let mut why: Vec<(f32, String)> = terms.into_iter().filter(|x| x.0 > 0.0).collect();
+            if let Some((k, wr, es, lane)) = best.filter(|b| b.0 > 0.0) {
+                let what = format!("{wr:.1}% vs {}{}", sd.champ_name(es.champ), if lane { " (lane)" } else { "" });
+                why.push((MATCHUP_BLEND * k / sw, what));
+            }
+            why.sort_by(|a, b| b.0.total_cmp(&a.0));
+            let reason = match why.as_slice() {
+                [] => format!("{:.1}% win rate in {lane_name}", pct(t.win_rate)),
+                [a, b, ..] if b.0 >= REASON_SECOND_MIN => format!("{} · {}", a.1, b.1),
+                [a, ..] => a.1.clone(),
             };
             PickSuggestion { champ: t.champ, score, reason }
         })

@@ -4,6 +4,7 @@ mod augments;
 mod champ_select;
 mod common;
 pub mod consts;
+mod draft;
 mod items;
 mod matchups;
 mod needs;
@@ -13,6 +14,8 @@ mod threat;
 mod timers;
 
 use model::*;
+
+pub use draft::{DraftData, Lineup, lineups as draft_lineups};
 
 /// Inputs for one in-game advice tick.
 pub struct GameInput<'a> {
@@ -67,6 +70,8 @@ pub struct ChampSelectInput<'a> {
     /// lolalytics tier list for my lane (pick candidates, meta bans).
     pub tier_list: &'a [TierEntry],
     pub mayhem: Option<&'a MayhemData>,
+    /// Rift draft data (lane matchups, synergy); empty until fetched.
+    pub draft: DraftData<'a>,
 }
 
 pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
