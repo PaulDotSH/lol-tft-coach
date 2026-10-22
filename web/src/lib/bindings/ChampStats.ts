@@ -10,7 +10,7 @@ export type ChampStats = { champ: number, lane: Lane | null, mode: Mode,
 /**
  * Patch query actually used, e.g. "16.21" or "30" (days, fallback).
  */
-patch: string, win_rate: number, pick_rate: number, games: bigint, 
+patch: string, win_rate: number, pick_rate: number, games: number, 
 /**
  * Share of the champ's games per lane, percent.
  */

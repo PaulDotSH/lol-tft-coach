@@ -1,0 +1,116 @@
+@import '@fontsource/barlow/400.css';
+@import '@fontsource/barlow/500.css';
+@import '@fontsource/barlow/600.css';
+@import '@fontsource/barlow-condensed/500.css';
+@import '@fontsource/barlow-condensed/600.css';
+@import '@fontsource/barlow-condensed/700.css';
+
+:root {
+  /* Rift at night: slate-blue ground, parchment text, one item-gold accent. */
+  --bg: #19212b;
+  --panel: #202a36;
+  --raised: #293545;
+  --line: #34424f;
+  --text: #ebe6d9;
+  --muted: #8f9bab;
+  --faint: #62707f;
+  --gold: #dcb75c;
+  --gold-dim: #8a7337;
+  --threat: #e4685d;
+  --good: #5fc4a9;
+  --warn: #e0a24a;
+
+  --cond: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --sans: 'Barlow', system-ui, sans-serif;
+
+  --r: 6px;
+  --gap: 12px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scale the whole UI up on big second monitors so it reads at a glance. */
+@media (min-width: 1600px) and (min-height: 900px) {
+  #app {
+    zoom: 1.45;
+  }
+}
+@media (min-width: 2400px) and (min-height: 1300px) {
+  #app {
+    zoom: 1.9;
+  }
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font: 600 15px/1.2 var(--cond);
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.num {
+  font-family: var(--cond);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.good {
+  color: var(--good);
+}
+
+.bad {
+  color: var(--threat);
+}
+
+.empty {
+  color: var(--faint);
+  font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

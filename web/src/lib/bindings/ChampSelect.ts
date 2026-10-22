@@ -2,7 +2,7 @@
 import type { Lane } from "./Lane";
 import type { Mode } from "./Mode";
 
-export type ChampSelect = { queue_id: bigint, mode: Mode, my_lane: Lane | null, my_hover: number | null, my_pick: number | null, locked: boolean, allies: Array<number>, enemies: Array<number>, bans: Array<number>, 
+export type ChampSelect = { queue_id: number, mode: Mode, my_lane: Lane | null, my_hover: number | null, my_pick: number | null, locked: boolean, allies: Array<number>, enemies: Array<number>, bans: Array<number>, 
 /**
  * ARAM bench (swappable champions).
  */

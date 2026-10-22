@@ -219,6 +219,7 @@ data! {
         pub patch: String,
         pub win_rate: f32,
         pub pick_rate: f32,
+        #[ts(type = "number")]
         pub games: u64,
         /// Share of the champ's games per lane, percent.
         pub lanes: HashMap<Lane, f32>,
@@ -304,6 +305,7 @@ data! {
     // ---- champ select (LCU) ----
 
     pub struct ChampSelect {
+        #[ts(type = "number")]
         pub queue_id: i64,
         pub mode: Mode,
         pub my_lane: Option<Lane>,

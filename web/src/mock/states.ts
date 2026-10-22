@@ -1,0 +1,235 @@
+// Realistic AppState samples, one per phase/screen, for UI work without the backend.
+import type { AppState } from '../lib/bindings/AppState';
+import type { GameAdvice } from '../lib/bindings/GameAdvice';
+import type { Recap } from '../lib/bindings/Recap';
+import type { Settings } from '../lib/bindings/Settings';
+import type { Sources } from '../lib/bindings/Sources';
+
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false };
+
+const src = (p: Partial<Sources>): Sources => ({
+  client: 'ok',
+  game: 'off',
+  lolalytics: 'ok',
+  ugg: 'ok',
+  ocr: 'off',
+  message: null,
+  ...p,
+});
+
+const recap: Recap = {
+  stats: {
+    champ: 134, // Syndra
+    mode: 'rift',
+    win: false,
+    duration_s: 1874,
+    kills: 6,
+    deaths: 7,
+    assists: 9,
+    cs: 214,
+    gold: 12840,
+    damage_to_champs: 28410,
+    damage_taken: 21930,
+    vision: 19,
+    items: [6655, 3020, 4645, 3089, 1058, 3340],
+  },
+  benchmarks: { cs_per_min: 7.4, gold_per_min: 440, damage_per_min: 960, vision_per_min: 0.75 },
+  recommended: [6655, 3020, 3157, 4645, 3089, 3135],
+  notes: [
+    'Zed killed you 4×; Zhonya’s was recommended from 14:10 and never bought.',
+    'CS fell behind after 12 minutes (−31 at 25:00).',
+    'Vision 19 vs 23 average for mid Syndra at this length.',
+  ],
+};
+
+const base = { settings, champ_select: null, game: null, recap: null } satisfies Partial<AppState>;
+
+const riftGame: GameAdvice = {
+  time: 1112,
+  mode: 'rift',
+  my_champ: 134,
+  buy_next: {
+    item: 3157,
+    name: 'Zhonya’s Hourglass',
+    cost: 3250,
+    score: 0.86,
+    reason: 'Zed is 7/1 and killed you 3×',
+    component_now: 2420,
+  },
+  alternatives: [
+    { item: 3102, name: 'Banshee’s Veil', cost: 3000, score: 0.71, reason: 'Blocks Nautilus hook and Vi ult engage', component_now: null },
+    { item: 3135, name: 'Void Staff', cost: 3000, score: 0.64, reason: 'Darius has 2 MR items', component_now: 1026 },
+  ],
+  path: [
+    { item: 3157, name: 'Zhonya’s Hourglass', cost: 3250, score: 0.86, reason: '', component_now: null },
+    { item: 3089, name: 'Rabadon’s Deathcap', cost: 3500, score: 0.8, reason: '', component_now: null },
+    { item: 3135, name: 'Void Staff', cost: 3000, score: 0.62, reason: '', component_now: null },
+  ],
+  owned: [6655, 3020, 4645],
+  threats: [
+    { champ: 238, name: 'Zed', score: 92, kills: 7, deaths: 1, assists: 2, level_diff: 2, item_gold_diff: 2100, kills_on_me: 3, lane_opp: true, damage: 'AD', flags: ['assassin', 'burst'] },
+    { champ: 145, name: 'Kai’Sa', score: 71, kills: 5, deaths: 2, assists: 4, level_diff: 1, item_gold_diff: 900, kills_on_me: 0, lane_opp: false, damage: 'Mixed', flags: ['on-hit', 'dive'] },
+    { champ: 254, name: 'Vi', score: 48, kills: 3, deaths: 3, assists: 6, level_diff: 0, item_gold_diff: 150, kills_on_me: 1, lane_opp: false, damage: 'AD', flags: ['cc', 'dive'] },
+    { champ: 122, name: 'Darius', score: 35, kills: 2, deaths: 4, assists: 1, level_diff: -1, item_gold_diff: -400, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['heals', 'tank'] },
+    { champ: 111, name: 'Nautilus', score: 22, kills: 0, deaths: 3, assists: 8, level_diff: -2, item_gold_diff: -1200, kills_on_me: 0, lane_opp: false, damage: 'Mixed', flags: ['cc', 'tank'] },
+  ],
+  matchups: [
+    { champ: 238, vs_wr: 46.8, games: 18420, lane_opp: true, label: 'unfavoured' },
+    { champ: 145, vs_wr: 50.4, games: 9210, lane_opp: false, label: 'even' },
+    { champ: 254, vs_wr: 51.9, games: 7730, lane_opp: false, label: 'favoured' },
+    { champ: 122, vs_wr: 49.6, games: 4120, lane_opp: false, label: 'even' },
+    { champ: 111, vs_wr: 52.3, games: 6610, lane_opp: false, label: 'favoured' },
+  ],
+  me: {
+    cs_per_min: 6.4,
+    cs_benchmark: 7.3,
+    cs_diff: -16,
+    item_gold_vs_opp: -2100,
+    level_vs_opp: -2,
+    deaths: 4,
+    killers: [
+      [238, 3],
+      [254, 1],
+    ],
+    vision: 14,
+    vision_benchmark: 17,
+  },
+  timers: [
+    { name: 'Dragon', next_spawn: 1215 },
+    { name: 'Baron', next_spawn: 1200 },
+    { name: 'Atakhan', next_spawn: null },
+  ],
+  augments: null,
+};
+
+const mayhemGame: GameAdvice = {
+  time: 412,
+  mode: 'mayhem',
+  my_champ: 103,
+  buy_next: {
+    item: 3089,
+    name: 'Rabadon’s Deathcap',
+    cost: 3500,
+    score: 0.78,
+    reason: 'Highest win rate 3rd item on ARAM Ahri',
+    component_now: 1058,
+  },
+  alternatives: [
+    { item: 3157, name: 'Zhonya’s Hourglass', cost: 3250, score: 0.7, reason: 'Katarina and Master Yi are fed', component_now: 2420 },
+    { item: 3165, name: 'Morellonomicon', cost: 2850, score: 0.61, reason: 'Soraka and Dr. Mundo heal a lot', component_now: 3916 },
+  ],
+  path: [
+    { item: 3089, name: 'Rabadon’s Deathcap', cost: 3500, score: 0.78, reason: '', component_now: null },
+    { item: 3135, name: 'Void Staff', cost: 3000, score: 0.6, reason: '', component_now: null },
+    { item: 3157, name: 'Zhonya’s Hourglass', cost: 3250, score: 0.58, reason: '', component_now: null },
+  ],
+  owned: [6655, 3020, 4645],
+  threats: [
+    { champ: 55, name: 'Katarina', score: 84, kills: 9, deaths: 3, assists: 5, level_diff: 1, item_gold_diff: 1600, kills_on_me: 2, lane_opp: false, damage: 'AP', flags: ['assassin', 'burst'] },
+    { champ: 11, name: 'Master Yi', score: 66, kills: 6, deaths: 4, assists: 2, level_diff: 0, item_gold_diff: 800, kills_on_me: 1, lane_opp: false, damage: 'Mixed', flags: ['on-hit', 'true'] },
+    { champ: 36, name: 'Dr. Mundo', score: 41, kills: 2, deaths: 5, assists: 7, level_diff: 0, item_gold_diff: 300, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['tank', 'heals'] },
+    { champ: 16, name: 'Soraka', score: 30, kills: 1, deaths: 4, assists: 14, level_diff: -1, item_gold_diff: -500, kills_on_me: 0, lane_opp: false, damage: 'AP', flags: ['heals'] },
+    { champ: 22, name: 'Ashe', score: 27, kills: 3, deaths: 6, assists: 8, level_diff: -1, item_gold_diff: -700, kills_on_me: 0, lane_opp: false, damage: 'AD', flags: ['cc', 'crit'] },
+  ],
+  matchups: [],
+  me: {
+    cs_per_min: 4.1,
+    cs_benchmark: 3.6,
+    cs_diff: 3,
+    item_gold_vs_opp: null,
+    level_vs_opp: null,
+    deaths: 4,
+    killers: [
+      [55, 2],
+      [11, 1],
+      [22, 1],
+    ],
+    vision: 0,
+    vision_benchmark: null,
+  },
+  timers: [],
+  augments: {
+    offered: [
+      { id: 1053, name: 'Mad Scientist', rarity: 'prismatic', rank: 5, of: 52 },
+      { id: 1030, name: 'Eureka', rarity: 'prismatic', rank: 0, of: 52 },
+      { id: 1243, name: 'Transmute: Chaos', rarity: 'prismatic', rank: 9, of: 52 },
+    ],
+    best: 1030,
+    reason: 'Eureka is Ahri’s #1 prismatic on u.gg',
+  },
+};
+
+export const fixtures = {
+  noclient: {
+    ...base,
+    phase: 'noclient',
+    sources: src({ client: 'off', ugg: 'off', message: 'League client not running' }),
+  },
+  idle: { ...base, phase: 'idle', recap, sources: src({}) },
+  'champselect rift': {
+    ...base,
+    phase: 'champselect',
+    sources: src({ message: 'lolalytics: patch 16.21 sample small, using last 30 days', lolalytics: 'degraded' }),
+    champ_select: {
+      mode: 'rift',
+      my_lane: 'middle',
+      my_champ: 134,
+      picks: [
+        { champ: 134, score: 0.62, reason: '53.1% vs Zed, 51.8% overall' },
+        { champ: 1, score: 0.58, reason: 'Point-and-click stun beats Zed (54.0%)' },
+        { champ: 45, score: 0.55, reason: '52.6% overall, strong into melee mids' },
+      ],
+      bans: [
+        { champ: 238, score: 0.7, reason: 'Hard counter to Syndra (46.8%), 12% pick rate' },
+        { champ: 112, score: 0.52, reason: 'Meta threat mid: 53.2%, 9% pick rate' },
+        { champ: 4, score: 0.44, reason: 'Beats Syndra 52.9%' },
+      ],
+      build: {
+        start: [1056, 2003, 2003],
+        core: [
+          { item: 6655, name: 'Luden’s Echo', cost: 2750, score: 0.8, reason: 'Most built first item (61%)', component_now: null },
+          { item: 4645, name: 'Shadowflame', cost: 3200, score: 0.72, reason: '54.2% as 2nd item', component_now: null },
+          { item: 3089, name: 'Rabadon’s Deathcap', cost: 3500, score: 0.7, reason: 'Best 3rd item', component_now: null },
+        ],
+        boots: { item: 3020, name: 'Sorcerer’s Shoes', cost: 1100, score: 0.6, reason: 'No heavy CC revealed yet', component_now: null },
+      },
+      bench: [],
+      enemies: [238, 145],
+    },
+  },
+  'champselect mayhem': {
+    ...base,
+    phase: 'champselect',
+    sources: src({}),
+    champ_select: {
+      mode: 'mayhem',
+      my_lane: null,
+      my_champ: 81,
+      picks: [],
+      bans: [],
+      build: {
+        start: [1052, 2003],
+        core: [
+          { item: 3078, name: 'Trinity Force', cost: 3333, score: 0.74, reason: 'Most built first item on ARAM', component_now: null },
+          { item: 3004, name: 'Manamune', cost: 2900, score: 0.7, reason: '55.0% as 2nd item', component_now: null },
+          { item: 3161, name: 'Spear of Shojin', cost: 3100, score: 0.62, reason: '', component_now: null },
+        ],
+        boots: { item: 3158, name: 'Ionian Boots of Lucidity', cost: 900, score: 0.6, reason: 'Haste for spam', component_now: null },
+      },
+      bench: [
+        { champ: 99, tier: 'S+', mine: false },
+        { champ: 103, tier: 'S', mine: false },
+        { champ: 81, tier: 'A', mine: true },
+        { champ: 86, tier: 'B', mine: false },
+        { champ: 67, tier: 'C', mine: false },
+      ],
+      enemies: [],
+    },
+  },
+  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame },
+  'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame },
+  loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
+  postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
+} satisfies Record<string, AppState>;
+
+export type FixtureName = keyof typeof fixtures;
