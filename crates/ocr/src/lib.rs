@@ -5,6 +5,12 @@
 use model::AugmentId;
 use std::collections::HashMap;
 
+mod matching;
+#[cfg(windows)]
+mod win;
+
+pub use matching::match_augments;
+
 /// BGRA8 pixels, top-down.
 pub struct Frame {
     pub width: u32,
@@ -15,19 +21,21 @@ pub struct Frame {
 /// Capture the region of the League game window where augment cards appear.
 /// None when the game window is missing or minimised.
 pub fn capture_league() -> Option<Frame> {
-    todo!()
+    #[cfg(windows)]
+    return win::capture_league();
+    #[cfg(not(windows))]
+    None
 }
 
 /// OCR text lines from a frame.
 pub fn recognize(frame: &Frame) -> anyhow::Result<Vec<String>> {
-    let _ = frame;
-    todo!()
-}
-
-/// Augments whose names appear in `lines` (fuzzy), in screen order, deduped.
-pub fn match_augments(lines: &[String], names: &HashMap<AugmentId, String>) -> Vec<AugmentId> {
-    let _ = (lines, names);
-    todo!()
+    #[cfg(windows)]
+    return win::recognize(frame);
+    #[cfg(not(windows))]
+    {
+        let _ = frame;
+        anyhow::bail!("OCR is only available on Windows")
+    }
 }
 
 /// capture → recognize → match. Empty when nothing is offered.
