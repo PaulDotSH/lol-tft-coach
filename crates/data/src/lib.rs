@@ -3,6 +3,7 @@
 
 pub mod ddragon;
 pub mod lolalytics;
+pub mod lolalytics_aram;
 pub mod lolalytics_team;
 pub mod qwik;
 pub mod ugg;

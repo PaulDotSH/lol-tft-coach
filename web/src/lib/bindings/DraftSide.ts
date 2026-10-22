@@ -18,4 +18,8 @@ gaps: Array<string>, factors: Array<DraftFactor>,
 /**
  * Sum of `factors`.
  */
-total: number, };
+total: number, 
+/**
+ * Summed peel trait.
+ */
+peel: number, };

@@ -12,6 +12,7 @@ mod matchups;
 mod needs;
 mod recap;
 mod self_stats;
+mod team;
 mod threat;
 mod timers;
 
@@ -77,7 +78,8 @@ pub struct ChampSelectInput<'a> {
     /// Stats for each revealed enemy, in their likely lane. Their `counters`
     /// give their win rate vs every champ, so ours ≈ 100 − theirs.
     pub enemies: &'a [ChampStats],
-    /// lolalytics tier list for my lane (pick candidates, meta bans).
+    /// lolalytics tier list for my lane (pick candidates, meta bans); in
+    /// ARAM / Mayhem the ARAM list for all champions (bench).
     pub tier_list: &'a [TierEntry],
     pub mayhem: Option<&'a MayhemData>,
     /// Rift draft data (lane matchups, synergy); empty until fetched.

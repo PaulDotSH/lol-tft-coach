@@ -8,6 +8,7 @@
   import Bench from './Bench.svelte';
   import DraftPanel from './DraftPanel.svelte';
   import MacroChampLine from './MacroChampLine.svelte';
+  import TeamSide from './TeamSide.svelte';
 
   let { cs }: { cs: ChampSelectAdvice } = $props();
   const rift = $derived(cs.mode === 'rift');
@@ -35,8 +36,11 @@
     {/if}
   </section>
 
-  {#if cs.bench.length}
-    <Bench bench={cs.bench} />
+  {#if cs.bench.length || cs.team}
+    <div class="pair">
+      {#if cs.bench.length}<Bench bench={cs.bench} />{/if}
+      {#if cs.team}<section class="panel"><TeamSide title="Your team" side={cs.team} icons /></section>{/if}
+    </div>
   {/if}
 
   {#if cs.picks.length || cs.bans.length}

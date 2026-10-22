@@ -7,4 +7,8 @@ export type Traits = {
 /**
  * Share of damage that is magic (0 = all physical).
  */
-magic_share: number, true_damage: number, heals: number, cc: number, burst: number, on_hit: number, tank: number, };
+magic_share: number, true_damage: number, heals: number, cc: number, burst: number, on_hit: number, tank: number, 
+/**
+ * Protecting carries: shields, heals on allies, disengage, body-blocking.
+ */
+peel: number, };

@@ -349,6 +349,12 @@ fn default_traits(c: &DChamp) -> Traits {
         } else {
             0.1
         },
+        // Primary tag only: "Mage, Support" (Xerath, Brand) are damage first.
+        peel: match c.tags.first().map(String::as_str) {
+            Some("Support") => 0.5,
+            Some("Tank") => 0.3,
+            _ => 0.0,
+        },
     }
 }
 
@@ -366,6 +372,7 @@ fn apply_traits(t: &mut Traits, over: &HashMap<String, f32>) -> anyhow::Result<(
             "burst" => &mut t.burst,
             "on_hit" => &mut t.on_hit,
             "tank" => &mut t.tank,
+            "peel" => &mut t.peel,
             _ => anyhow::bail!("traits.toml: unknown field {k}"),
         };
         *f = v.clamp(0.0, 1.0);
@@ -457,6 +464,8 @@ mod tests {
         assert!(by_id("Vayne").traits.true_damage > 0.5);
         assert!(by_id("Garen").traits.magic_share < 0.1, "tag default: physical");
         assert!(by_id("Malphite").traits.tank == 1.0);
+        assert_eq!(by_id("Janna").traits.peel, 1.0);
+        assert_eq!((by_id("Sona").traits.peel, by_id("Xerath").traits.peel), (0.5, 0.0), "primary tag default");
     }
 
     #[test]
