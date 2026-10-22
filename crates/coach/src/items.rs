@@ -341,7 +341,11 @@ fn remaining_cost(sd: &StaticData, item: &Item, inv: &mut Vec<ItemId>) -> u32 {
     cost
 }
 
-/// Most expensive affordable component in the item's tree I don't already own.
+/// Components that stack while held (Tear of the Goddess): bought first.
+const STACKING: [ItemId; 1] = [3070];
+
+/// Most expensive affordable component in the item's tree I don't already own;
+/// a stacking component first.
 pub fn component_now(sd: &StaticData, item: &Item, inventory: &[ItemId], gold: f32) -> Option<ItemId> {
     if gold >= remaining_cost(sd, item, &mut inventory.to_vec()) as f32 {
         return None;
@@ -353,6 +357,9 @@ pub fn component_now(sd: &StaticData, item: &Item, inventory: &[ItemId], gold: f
             continue;
         }
         let Some(c) = sd.items.get(&id) else { continue };
+        if STACKING.contains(&id) && c.cost as f32 <= gold {
+            return Some(id);
+        }
         if c.cost as f32 <= gold {
             if best.is_none_or(|b| (c.cost, std::cmp::Reverse(c.id)) > (b.cost, std::cmp::Reverse(b.id))) {
                 best = Some(c);
@@ -429,5 +436,42 @@ pub fn to_pick(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe], gold: Option<
         score: s.score,
         reason: reason(ctx, s, needs, foes),
         component_now: it.zip(gold).and_then(|(i, (g, inv))| component_now(ctx.sd, i, inv, g)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item(id: ItemId, cost: u32, from: &[ItemId]) -> Item {
+        Item {
+            id,
+            name: id.to_string(),
+            cost,
+            from: from.to_vec(),
+            into: vec![],
+            stats: ItemStats::default(),
+            answers: Profile::default(),
+            boots: false,
+            completed: from.is_empty(),
+            rift: true,
+            aram: true,
+            tags: vec![],
+        }
+    }
+
+    #[test]
+    fn tear_is_bought_before_pricier_components() {
+        // Archangel's Staff: Tear (400) + Lost Chapter (1200).
+        let items = [item(3070, 400, &[]), item(3802, 1200, &[]), item(3003, 2900, &[3070, 3802])];
+        let sd = StaticData {
+            version: String::new(),
+            items: items.into_iter().map(|i| (i.id, i)).collect(),
+            champs: Default::default(),
+            item_groups: Default::default(),
+        };
+        let archangels = &sd.items[&3003];
+        assert_eq!(component_now(&sd, archangels, &[], 1300.0), Some(3070));
+        assert_eq!(component_now(&sd, archangels, &[3070], 1300.0), Some(3802));
     }
 }

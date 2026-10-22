@@ -333,8 +333,10 @@ tags = ["ap"]
 [[augment]]
 id = 1045
 name = "Infernal Conduit"
-tags = ["ap"]
-favors = [4633] # Riftmaker
+# Burns cut basic ability cooldowns: spammed abilities need mana.
+tags = ["ap", "mana"]
+# Riftmaker, Liandry's Torment, Blackfire Torch, Demonic Embrace (burns), Archangel's Staff (Tear).
+favors = [4633, 6653, 2503, 4637, 3003]
 
 [[augment]]
 id = 3059
