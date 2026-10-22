@@ -7,6 +7,7 @@ pub mod consts;
 mod gold;
 mod draft;
 mod items;
+mod macro_coach;
 mod matchups;
 mod needs;
 mod recap;
@@ -15,6 +16,7 @@ mod threat;
 mod timers;
 
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
+pub use macro_coach::MAX_PATTERNS;
 use model::*;
 
 pub use draft::{DraftData, Lineup, lineups as draft_lineups};
@@ -88,4 +90,9 @@ pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
 
 pub fn recap(eog: &EogStats, benchmarks: &Benchmarks, recommended: &[ItemId], sd: &StaticData) -> Recap {
     recap::recap(eog, benchmarks, recommended, sd)
+}
+
+/// Loss patterns over my recent games; `bench` holds lolalytics averages per (mode, champion).
+pub fn macro_report(games: &[PastGame], sd: &StaticData, bench: &std::collections::HashMap<(Mode, ChampKey), Benchmarks>) -> MacroReport {
+    macro_coach::report(games, sd, bench)
 }
