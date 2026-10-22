@@ -1,0 +1,10 @@
+[package]
+name = "coach"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+model.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
