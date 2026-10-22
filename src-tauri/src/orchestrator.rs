@@ -26,6 +26,7 @@ struct Memo {
     recap: Option<Recap>,
     last_record: Option<Instant>,
     gold: coach::GoldHistory,
+    tracker: coach::Tracker,
 }
 
 impl Memo {
@@ -269,7 +270,8 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
     };
 
-    let advice = coach::game_advice(&coach::GameInput {
+    memo.tracker.observe(snap, sd);
+    let mut advice = coach::game_advice(&coach::GameInput {
         snap,
         sd,
         stats: my_stats.as_deref(),
@@ -277,6 +279,8 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         offered: &offered,
         gold_history: &memo.gold.samples,
     });
+    let ults = crate::ingame::ults(sh, sd, snap);
+    coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults });
     if let Some(s) = advice.gold.history.last() {
         memo.gold.push(s.clone());
     }

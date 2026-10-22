@@ -1,10 +1,12 @@
 <script lang="ts">
+  import type { GoldEta as Eta } from '../../lib/bindings/GoldEta';
   import type { ItemPick } from '../../lib/bindings/ItemPick';
   import { store } from '../../lib/store.svelte';
   import { itemName } from '../../lib/ui';
   import Icon from '../Icon.svelte';
+  import GoldEta from './GoldEta.svelte';
 
-  let { pick, alternatives }: { pick: ItemPick | null; alternatives: ItemPick[] } = $props();
+  let { pick, alternatives, eta = null }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null } = $props();
   const component = $derived(pick?.component_now ?? null);
   const componentCost = $derived(component != null ? (store.ui?.items[component]?.cost ?? null) : null);
 </script>
@@ -17,6 +19,7 @@
         <div class="name">{pick.name}</div>
         <div class="cost num">{pick.cost.toLocaleString()} g</div>
         {#if pick.reason}<p class="reason">{pick.reason}</p>{/if}
+        {#if eta && eta.item === pick.item}<GoldEta {eta} />{/if}
       </div>
     </div>
     {#if component != null}

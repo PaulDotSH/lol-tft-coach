@@ -4,6 +4,7 @@ import type { Api } from '../lib/api';
 import type { AppState } from '../lib/bindings/AppState';
 import type { ChampStats } from '../lib/bindings/ChampStats';
 import type { ItemStat } from '../lib/bindings/ItemStat';
+import type { Respawn } from '../lib/bindings/Respawn';
 import { fixtures, settings as defaultSettings, type FixtureName } from './states';
 import { uiStatic } from './static';
 
@@ -16,7 +17,13 @@ const subs = new Set<(s: AppState) => void>();
 
 function snapshot(): AppState {
   const f: AppState = fixtures[current];
-  const game = f.game && { ...f.game, time: f.game.time + elapsed };
+  const tick = (r: Respawn): Respawn => ({ ...r, in_s: Math.max(0, r.in_s - elapsed) });
+  const game = f.game && {
+    ...f.game,
+    time: f.game.time + elapsed,
+    shopping: { ...f.game.shopping, respawn_in: Math.max(0, f.game.shopping.respawn_in - elapsed) },
+    deaths: { enemies: f.game.deaths.enemies.map(tick), allies: f.game.deaths.allies.map(tick) },
+  };
   return { ...f, game, settings };
 }
 const push = () => subs.forEach((cb) => cb(snapshot()));

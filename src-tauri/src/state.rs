@@ -48,6 +48,9 @@ pub struct Shared {
     pub team: Cache<(ChampKey, Lane), TeamSynergy>,
     /// ARAM tier list (all champions) for the ARAM / Mayhem bench.
     pub aram_tiers: Cache<(), Vec<TierEntry>>,
+    /// Data Dragon R cooldowns per champion, and the last fetch outcome.
+    pub ults: Cache<ChampKey, UltCooldowns>,
+    pub ddragon_ok: Mutex<Option<bool>>,
 }
 
 impl Shared {
@@ -83,6 +86,8 @@ impl Shared {
             lane_stats: Mutex::default(),
             team: Mutex::default(),
             aram_tiers: Mutex::default(),
+            ults: Mutex::default(),
+            ddragon_ok: Mutex::new(None),
         }
     }
 

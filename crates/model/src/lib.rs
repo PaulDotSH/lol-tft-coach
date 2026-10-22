@@ -371,6 +371,14 @@ data! {
         pub damage: String,
         /// Short flags: "assassin", "heals", "cc", "tank", "crit", …
         pub flags: Vec<String>,
+        /// Completed legendaries held.
+        pub legendaries: u32,
+        /// Legendaries vs the lobby average, rounded.
+        pub legendary_diff: i32,
+        /// Legendaries completed in the last few minutes of game time, newest last.
+        pub new_items: Vec<ItemId>,
+        /// R rank their visible level allows and its static base cooldown; None before R.
+        pub ult: Option<UltInfo>,
     }
 
     pub struct MatchupTip {
@@ -432,6 +440,11 @@ data! {
         pub timers: Vec<ObjectiveTimer>,
         pub augments: Option<AugmentAdvice>,
         pub gold: GoldDiff,
+        /// What my gold buys right now (the card to look at while dead).
+        pub shopping: ShoppingList,
+        /// When Buy next is affordable (income from tracked gold); None with nothing left to buy.
+        pub gold_eta: Option<GoldEta>,
+        pub deaths: DeathWindow,
     }
 
     pub struct PickSuggestion {
@@ -748,6 +761,89 @@ data! {
         pub allies: DraftSide,
         pub enemies: DraftSide,
         pub lanes: Vec<DraftLane>,
+    }
+
+    // ---- in-game extras: shopping, gold ETA, spikes, death windows ----
+
+    /// Data Dragon `champion/<Id>.json` → `spells[3]`.
+    pub struct UltCooldowns {
+        pub max_rank: u32,
+        /// Base cooldown per rank, seconds.
+        pub cooldown: Vec<f32>,
+    }
+
+    pub struct UltInfo {
+        /// Highest R rank the level allows (6/11/16; 1/6/11/16 for four-rank ults).
+        pub rank: u32,
+        /// Base cooldown per rank, seconds (static data, before haste); empty until fetched.
+        pub cooldowns: Vec<f32>,
+        /// Level is exactly a rank threshold: R just came online / ranked up.
+        pub spike: bool,
+    }
+
+    #[derive(Copy, Eq)]
+    #[serde(rename_all = "lowercase")]
+    pub enum BuyKind {
+        /// A finished path item.
+        Full,
+        /// A component toward `ShopBuy::toward`.
+        Component,
+        /// Control ward, elixir.
+        Extra,
+    }
+
+    pub struct ShopBuy {
+        pub item: ItemId,
+        pub name: String,
+        /// Gold paid now: cost minus components already held.
+        pub price: u32,
+        pub kind: BuyKind,
+        pub toward: Option<ItemId>,
+    }
+
+    #[derive(Default)]
+    pub struct ShoppingList {
+        pub gold: u32,
+        /// In purchase order.
+        pub buys: Vec<ShopBuy>,
+        pub leftover: u32,
+        pub dead: bool,
+        /// Seconds until respawn (0 when alive).
+        pub respawn_in: f32,
+    }
+
+    /// A gold amount at which the shopping list grows.
+    pub struct BackPlan {
+        pub gold: u32,
+        /// Seconds until then at the estimated income.
+        pub in_s: Option<f32>,
+        /// Path items and components bought at that gold (extras left out).
+        pub items: Vec<ItemId>,
+    }
+
+    pub struct GoldEta {
+        /// Buy next.
+        pub item: Option<ItemId>,
+        /// Estimated income, gold per minute (spending ignored); None until enough samples.
+        pub per_min: Option<f32>,
+        /// Gold still missing for `item`, held components counted (0 = affordable now).
+        pub missing: u32,
+        /// Seconds until `item` is affordable at `per_min`.
+        pub eta_s: Option<f32>,
+        /// Next gold amounts that buy more, before `item` itself.
+        pub backs: Vec<BackPlan>,
+    }
+
+    pub struct Respawn {
+        pub champ: ChampKey,
+        /// Seconds until back (the scoreboard death timer).
+        pub in_s: f32,
+    }
+
+    /// Who is dead right now, soonest back first. Allies exclude me.
+    pub struct DeathWindow {
+        pub enemies: Vec<Respawn>,
+        pub allies: Vec<Respawn>,
     }
 }
 

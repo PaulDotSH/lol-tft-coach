@@ -8,6 +8,8 @@
   import Matchups from './Matchups.svelte';
   import Timers from './Timers.svelte';
   import GoldDiff from './GoldDiff.svelte';
+  import Shopping from './Shopping.svelte';
+  import DeathWindows from './DeathWindows.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -19,10 +21,14 @@
     <div class="aug"><AugmentOffer advice={game.augments} champ={game.my_champ} /></div>
   {/if}
   <div class="build">
-    <BuyNext pick={game.buy_next} alternatives={game.alternatives} />
+    <Shopping list={game.shopping} at={game.time} />
+    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} />
     <BuildPath owned={game.owned} path={game.path} />
   </div>
-  <div class="threats"><Threats threats={game.threats} /></div>
+  <div class="threats">
+    <Threats threats={game.threats} />
+    <DeathWindows deaths={game.deaths} at={game.time} />
+  </div>
   <div class="me"><SelfCoach me={game.me} {laneOpp} /></div>
   <div class="gold"><GoldDiff g={game.gold} /></div>
   {#if rift}
@@ -58,6 +64,9 @@
   }
   .threats {
     grid-area: threats;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
     min-width: 0;
   }
   .me {
