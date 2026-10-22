@@ -30,7 +30,7 @@ pub fn gold_sinks(ctx: &Ctx, owned: &[ItemId], needs: &Needs, foes: &[Foe], leve
             item: Some(a.item),
             sell: None,
             cost: a.cost,
-            reason: "Stat Anvil: permanent stats, no item slot (a free Cappa Juice with each)".into(),
+            reason: "Permanent stats, no item slot (a free Cappa Juice with each)".into(),
         });
     }
     if level >= r.elixir_level
@@ -81,7 +81,7 @@ pub fn gold_sinks(ctx: &Ctx, owned: &[ItemId], needs: &Needs, foes: &[Foe], leve
             item: Some(top.id),
             sell: Some(o.id),
             cost: p.cost.saturating_sub(sell(o)),
-            reason: format!("{} over {}: {}", p.name, o.name, p.reason),
+            reason: format!("{} over {} · {}", p.name, o.name, p.reason),
         });
     }
     out

@@ -5,6 +5,7 @@ import type { Recap } from '../lib/bindings/Recap';
 import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
 import { mayhemGold, riftGold } from './gold';
+import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false };
 
@@ -102,6 +103,9 @@ const riftGame: GameAdvice = {
   ],
   augments: null,
   gold: riftGold,
+  my_augments: [],
+  defense: riftDefense,
+  gold_sinks: [],
 };
 
 const mayhemGame: GameAdvice = {
@@ -152,14 +156,30 @@ const mayhemGame: GameAdvice = {
   timers: [],
   augments: {
     offered: [
-      { id: 1053, name: 'Mad Scientist', rarity: 'prismatic', rank: 5, of: 52 },
-      { id: 1030, name: 'Eureka', rarity: 'prismatic', rank: 0, of: 52 },
-      { id: 1243, name: 'Transmute: Chaos', rarity: 'prismatic', rank: 9, of: 52 },
+      { id: 1053, name: 'Mad Scientist', rarity: 'prismatic', rank: 5, of: 52, synergy: null },
+      { id: 1030, name: 'Eureka', rarity: 'prismatic', rank: 0, of: 52, synergy: 'fits your Luden’s Echo (AP)' },
+      { id: 1243, name: 'Transmute: Chaos', rarity: 'prismatic', rank: 9, of: 52, synergy: null },
     ],
     best: 1030,
     reason: 'Eureka is Ahri’s #1 prismatic on u.gg',
   },
   gold: mayhemGold,
+  my_augments: mayhemPicks,
+  defense: mayhemDefense,
+  gold_sinks: [],
+};
+
+// Six items, 3k gold, level 13: nothing left to buy, gold sinks instead.
+const mayhemFull: GameAdvice = {
+  ...mayhemGame,
+  time: 1386,
+  buy_next: null,
+  alternatives: [],
+  path: [],
+  owned: [6655, 3020, 4645, 3089, 3135, 3165],
+  augments: null,
+  my_augments: [...mayhemPicks, { id: 1305, candidates: [1305], time: 1210 }],
+  gold_sinks: fullBuildSinks,
 };
 
 export const fixtures = {
@@ -278,6 +298,7 @@ export const fixtures = {
   },
   'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame },
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame },
+  'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull },
   loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
 } satisfies Record<string, AppState>;

@@ -29,6 +29,7 @@
         <div>
           <div class="name">{a.name}</div>
           <div class="rank">{rankText(a)}</div>
+          {#if a.synergy}<div class="syn">{a.synergy}</div>{/if}
         </div>
       </li>
     {/each}
@@ -69,5 +70,9 @@
   .rank {
     font-size: 14px;
     color: var(--muted);
+  }
+  .syn {
+    font-size: 14px;
+    color: var(--good);
   }
 </style>
