@@ -36,6 +36,11 @@ fn newest(games: &Option<Arc<Vec<PastGame>>>) -> Option<u64> {
 }
 
 impl MacroSync {
+    /// Recent games from the last successful sync, newest first.
+    pub fn games(&self) -> Option<Arc<Vec<PastGame>>> {
+        self.0.lock().unwrap().games.clone()
+    }
+
     /// Every tick: starts a sync when one is due (Idle / PostGame only) and
     /// returns the latest report, recomputed while idle.
     pub fn tick(self: &Arc<Self>, sh: &Arc<Shared>, sd: &StaticData, lcu: Option<&Lcu>, phase: Phase) -> Option<MacroReport> {

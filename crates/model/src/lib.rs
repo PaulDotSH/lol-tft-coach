@@ -493,6 +493,11 @@ data! {
         /// Items recommended over the game, in order first suggested.
         pub recommended: Vec<ItemId>,
         pub notes: Vec<String>,
+        /// Self-coaching (absent in recaps saved before it existed).
+        pub review: Option<DeathReview>,
+        pub summary: Option<GameSummary>,
+        #[serde(default)]
+        pub goals: Vec<GoalProgress>,
     }
 
     pub struct Sources {
@@ -511,6 +516,9 @@ data! {
         pub region: String,
         pub ocr_enabled: bool,
         pub record_fixtures: bool,
+        /// Up to two self-coaching goals.
+        #[serde(default)]
+        pub goals: Vec<Goal>,
     }
 
     pub struct UiChamp {
@@ -545,6 +553,10 @@ data! {
         pub settings: Settings,
         /// Loss patterns from recent games (idle dashboard).
         pub macro_report: Option<MacroReport>,
+        /// Personal trends and goal status across games (idle dashboard).
+        pub trends: Option<Trends>,
+        /// Live progress on my goals this game (self-coach row).
+        pub goal_progress: Vec<GoalProgress>,
     }
 
     // ---- macro coach (own match history) ----
@@ -594,6 +606,10 @@ data! {
         pub first_dragon: Option<bool>,
         pub first_tower: Option<bool>,
         pub first_blood: Option<bool>,
+        /// My CS at 10:00 (timeline).
+        pub cs_10: Option<u32>,
+        /// Mayhem augments I took.
+        pub augments: Vec<AugmentId>,
     }
 
     pub struct ModeRecord {
@@ -845,11 +861,120 @@ data! {
         pub enemies: Vec<Respawn>,
         pub allies: Vec<Respawn>,
     }
+
+    // ---- self-coaching: death review, goals, trends ----
+
+    /// A goal picked in settings. Targets: CS/min at 10:00 ≥, deaths before 14:00 ≤,
+    /// vision/min ≥, unspent gold at each death <, Buy next followed ≥ (%).
+    pub struct Goal {
+        pub kind: GoalKind,
+        pub target: f32,
+    }
+
+    pub struct GoalProgress {
+        pub kind: GoalKind,
+        pub target: f32,
+        /// In the goal's unit; for `Unspent` the number of deaths at or above the target.
+        pub value: Option<f32>,
+        /// None while it can still go either way.
+        pub met: Option<bool>,
+    }
+
+    pub struct DeathNote {
+        /// Game time (s).
+        pub time: f32,
+        /// None for executions (turret, minions).
+        pub killer: Option<ChampKey>,
+        pub assisters: Vec<ChampKey>,
+        /// My item gold minus the killer's.
+        pub gold_gap: Option<i32>,
+        /// The killer was first on the threat board.
+        pub killer_top_threat: bool,
+        /// Gold I was holding.
+        pub unspent: u32,
+        pub buy_next: Option<ItemId>,
+        /// Buy next (or its component) cost no more than `unspent`.
+        pub could_buy: bool,
+        pub owned: Vec<ItemId>,
+        /// Killer / assisters who reached level 6, 11 or 16 within 60 s before.
+        pub spikes: Vec<(ChampKey, u32)>,
+    }
+
+    pub struct DeathReview {
+        pub deaths: Vec<DeathNote>,
+        /// Patterns within the game, e.g. "Died 3× within 60 s of Malphite reaching 6/11/16".
+        pub notes: Vec<String>,
+    }
+
+    /// One game's self-coaching numbers, saved with its recap (trend input).
+    pub struct GameSummary {
+        /// Unix seconds.
+        #[ts(type = "number")]
+        pub ended: u64,
+        pub mode: Mode,
+        pub champ: ChampKey,
+        pub win: bool,
+        pub duration_s: u32,
+        pub cs_10: Option<u32>,
+        pub deaths_before_14: Option<u32>,
+        pub vision: u32,
+        /// Gold held at each death.
+        pub unspent_at_death: Vec<u32>,
+        /// Completed items bought, and how many were Buy next (or an alternative) at the time.
+        pub buys: u32,
+        pub followed: u32,
+    }
+
+    pub struct Trend {
+        pub mode: Mode,
+        pub kind: GoalKind,
+        /// Per game, oldest → newest (at most 20).
+        pub series: Vec<f32>,
+        /// Mean of the last 5 games, and of the games before them.
+        pub recent: f32,
+        pub before: Option<f32>,
+        /// Recent vs before; None when flat or unknown.
+        pub better: Option<bool>,
+    }
+
+    /// "Followed Buy next" share in wins vs losses.
+    pub struct FollowSplit {
+        pub mode: Mode,
+        pub wins: Option<f32>,
+        pub losses: Option<f32>,
+        pub games: u32,
+    }
+
+    /// Mayhem: how often I took an augment and my damage with it. Never win rates (Riot rule).
+    pub struct AugmentUse {
+        pub id: AugmentId,
+        pub games: u32,
+        pub damage_per_min: f32,
+    }
+
+    pub struct GoalStatus {
+        pub goal: Goal,
+        /// Recent games that met it, of those where it could be measured.
+        pub met: u32,
+        pub of: u32,
+    }
+
+    pub struct Trends {
+        pub trends: Vec<Trend>,
+        pub follow: Vec<FollowSplit>,
+        pub augments: Vec<AugmentUse>,
+        pub goals: Vec<GoalStatus>,
+    }
+}
+
+enums! {
+    /// Self-coaching goal / trend metric.
+    pub enum GoalKind { Cs10, EarlyDeaths, Vision, Unspent, BuyNext }
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![] }
     }
 }
 

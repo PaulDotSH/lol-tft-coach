@@ -25,6 +25,9 @@ fn list_keeps_rift_and_abyss_matchmade_games() {
     assert_eq!(aram.lane, None, "no lanes outside the Rift");
     assert_eq!((aram.death_times.as_ref(), aram.ours.as_ref(), aram.first_dragon), (None, None, None));
 
+    assert_eq!(games[2].augments, [1030, 2132, 1389]);
+    assert_eq!(games[2].cs_10, None, "no timeline");
+
     // List entries have no teams and no other players.
     let rift = &games[0];
     assert_eq!((rift.lane, rift.gold_diff_15, rift.first_tower), (Some(Lane::Middle), None, None));
@@ -61,6 +64,8 @@ fn detail_and_timeline() {
             first_dragon: Some(false),
             first_tower: Some(false),
             first_blood: Some(true),
+            cs_10: Some(70),
+            augments: vec![],
         }
     );
 }

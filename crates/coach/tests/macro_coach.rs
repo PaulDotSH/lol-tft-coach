@@ -39,6 +39,8 @@ fn game(i: usize, mode: Mode, champ: ChampKey, win: bool) -> PastGame {
         first_dragon: Some(i.is_multiple_of(2)),
         first_tower: Some(!i.is_multiple_of(2)),
         first_blood: None,
+        cs_10: None,
+        augments: vec![],
     }
 }
 

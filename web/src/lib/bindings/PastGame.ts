@@ -30,4 +30,12 @@ ours: TeamObjectives | null, theirs: TeamObjectives | null,
 /**
  * Some(true) = my team got it first; None = nobody / unknown.
  */
-first_dragon: boolean | null, first_tower: boolean | null, first_blood: boolean | null, };
+first_dragon: boolean | null, first_tower: boolean | null, first_blood: boolean | null, 
+/**
+ * My CS at 10:00 (timeline).
+ */
+cs_10: number | null, 
+/**
+ * Mayhem augments I took.
+ */
+augments: Array<number>, };

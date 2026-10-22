@@ -27,6 +27,8 @@ struct Memo {
     last_record: Option<Instant>,
     gold: coach::GoldHistory,
     tracker: coach::Tracker,
+    log: coach::GameLog,
+    goal_progress: Vec<GoalProgress>,
 }
 
 impl Memo {
@@ -43,6 +45,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let mut memo = Memo { recap: load_last_recap(), ..Memo::default() };
     let mut last_json = String::new();
     let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
+    let mut self_coach = crate::selfcoach::SelfCoach::default();
 
     loop {
         if sh.static_data().is_none() {
@@ -155,6 +158,8 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         };
         let recap = memo.recap.clone();
         let macro_report = macro_sync.tick(&sh, &sd, lcu.as_ref(), phase);
+        let trends = self_coach.tick(phase, macro_sync.games(), memo.recap.as_ref(), &settings.goals);
+        let goal_progress = if game.is_some() { memo.goal_progress.clone() } else { vec![] };
         push(&app, &sh, &mut last_json, move |st| {
             st.phase = phase;
             st.sources = sources;
@@ -162,6 +167,8 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             st.game = game;
             st.recap = recap;
             st.macro_report = macro_report;
+            st.trends = trends;
+            st.goal_progress = goal_progress;
         });
 
         let tick = match phase {
@@ -288,6 +295,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);
         }
+    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &sh.settings().goals);
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice
@@ -296,6 +304,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
 fn recap(sh: &Arc<Shared>, sd: &StaticData, eog: &EogStats, memo: &Memo) -> Recap {
     let bench = stats(sh, sd, eog.champ, memo.last_lane, eog.mode).map(|s| s.benchmarks.clone()).unwrap_or_default();
     let r = coach::recap(eog, &bench, &memo.recommended, sd);
+    let r = crate::selfcoach::finish(r, &memo.log, sd, &sh.settings().goals, unix_now());
     let path = settings::local_dir("recaps").join(format!("{}.json", unix_now()));
     if let Ok(json) = serde_json::to_string_pretty(&r) {
         let _ = std::fs::write(path, json);
