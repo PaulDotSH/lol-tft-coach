@@ -2,6 +2,7 @@
 
 mod commands;
 mod draft;
+mod macro_sync;
 mod orchestrator;
 mod settings;
 mod state;

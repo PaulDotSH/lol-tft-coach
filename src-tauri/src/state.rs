@@ -66,6 +66,7 @@ impl Shared {
                 game: None,
                 recap: None,
                 settings,
+                macro_report: None,
             }),
             sd: RwLock::new(None),
             mayhem: Mutex::default(),

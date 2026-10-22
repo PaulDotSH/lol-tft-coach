@@ -5,6 +5,7 @@ import type { Recap } from '../lib/bindings/Recap';
 import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
 import { mayhemGold, riftGold } from './gold';
+import { macroFewGames, macroReport } from './macro';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false };
 
@@ -43,7 +44,7 @@ const recap: Recap = {
   ],
 };
 
-const base = { settings, champ_select: null, game: null, recap: null } satisfies Partial<AppState>;
+const base = { settings, champ_select: null, game: null, recap: null, macro_report: macroReport } satisfies Partial<AppState>;
 
 const riftGame: GameAdvice = {
   time: 1112,
@@ -166,6 +167,7 @@ export const fixtures = {
   noclient: {
     ...base,
     phase: 'noclient',
+    macro_report: null,
     sources: src({ client: 'off', ugg: 'off', message: 'League client not running' }),
   },
   idle: { ...base, phase: 'idle', recap, sources: src({}) },
@@ -280,6 +282,7 @@ export const fixtures = {
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame },
   loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
+  'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, sources: src({}) },
 } satisfies Record<string, AppState>;
 
 export type FixtureName = keyof typeof fixtures;

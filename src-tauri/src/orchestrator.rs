@@ -41,6 +41,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let mut last_discover: Option<Instant> = None;
     let mut memo = Memo { recap: load_last_recap(), ..Memo::default() };
     let mut last_json = String::new();
+    let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
 
     loop {
         if sh.static_data().is_none() {
@@ -152,12 +153,14 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             message: None,
         };
         let recap = memo.recap.clone();
+        let macro_report = macro_sync.tick(&sh, &sd, lcu.as_ref(), phase);
         push(&app, &sh, &mut last_json, move |st| {
             st.phase = phase;
             st.sources = sources;
             st.champ_select = champ_select;
             st.game = game;
             st.recap = recap;
+            st.macro_report = macro_report;
         });
 
         let tick = match phase {

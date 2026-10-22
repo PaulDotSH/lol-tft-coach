@@ -7,6 +7,7 @@
   import BuildPlan from './BuildPlan.svelte';
   import Bench from './Bench.svelte';
   import DraftPanel from './DraftPanel.svelte';
+  import MacroChampLine from './MacroChampLine.svelte';
 
   let { cs }: { cs: ChampSelectAdvice } = $props();
   const rift = $derived(cs.mode === 'rift');
@@ -19,6 +20,7 @@
       <div>
         <div class="name">{store.ui ? champName(store.ui, cs.my_champ) : ''}</div>
         <div class="muted">{cs.my_lane ? LANE_NAMES[cs.my_lane] : rift ? 'Role not assigned' : 'Your champion'}</div>
+        <MacroChampLine champ={cs.my_champ} mode={cs.mode} />
       </div>
     {:else}
       <div class="name muted">No champion hovered yet</div>
