@@ -959,6 +959,9 @@ mod tests {
         let o = (at[0], at[1]);
         let acc = outline(&im, o, s, true, true);
         println!("outline ncc {:.3} amp {:.1}", acc.value(), acc.amplitude());
+        let t = Instant::now();
+        let n = SLOTS.iter().filter_map(|&(sx, sy)| read_cell(&im, o.0 + sx * PITCH_X * s, o.1 + sy * PITCH_Y * s, s, &icons)).count();
+        println!("{} groups: {n} cells read in {:?}", icons.len(), t.elapsed());
         for (sx, sy) in SLOTS {
             let c = read_cell(&im, o.0 + sx * PITCH_X * s, o.1 + sy * PITCH_Y * s, s, &icons);
             println!(

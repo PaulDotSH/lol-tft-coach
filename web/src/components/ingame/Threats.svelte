@@ -3,6 +3,7 @@
   import { gold, signed } from '../../lib/ui';
   import Icon from '../Icon.svelte';
   import ThreatSpikes from './ThreatSpikes.svelte';
+  import ThreatAugments from './ThreatAugments.svelte';
 
   let { threats }: { threats: Threat[] } = $props();
   const sorted = $derived([...threats].sort((a, b) => b.score - a.score));
@@ -31,6 +32,7 @@
             <span title="Level vs lobby average">{signed(t.level_diff)} lvl</span>
             {#if t.kills_on_me > 0}<span class="bad">killed you {t.kills_on_me}×</span>{/if}
           </div>
+          <ThreatAugments {t} />
           <div class="bar"><span></span></div>
         </div>
         <div class="score num">{Math.round(t.score)}</div>
