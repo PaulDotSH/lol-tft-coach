@@ -6,6 +6,13 @@ augment ranking read off the screen. Read-only (Riot's local APIs + public
 stats sites), silent, never an overlay. Spec: `docs/superpowers/specs/`,
 future ideas: `docs/ideas.md`.
 
+## Features
+
+- **Champ select**: counter-picks (all champions in your role) blended with duo synergy and comp gaps, bans, draft breakdown for both teams, team composition (damage mix, frontline, engage, peel, CC), ARAM/Mayhem bench ranked by tier + team fit, build plan.
+- **In game**: Buy next with threat-aware reasons, gold ETA and back plans, shopping list (emphasised while dead), full path, late-game gold sinks; threat board with R-online/base ult cooldowns, finished-item spikes and enemy Mayhem augments; death windows; item-gold diff (team, lanes, sparkline); self-coach row with goals; effective HP vs the enemy damage mix and pen choice; objective timers.
+- **Mayhem**: augment offers read by OCR and ranked for your champion (ranks only, never win rates), picked-augment detection, augment-aware item scoring, mode rules (`crates/coach/modes.toml`), "hold Tab" hints and enemy augments read from the Tab scoreboard.
+- **Between games**: last-game recap with death review, recent-game loss patterns (macro coach), trends and goals, champion lookup, settings.
+
 ## Run
 
 ```
@@ -53,3 +60,5 @@ recorded fixtures under `%LOCALAPPDATA%\lol-coach\`.
 - Objective timers and threat/item weights are first guesses (`crates/coach/src/consts.rs`).
 - Mayhem items use lolalytics ARAM data (lolalytics has no Mayhem; u.gg's Mayhem item samples are tiny).
 - No vision benchmark source; per-role constants are used.
+- Match history, Tab scoreboard geometry and augment-pick detection are built from docs, one third-party screenshot and fixtures; check them in real games (`cargo test -p clients --test history -- --ignored --nocapture live_history` with the client open).
+- Parallel worktrees: the global cargo `build-dir` is shared, so give each worktree its own `CARGO_BUILD_BUILD_DIR`.
