@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod debug;
 mod draft;
 mod macro_sync;
 mod ingame;
@@ -29,7 +30,8 @@ fn main() {
             commands::get_state,
             commands::get_static,
             commands::set_settings,
-            commands::lookup
+            commands::lookup,
+            commands::log_frontend
         ])
         .setup(move |app| {
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -75,11 +77,37 @@ fn show(app: &tauri::AppHandle) {
     }
 }
 
+/// `logs\lol-coach.log` (overwritten each run); in debug mode also a copy in the
+/// session folder, debug level for our crates, threads and source lines.
 fn init_logging() {
-    let file = std::fs::File::create(settings::local_dir("logs").join("lol-coach.log"));
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
-    match file {
-        Ok(f) => tracing_subscriber::fmt().with_env_filter(filter).with_ansi(false).with_writer(Mutex::new(f)).init(),
-        Err(_) => tracing_subscriber::fmt().with_env_filter(filter).init(),
+    use tracing_subscriber::fmt::writer::MakeWriterExt;
+    let debug_dir = debug::init();
+    let level = if debug_dir.is_some() {
+        "info,lol_coach=debug,coach=debug,data=debug,clients=debug,ocr=debug,web=debug"
+    } else {
+        "info"
+    };
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| level.into());
+    let main = std::fs::File::create(settings::local_dir("logs").join("lol-coach.log"));
+    let session = debug_dir.and_then(|d| std::fs::File::create(d.join("lol-coach.log")).ok());
+    let fmt = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_ansi(false)
+        .with_thread_names(debug_dir.is_some())
+        .with_line_number(debug_dir.is_some());
+    match (main, session) {
+        (Ok(m), Some(s)) => fmt.with_writer(Mutex::new(m).and(Mutex::new(s))).init(),
+        (Ok(m), None) => fmt.with_writer(Mutex::new(m)).init(),
+        (Err(_), _) => fmt.init(),
+    }
+
+    let debug = debug_dir.is_some();
+    std::panic::set_hook(Box::new(move |info| {
+        let bt = if debug { std::backtrace::Backtrace::force_capture().to_string() } else { String::new() };
+        tracing::error!("panic: {info}\n{bt}");
+    }));
+    match debug_dir {
+        Some(d) => tracing::info!("LoL Coach {} — debug mode, dumps in {}", env!("CARGO_PKG_VERSION"), d.display()),
+        None => tracing::info!("LoL Coach {}", env!("CARGO_PKG_VERSION")),
     }
 }

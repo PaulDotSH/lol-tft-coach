@@ -81,8 +81,10 @@ impl Http {
 
     async fn fetch(&self, url: &str) -> anyhow::Result<String> {
         let _turn = if url.contains("lolalytics.com") { Some(self.polite.lock().await) } else { None };
-        let resp = self.client.get(url).send().await?.error_for_status()?;
-        Ok(resp.text().await?)
+        let t = std::time::Instant::now();
+        let resp = self.client.get(url).send().await?;
+        tracing::debug!("GET {url} → {} in {:?}", resp.status(), t.elapsed());
+        Ok(resp.error_for_status()?.text().await?)
     }
 }
 

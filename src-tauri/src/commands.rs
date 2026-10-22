@@ -64,3 +64,13 @@ pub async fn lookup(sh: Sh<'_>, champ: ChampKey, lane: Option<Lane>, mode: Mode)
     let lane = if mode == Mode::Rift { lane } else { None };
     data::lolalytics::champ_stats(&sh.http, c, lane, mode, &s.tier, &s.region, &patch).await.map_err(|e| format!("{e:#}"))
 }
+
+/// Frontend errors and warnings (and debug-mode messages) into the app log.
+#[tauri::command]
+pub fn log_frontend(level: String, message: String) {
+    match level.as_str() {
+        "error" => tracing::error!(target: "web", "{message}"),
+        "warn" => tracing::warn!(target: "web", "{message}"),
+        _ => tracing::debug!(target: "web", "{message}"),
+    }
+}

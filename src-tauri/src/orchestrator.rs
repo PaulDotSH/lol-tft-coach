@@ -1,7 +1,7 @@
 //! Phase loop: polls the client / game at the phase's rate, keeps remote data
 //! warm in the background, runs the coach and pushes `state` to the UI on change.
 
-use crate::settings;
+use crate::{debug, settings};
 use crate::state::{Shared, StatsKey, ensure};
 use clients::live::{Live, LiveState};
 use model::*;
@@ -49,6 +49,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let mut last_json = String::new();
     let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
     let mut self_coach = crate::selfcoach::SelfCoach::default();
+    let (mut last_flow, mut last_phase, mut probed): (Option<String>, Option<Phase>, bool) = (None, None, false);
 
     loop {
         if sh.static_data().is_none() {
@@ -67,17 +68,29 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         if lcu.is_none() && last_discover.is_none_or(|t| t.elapsed() > Duration::from_secs(5)) {
             last_discover = Some(Instant::now());
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
+            if let Some(c) = &lcu {
+                tracing::info!("League client found at {}", c.base);
+                if debug::on() && !probed {
+                    probed = true;
+                    tokio::spawn(debug::probe_lcu(c.clone()));
+                }
+            }
         }
         let flow = match &lcu {
             Some(c) => match c.phase().await {
                 Ok(p) => Some(p),
-                Err(_) => {
+                Err(e) => {
+                    tracing::info!("League client lost: {e:#}");
                     lcu = None;
                     None
                 }
             },
             None => None,
         };
+        if flow != last_flow {
+            tracing::info!("gameflow {:?} → {:?}", last_flow, flow);
+            last_flow = flow.clone();
+        }
 
         let settings = sh.settings();
         let mut phase = match flow.as_deref() {
@@ -96,12 +109,25 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                 if memo.recap_done || memo.last_champ.is_some() {
                     memo.new_game();
                 }
-                if let Some(c) = &lcu
-                    && let Ok(Some(cs)) = c.champ_select().await {
-                        memo.mode = Some(cs.mode);
-                        memo.my_lane = cs.my_lane;
-                        champ_select = Some(champ_select_advice(&sh, &sd, &cs));
+                if let Some(c) = &lcu {
+                    if debug::on()
+                        && let Ok(Some(raw)) = c.get("/lol-champ-select/v1/session").await
+                    {
+                        debug::dump("lcu-champ-select", Duration::from_secs(2), &raw);
                     }
+                    match c.champ_select().await {
+                        Ok(Some(cs)) => {
+                            memo.mode = Some(cs.mode);
+                            memo.my_lane = cs.my_lane;
+                            debug::dump("champ-select", Duration::from_secs(2), &cs);
+                            let advice = champ_select_advice(&sh, &sd, &cs);
+                            debug::dump("champ-select-advice", Duration::from_secs(5), &advice);
+                            champ_select = Some(advice);
+                        }
+                        Ok(None) => tracing::debug!("champ select: no session parsed"),
+                        Err(e) => tracing::warn!("champ select: {e:#}"),
+                    }
+                }
             }
             // Live API may answer without the client too (spectate, client closed mid-game).
             Phase::Loading | Phase::NoClient | Phase::Idle => {
@@ -109,10 +135,19 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                     && let Some(c) = &lcu {
                         if let Ok(Some(q)) = c.queue_id().await {
                             memo.mode = Some(Mode::from_queue(q));
+                            tracing::info!("queue {q} → {:?}", memo.mode);
                         }
                         memo.queue_checked = true;
                     }
                 let (state, raw) = live.poll(&sd).await;
+                if let Some(raw) = &raw {
+                    let parsed = matches!(state, LiveState::InGame(_));
+                    if !parsed {
+                        tracing::warn!("live API answered but did not parse");
+                    }
+                    let kind = if parsed { "live-allgamedata" } else { "live-unparsed" };
+                    debug::dump(kind, Duration::from_secs(if parsed { 20 } else { 5 }), raw);
+                }
                 match state {
                     LiveState::InGame(mut snap) => {
                         if memo.recap_done {
@@ -138,17 +173,36 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             }
             Phase::PostGame => {
                 *sh.ocr_names.lock().unwrap() = None;
-                if !memo.recap_done
-                    && let Some(c) = &lcu
-                        && let Ok(Some(eog)) = c.eog_stats().await {
-                            memo.recap = Some(recap(&sh, &sd, &eog, &memo));
+                if !memo.recap_done && let Some(c) = &lcu {
+                    if debug::on()
+                        && let Ok(Some(raw)) = c.get("/lol-end-of-game/v1/eog-stats-block").await
+                    {
+                        debug::dump("lcu-eog", Duration::from_secs(5), &raw);
+                    }
+                    match c.eog_stats().await {
+                        Ok(Some(eog)) => {
+                            let r = recap(&sh, &sd, &eog, &memo);
+                            debug::dump("recap", Duration::ZERO, &r);
+                            tracing::info!("recap saved: {:?} win={} {}s", eog.mode, eog.win, eog.duration_s);
+                            memo.recap = Some(r);
                             memo.recap_done = true;
                         }
+                        Ok(None) => tracing::debug!("end of game: stats not parsed yet"),
+                        Err(e) => tracing::warn!("end of game: {e:#}"),
+                    }
+                }
             }
             Phase::InGame => unreachable!("set only after a live poll"),
         }
         if phase != Phase::InGame {
             *sh.ocr_names.lock().unwrap() = None;
+        }
+        if last_phase != Some(phase) {
+            tracing::info!("phase {:?} → {phase:?}", last_phase);
+            last_phase = Some(phase);
+        }
+        if let Some(g) = &game {
+            debug::dump("game-advice", Duration::from_secs(15), g);
         }
 
         let sources = Sources {
@@ -157,7 +211,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             lolalytics: flag(*sh.lola_ok.lock().unwrap()),
             ugg: flag(*sh.ugg_ok.lock().unwrap()),
             ocr: *sh.ocr_state.lock().unwrap(),
-            message: None,
+            message: debug::dir().map(|d| format!("Debug mode: logging to {}", d.display())),
         };
         let recap = memo.recap.clone();
         let macro_report = macro_sync.tick(&sh, &sd, lcu.as_ref(), phase);
@@ -280,7 +334,11 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
     };
     if snap.mode == Mode::Mayhem {
+        let before = memo.augs.picks.len();
         memo.augs.observe(&offered, snap, sd);
+        if memo.augs.picks.len() != before {
+            tracing::info!("augment picks: {:?} (stats {:?})", memo.augs.picks, snap.my_stats);
+        }
     }
 
     memo.tracker.observe(snap, sd);
@@ -347,12 +405,39 @@ fn unix_now() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
+/// capture → OCR → match, like `ocr::scan`, with debug logging of new text and
+/// frames of (partial) offers, so real-game layouts can be checked afterwards.
+fn scan_offer(names: &std::collections::HashMap<AugmentId, String>, last_lines: &mut Vec<String>) -> anyhow::Result<Vec<AugmentId>> {
+    let t = Instant::now();
+    let Some(f) = ocr::capture_league() else { return Ok(vec![]) };
+    let captured = t.elapsed();
+    let lines = ocr::recognize(&f)?;
+    let ids = ocr::match_augments(&lines, names);
+    if debug::on() {
+        if lines != *last_lines {
+            tracing::debug!(
+                "ocr {}x{} capture {captured:?} total {:?}, {} lines, matched {ids:?}: {lines:?}",
+                f.width,
+                f.height,
+                t.elapsed(),
+                lines.len()
+            );
+            *last_lines = lines;
+        }
+        if !ids.is_empty() {
+            debug::frame(if ids.len() >= 2 { "ocr-offer" } else { "ocr-partial" }, Duration::from_secs(10), &f);
+        }
+    }
+    Ok(ids)
+}
+
 /// OCR thread: scans while the orchestrator provides an augment pool.
 pub fn spawn_ocr(sh: Arc<Shared>) {
     std::thread::Builder::new()
         .name("ocr".into())
         .spawn(move || {
             let mut last_offer: Option<Instant> = None;
+            let mut last_lines = Vec::new();
             loop {
                 std::thread::sleep(crate::tab::poll(&sh));
                 if last_offer.is_some_and(|t| t.elapsed() < crate::tab::IDLE) {
@@ -363,11 +448,16 @@ pub fn spawn_ocr(sh: Arc<Shared>) {
                     *sh.ocr_state.lock().unwrap() = SourceState::Off;
                     continue;
                 };
-                match ocr::scan(&names) {
+                match scan_offer(&names, &mut last_lines) {
                     Ok(ids) => {
                         *sh.ocr_state.lock().unwrap() = SourceState::Ok;
                         if ids.len() >= 2 {
-                            *sh.offered.lock().unwrap() = (ids, Instant::now());
+                            let mut o = sh.offered.lock().unwrap();
+                            if o.0 != ids {
+                                let n: Vec<&str> = ids.iter().filter_map(|i| names.get(i).map(String::as_str)).collect();
+                                tracing::info!("augment offer: {n:?}");
+                            }
+                            *o = (ids, Instant::now());
                         }
                     }
                     Err(e) => {

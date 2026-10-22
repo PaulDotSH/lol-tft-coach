@@ -183,8 +183,12 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
     }
     let r = g.board();
     let f = ocr::capture_client(r)?;
+    crate::debug::frame("tab-board", Duration::from_secs(15), &f);
     let players: Vec<BoardPlayer> = job.players.iter().map(|p| BoardPlayer { team: p.1, items: &p.2 }).collect();
-    let rows = scoreboard::read(&f, (r.x, r.y), &g, &players, job.enemy, &job.icons.aug, &job.items)?;
+    let Some(rows) = scoreboard::read(&f, (r.x, r.y), &g, &players, job.enemy, &job.icons.aug, &job.items) else {
+        tracing::debug!("scoreboard open ({w}x{h}) but rows unreadable");
+        return None;
+    };
     let candidates = |s: &scoreboard::Seen| {
         let ids = job.icons.aug.ids(s.group);
         // Augments sharing an icon: keep those of the tinted rarity when any are.

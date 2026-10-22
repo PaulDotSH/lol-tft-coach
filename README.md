@@ -16,8 +16,18 @@ future ideas: `docs/ideas.md`.
 ## Run
 
 ```
-target\release\lol-coach.exe
+run.cmd            # start (builds first if needed)
+run.cmd debug      # debug mode: verbose log + dumps, follows the log in the console
+run.cmd build      # rebuild, then start (combine with debug)
 ```
+
+Debug mode writes everything to `%LOCALAPPDATA%\lol-coach\debug\<session>\`:
+`lol-coach.log` (debug level, threads, source lines, frontend errors, panics with
+backtraces), raw LCU dumps (champ select, end of game, a one-time probe of the
+match-history/summoner/gameflow endpoints), Live API snapshots (and any that fail
+to parse), advice snapshots, and PNGs of augment offers and the Tab scoreboard as
+the game shows them. Each kind is written only when it changes (rate-limited,
+capped per session). It also opens WebView2 debugging on `127.0.0.1:9333`.
 
 Start it once; closing the window hides it to the tray (tray → Quit to exit).
 Run League in **borderless** mode for Mayhem augment OCR.

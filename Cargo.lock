@@ -2182,6 +2182,7 @@ dependencies = [
  "dirs",
  "model",
  "ocr",
+ "png",
  "serde",
  "serde_json",
  "tauri",
