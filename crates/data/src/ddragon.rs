@@ -1,7 +1,7 @@
 //! Data Dragon items/champions + bundled `traits.toml` → [`StaticData`].
 
 use anyhow::Context;
-use model::{ChampClass, ChampKey, Champion, Item, ItemId, ItemStats, Profile, StaticData, Traits};
+use model::{BaseStats, ChampClass, ChampKey, Champion, Item, ItemId, ItemStats, Profile, StaticData, Traits};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -268,6 +268,8 @@ struct DChamp {
     #[serde(default)]
     tags: Vec<String>,
     info: Info,
+    #[serde(default)]
+    stats: HashMap<String, f32>,
 }
 
 #[derive(Deserialize)]
@@ -292,9 +294,24 @@ pub fn parse_champions(json: &str) -> anyhow::Result<HashMap<ChampKey, Champion>
                 apply_traits(&mut traits, over)?;
             }
             let classes = c.tags.iter().filter_map(|t| class(t)).collect();
-            Ok((key, Champion { key, slug: slug(&c.id, &c.name), id: c.id, name: c.name, classes, traits }))
+            let base = base_stats(&c.stats);
+            Ok((key, Champion { key, slug: slug(&c.id, &c.name), id: c.id, name: c.name, classes, traits, base }))
         })
         .collect()
+}
+
+fn base_stats(m: &HashMap<String, f32>) -> BaseStats {
+    let g = |k: &str| m.get(k).copied().unwrap_or(0.0);
+    BaseStats {
+        hp: g("hp"),
+        hp_per_level: g("hpperlevel"),
+        armor: g("armor"),
+        armor_per_level: g("armorperlevel"),
+        mr: g("spellblock"),
+        mr_per_level: g("spellblockperlevel"),
+        attack_range: g("attackrange"),
+        attack_speed: g("attackspeed"),
+    }
 }
 
 /// lolalytics / u.gg slug: lowercase alphanumerics of the display name, except
@@ -466,6 +483,17 @@ mod tests {
         assert!(by_id("Malphite").traits.tank == 1.0);
         assert_eq!(by_id("Janna").traits.peel, 1.0);
         assert_eq!((by_id("Sona").traits.peel, by_id("Xerath").traits.peel), (0.5, 0.0), "primary tag default");
+    }
+
+    #[test]
+    fn champion_base_stats() {
+        let json = r#"{"data":{"Malphite":{"id":"Malphite","key":"54","name":"Malphite","tags":["Tank"],
+            "info":{"attack":5,"magic":7},"stats":{"hp":665,"hpperlevel":104,"armor":37,"armorperlevel":4.95,
+            "spellblock":28,"spellblockperlevel":2.05,"attackrange":125,"attackspeed":0.736}}}}"#;
+        let b = &parse_champions(json).unwrap()[&54].base;
+        assert_eq!((b.hp, b.armor, b.armor_per_level, b.mr, b.attack_range), (665.0, 37.0, 4.95, 28.0, 125.0));
+        // Trimmed fixture without `stats` still parses.
+        assert_eq!(parse_champions(CHAMPS).unwrap()[&103].base, BaseStats::default());
     }
 
     #[test]

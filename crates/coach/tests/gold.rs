@@ -8,7 +8,7 @@ use model::*;
 
 fn advise_with(snap: &GameSnapshot, stats: Option<&ChampStats>, history: &[GoldSample]) -> GameAdvice {
     let sd = sd();
-    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: history })
+    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: history, my_augments: &[] })
 }
 
 fn advise(snap: &GameSnapshot) -> GameAdvice {
@@ -142,7 +142,7 @@ fn consumables_are_not_item_gold() {
     sd.items.insert(pot.id, pot);
     let mut s = rich_zed();
     s.players[0].items = vec![RUBY, 2003, 2003];
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[] });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[] });
     assert_eq!(a.gold.team_item_gold.0, 2000);
 }
 

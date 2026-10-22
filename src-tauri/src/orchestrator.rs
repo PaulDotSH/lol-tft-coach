@@ -29,6 +29,8 @@ struct Memo {
     tracker: coach::Tracker,
     log: coach::GameLog,
     goal_progress: Vec<GoalProgress>,
+    /// Mayhem: augments I took, detected as offers close.
+    augs: coach::AugmentTracker,
 }
 
 impl Memo {
@@ -276,6 +278,9 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         let o = sh.offered.lock().unwrap();
         if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
     };
+    if snap.mode == Mode::Mayhem {
+        memo.augs.observe(&offered, snap, sd);
+    }
 
     memo.tracker.observe(snap, sd);
     let mut advice = coach::game_advice(&coach::GameInput {
@@ -285,6 +290,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         augments: pool.as_ref().map(|(a, m)| (&**a, &**m)),
         offered: &offered,
         gold_history: &memo.gold.samples,
+        my_augments: &memo.augs.picks,
     });
     let ults = crate::ingame::ults(sh, sd, snap);
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults });

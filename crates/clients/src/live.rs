@@ -1,7 +1,7 @@
 //! Live Client Data API (`https://127.0.0.1:2999/liveclientdata/allgamedata`).
 
 use crate::id;
-use model::{GameEvent, GameSnapshot, Lane, Mode, Player, StaticData, Team};
+use model::{ChampionStats, GameEvent, GameSnapshot, Lane, Mode, Player, StaticData, Team};
 use serde_json::Value;
 use std::time::Duration;
 
@@ -93,6 +93,40 @@ fn player(p: &Value, sd: &StaticData) -> Player {
     }
 }
 
+/// `activePlayer.championStats`; None when absent or all zero (spectator / loading).
+/// Penetration percents arrive as multipliers (1.0 = no pen, 0.6 = 40 % pen).
+pub fn champion_stats(v: &Value) -> Option<ChampionStats> {
+    let n = |k: &str| num(&v[k]);
+    let max_health = n("maxHealth");
+    if max_health <= 0.0 {
+        return None;
+    }
+    // Fractions; tolerate a client that sends percents.
+    let frac = |k: &str| if n(k) > 2.0 { n(k) / 100.0 } else { n(k) };
+    let pen = |k: &str| if (0.0..1.0).contains(&n(k)) && n(k) > 0.0 { 1.0 - n(k) } else { 0.0 };
+    Some(ChampionStats {
+        ability_haste: n("abilityHaste"),
+        ability_power: n("abilityPower"),
+        attack_damage: n("attackDamage"),
+        attack_range: n("attackRange"),
+        attack_speed: n("attackSpeed"),
+        armor: n("armor"),
+        magic_resist: n("magicResist"),
+        max_health,
+        crit_chance: frac("critChance"),
+        heal_shield_power: frac("healShieldPower"),
+        life_steal: frac("lifeSteal"),
+        omnivamp: frac("omnivamp"),
+        move_speed: n("moveSpeed"),
+        tenacity: frac("tenacity"),
+        lethality: n("physicalLethality") + n("armorPenetrationFlat"),
+        armor_pen_pct: pen("armorPenetrationPercent"),
+        magic_pen_flat: n("magicPenetrationFlat") + n("magicLethality"),
+        magic_pen_pct: pen("magicPenetrationPercent"),
+        resource_max: n("resourceMax"),
+    })
+}
+
 /// Index of the player any of whose names equals `name` (events use game names).
 fn resolve(all: &[Value], name: &str) -> Option<usize> {
     if name.is_empty() {
@@ -154,5 +188,29 @@ pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
         my_gold: num(&active["currentGold"]),
         players,
         events,
+        my_stats: champion_stats(&active["championStats"]),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn champion_stats_units() {
+        let v = json!({
+            "abilityHaste": 25.0, "abilityPower": 281.4, "armor": 61.2, "magicResist": 47.1, "maxHealth": 1488.0,
+            "attackSpeed": 0.802, "critChance": 0.25, "omnivamp": 0.1, "physicalLethality": 18.0,
+            "armorPenetrationPercent": 0.7, "magicPenetrationPercent": 1.0, "magicPenetrationFlat": 18.0
+        });
+        let s = champion_stats(&v).unwrap();
+        assert_eq!((s.ability_power, s.armor, s.max_health, s.lethality, s.magic_pen_flat), (281.4, 61.2, 1488.0, 18.0, 18.0));
+        assert!((s.armor_pen_pct - 0.3).abs() < 1e-6 && s.magic_pen_pct == 0.0);
+        assert_eq!((s.crit_chance, s.omnivamp), (0.25, 0.1));
+        assert_eq!(champion_stats(&json!({ "critChance": 30.0, "maxHealth": 900.0 })).unwrap().crit_chance, 0.3);
+        // Riot's all-zero sample / missing block.
+        assert!(champion_stats(&json!({ "maxHealth": 0.0 })).is_none());
+        assert!(champion_stats(&Value::Null).is_none());
+    }
 }

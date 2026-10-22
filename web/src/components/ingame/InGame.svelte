@@ -10,6 +10,9 @@
   import GoldDiff from './GoldDiff.svelte';
   import Shopping from './Shopping.svelte';
   import DeathWindows from './DeathWindows.svelte';
+  import Defense from './Defense.svelte';
+  import MyAugments from './MyAugments.svelte';
+  import GoldSinks from './GoldSinks.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -17,12 +20,16 @@
 </script>
 
 <div class="ingame" class:rift>
-  {#if game.augments}
-    <div class="aug"><AugmentOffer advice={game.augments} champ={game.my_champ} /></div>
+  {#if game.augments || game.my_augments.length}
+    <div class="aug">
+      {#if game.augments}<AugmentOffer advice={game.augments} champ={game.my_champ} />{/if}
+      {#if game.my_augments.length}<MyAugments picks={game.my_augments} />{/if}
+    </div>
   {/if}
   <div class="build">
     <Shopping list={game.shopping} at={game.time} />
     <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} />
+    {#if game.gold_sinks.length}<GoldSinks sinks={game.gold_sinks} />{/if}
     <BuildPath owned={game.owned} path={game.path} />
   </div>
   <div class="threats">
@@ -30,6 +37,7 @@
     <DeathWindows deaths={game.deaths} at={game.time} />
   </div>
   <div class="me"><SelfCoach me={game.me} {laneOpp} /></div>
+  {#if game.defense}<div class="def"><Defense d={game.defense} /></div>{/if}
   <div class="gold"><GoldDiff g={game.gold} /></div>
   {#if rift}
     <div class="side">
@@ -48,12 +56,20 @@
       'aug aug'
       'build threats'
       'me me'
+      'def def'
       'gold gold'
       'side side';
     align-content: start;
   }
   .aug {
     grid-area: aug;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+  }
+  .def {
+    grid-area: def;
+    min-width: 0;
   }
   .build {
     grid-area: build;
@@ -90,6 +106,7 @@
         'aug aug aug'
         'build threats side'
         'me me side'
+        'def def side'
         'gold gold side';
     }
     .side {
@@ -100,7 +117,7 @@
   @media (max-width: 760px) {
     .ingame {
       grid-template-columns: 1fr;
-      grid-template-areas: 'aug' 'build' 'threats' 'me' 'gold' 'side';
+      grid-template-areas: 'aug' 'build' 'threats' 'me' 'def' 'gold' 'side';
     }
   }
 </style>

@@ -7,6 +7,7 @@ import type { Sources } from '../lib/bindings/Sources';
 import { mayhemGold, riftGold } from './gold';
 import { macroFewGames, macroReport } from './macro';
 import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
+import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals };
 
@@ -131,6 +132,9 @@ const riftGame: GameAdvice = {
     ],
     allies: [{ champ: 222, in_s: 8 }],
   },
+  my_augments: [],
+  defense: riftDefense,
+  gold_sinks: [],
 };
 
 const mayhemGame: GameAdvice = {
@@ -181,9 +185,9 @@ const mayhemGame: GameAdvice = {
   timers: [],
   augments: {
     offered: [
-      { id: 1053, name: 'Mad Scientist', rarity: 'prismatic', rank: 5, of: 52 },
-      { id: 1030, name: 'Eureka', rarity: 'prismatic', rank: 0, of: 52 },
-      { id: 1243, name: 'Transmute: Chaos', rarity: 'prismatic', rank: 9, of: 52 },
+      { id: 1053, name: 'Mad Scientist', rarity: 'prismatic', rank: 5, of: 52, synergy: null },
+      { id: 1030, name: 'Eureka', rarity: 'prismatic', rank: 0, of: 52, synergy: 'fits your Luden’s Echo (AP)' },
+      { id: 1243, name: 'Transmute: Chaos', rarity: 'prismatic', rank: 9, of: 52, synergy: null },
     ],
     best: 1030,
     reason: 'Eureka is Ahri’s #1 prismatic on u.gg',
@@ -202,6 +206,9 @@ const mayhemGame: GameAdvice = {
   },
   gold_eta: { item: 3089, per_min: 655, missing: 900, eta_s: 82, backs: [{ gold: 2700, in_s: 9, items: [1058, 1026, 1026] }] },
   deaths: { enemies: [], allies: [] },
+  my_augments: mayhemPicks,
+  defense: mayhemDefense,
+  gold_sinks: [],
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.
@@ -224,6 +231,19 @@ const mayhemDead: GameAdvice = {
     ],
     allies: [{ champ: 81, in_s: 3 }],
   },
+};
+
+// Six items, 3k gold, level 13: nothing left to buy, gold sinks instead.
+const mayhemFull: GameAdvice = {
+  ...mayhemGame,
+  time: 1386,
+  buy_next: null,
+  alternatives: [],
+  path: [],
+  owned: [6655, 3020, 4645, 3089, 3135, 3165],
+  augments: null,
+  my_augments: [...mayhemPicks, { id: 1305, candidates: [1305], time: 1210 }],
+  gold_sinks: fullBuildSinks,
 };
 
 export const fixtures = {
@@ -438,6 +458,7 @@ export const fixtures = {
   'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals },
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
   'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },
+  'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull, goal_progress: liveGoals.slice(1) },
   loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
   'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, sources: src({}) },

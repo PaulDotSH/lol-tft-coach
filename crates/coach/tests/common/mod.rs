@@ -282,6 +282,7 @@ fn champ(key: ChampKey, name: &str, classes: &[ChampClass], traits: Traits) -> C
         slug: name.to_lowercase().replace([' ', '.', '\''], ""),
         classes: classes.to_vec(),
         traits,
+        base: BaseStats::default(),
     }
 }
 
@@ -388,7 +389,7 @@ pub fn lobby(enemies: [(ChampKey, Lane); 5]) -> Vec<Player> {
 }
 
 pub fn snap(players: Vec<Player>, events: Vec<GameEvent>) -> GameSnapshot {
-    GameSnapshot { time: 900.0, mode: Mode::Rift, map: 11, me: 0, my_gold: 500.0, players, events }
+    GameSnapshot { time: 900.0, mode: Mode::Rift, map: 11, me: 0, my_gold: 500.0, players, events, my_stats: None }
 }
 
 pub fn kill(time: f32, killer: usize, victim: usize) -> GameEvent {

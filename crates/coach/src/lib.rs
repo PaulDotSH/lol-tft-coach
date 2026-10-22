@@ -1,5 +1,6 @@
 //! All decisions. Pure functions over `model` types: no I/O, no clock.
 
+mod augment_tags;
 mod augments;
 mod champ_select;
 mod common;
@@ -8,9 +9,13 @@ mod gold;
 mod draft;
 mod items;
 mod macro_coach;
+mod late;
 mod matchups;
+mod modes;
 mod needs;
+mod picks;
 mod recap;
+mod resists;
 mod self_stats;
 mod selfcoach;
 mod shop;
@@ -26,6 +31,7 @@ pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal_applies, goal_progress, summary};
 pub use trends::trends;
+pub use picks::AugmentTracker;
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
 pub use tracker::Tracker;
@@ -44,20 +50,39 @@ pub struct GameInput<'a> {
     pub offered: &'a [AugmentId],
     /// Item-gold diff samples so far this game (`GoldHistory::samples`).
     pub gold_history: &'a [GoldSample],
+    /// Mayhem: augments taken so far (`AugmentTracker::picks`).
+    pub my_augments: &'a [MyAugment],
 }
 
 pub fn game_advice(input: &GameInput) -> GameAdvice {
-    let GameInput { snap, sd, stats, augments, offered, gold_history } = *input;
+    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments } = *input;
     let me = snap.players.get(snap.me);
     let my_champ = me.map_or(0, |p| p.champ);
     let owned = me.map_or(&[][..], |p| &p.items);
+    let rules = modes::rules(snap.mode);
     let a = threat::assess(snap, sd, stats);
-    let needs = needs::needs(&a.foes);
+    let mut needs = needs::needs(&a.foes);
+    rules.scale_needs(&mut needs.p);
     let mut ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
     ctx.ahead = me.is_some_and(|p| {
         p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0)
     });
+    ctx.live = snap.my_stats.as_ref();
+    ctx.aug = augment_tags::AugEffects::new(my_augments);
+    if ctx.aug.find(augment_tags::Tag::Tenacity).is_some() {
+        needs.p[modes::TENACITY] *= augment_tags::AUG_TENACITY_NEED;
+    }
+    let est = resists::enemies(snap, sd, rules);
+    ctx.pen = resists::Targets::new(&est, &a.foes, snap.my_stats.as_ref(), resists::item_pen(sd, owned));
+    let notes = ctx.pen.as_ref().map_or(vec![], |t| t.notes(sd, ctx.champ.traits.magic_share));
     let b = if me.is_some() { items::build(&ctx, owned, &needs) } else { items::Build { path: vec![], alts: vec![] } };
+    let finished = owned.iter().filter(|i| sd.items.get(i).is_some_and(|i| i.completed)).count();
+    let gold_sinks = match me {
+        Some(p) if b.path.is_empty() && finished >= consts::MAX_ITEMS.saturating_sub(ctx.aug.keep_slots()) => {
+            late::gold_sinks(&ctx, owned, &needs, &a.foes, p.level, snap.mode)
+        }
+        _ => vec![],
+    };
     let gold = Some((snap.my_gold, owned));
     let pick = |s: &items::Scored, g| items::to_pick(&ctx, s, &needs, &a.foes, g);
     let me_stats = self_stats::self_stats(snap, sd, stats, a.lane_opp);
@@ -75,12 +100,15 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         matchups: matchups::matchups(snap, stats, a.lane_opp),
         me: me_stats,
         timers: timers::timers(snap),
-        augments: augments::advice(sd, my_champ, augments, offered),
+        augments: augments::advice(sd, my_champ, augments, offered, owned),
+        defense: resists::defense(snap.my_stats.as_ref(), &a.foes, est, notes),
         threats: a.threats,
         gold: gold_diff,
         shopping: me.map_or_else(ShoppingList::default, |p| shop::shopping(sd, snap.mode, p, snap.my_gold, &path_ids)),
         gold_eta: me.filter(|_| !path_ids.is_empty()).map(|p| shop::eta(sd, snap.mode, p, snap.my_gold, &path_ids, None)),
         deaths: windows::deaths(snap),
+        my_augments: my_augments.to_vec(),
+        gold_sinks,
     }
 }
 

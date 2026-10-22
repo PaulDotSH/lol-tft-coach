@@ -1,0 +1,426 @@
+# ARAM: Mayhem augment tags for item scoring and picked-augment detection (patch 26.21).
+# id = u.gg / CommunityDragon AugmentPlatformId (game/maps/modespecificdata/kiwi.bin.json);
+# text: CommunityDragon game/en_us/data/menu/en_us/lol.stringtable.json. Tags were
+# keyword-parsed from those descriptions (On-Hit, Critical Strike, Attack Speed, Ability
+# Haste, Ability Power, Heal and Shield Power, Health/Armor/Magic Resist, Mana, Attack Range,
+# Tenacity, Move Speed, QUEST … REWARD item), then checked by hand against
+# wiki.leagueoflegends.com/en-us/Module:MayhemAugmentData/data. Re-check every patch.
+#
+# tags: on_hit crit attack_speed haste ap heal_shield tank mana range tenacity move_speed quest_item
+# stats: instant gain on pick in championStats units (fractions for %), used to tell which
+#   offered augment was taken. `*_pct` multiply the value before the pick (as_pct: × base
+#   attack speed). Scaling tooltips use their lower bound (≥).
+# grants: item given on pick. requires: quest items (raised in scoring).
+# keep_slot: the quest reward is an extra item that needs a free slot.
+
+# Heal and Shield Power items (Data Dragon has no stat for it).
+heal_shield_items = [3107, 3222, 3504, 6616, 6617, 6620, 124011]
+
+# ---- stat augments (detectable) ----
+
+[[augment]]
+id = 1022
+name = "Deft"
+tags = ["attack_speed"]
+stats = { as_pct = 0.6 }
+
+[[augment]]
+id = 1007
+name = "Blunt Force"
+tags = []
+stats = { ad_pct = 0.2 }
+
+[[augment]]
+id = 1097
+name = "Witchful Thinking"
+tags = ["ap"]
+stats = { ap = 70 }
+
+[[augment]]
+id = 3094
+name = "Lich Brain"
+tags = ["ap", "tank"]
+stats = { ap = 30 } # + 4 % bonus health
+
+[[augment]]
+id = 1037
+name = "First-Aid Kit"
+tags = ["heal_shield"]
+stats = { hsp = 0.2 }
+
+[[augment]]
+id = 1331
+name = "Empyrean Promise"
+tags = ["heal_shield"]
+stats = { hsp = 0.15 }
+
+[[augment]]
+id = 1324
+name = "Protein Shake"
+tags = ["heal_shield", "tank"]
+stats = { hsp = 0.1 } # ≥, from bonus resists
+
+[[augment]]
+id = 1138
+name = "Goredrink"
+tags = []
+stats = { omnivamp = 0.15 }
+
+[[augment]]
+id = 1346
+name = "Vampirism"
+tags = []
+stats = { omnivamp = 0.25 }
+
+[[augment]]
+id = 2132
+name = "Warlock Juicebox"
+tags = ["ap"]
+stats = { omnivamp = 0.1 } # + 3 % per 100 AP
+
+[[augment]]
+id = 1068
+name = "Recursion"
+tags = ["haste"]
+stats = { ah = 60 }
+
+[[augment]]
+id = 1388
+name = "Infinite Recursion"
+tags = ["haste"]
+stats = { ah = 60 }
+
+[[augment]]
+id = 1004
+name = "Back To Basics"
+tags = ["haste"]
+stats = { ah = 70 }
+
+[[augment]]
+id = 1030
+name = "Eureka"
+tags = ["haste", "ap"]
+
+[[augment]]
+id = 1170
+name = "Scoped Weapons"
+tags = ["range"]
+stats = { range = 50 }
+
+[[augment]]
+id = 1071
+name = "Scopier Weapons"
+tags = ["range"]
+stats = { range = 100 }
+
+[[augment]]
+id = 1115
+name = "Scopiest Weapons"
+tags = ["range"]
+stats = { range = 150 }
+
+[[augment]]
+id = 1305
+name = "Leg Day"
+tags = ["move_speed"]
+stats = { ms = 50 }
+
+[[augment]]
+id = 1013
+name = "Celestial Body"
+tags = ["tank"]
+stats = { hp = 1500 }
+
+[[augment]]
+id = 1041
+name = "Goliath"
+tags = ["tank"]
+stats = { hp_pct = 0.35 }
+
+[[augment]]
+id = 1047
+name = "It's Critical"
+tags = ["crit"]
+stats = { crit = 0.5 }
+
+[[augment]]
+id = 1048
+name = "Jeweled Gauntlet"
+tags = ["crit", "ap"]
+stats = { crit = 0.25 }
+
+[[augment]]
+id = 1118
+name = "Critical Healing"
+tags = ["crit", "heal_shield"]
+stats = { crit = 0.25 }
+
+[[augment]]
+id = 1328
+name = "Critical Rhythm"
+tags = ["crit", "attack_speed"]
+stats = { crit = 0.25 }
+
+[[augment]]
+id = 1077
+name = "Soul Siphon"
+tags = ["crit"]
+stats = { crit = 0.25 }
+
+[[augment]]
+id = 1080
+name = "Tank It Or Leave It"
+tags = ["crit", "tank"]
+stats = { crit = 0.25 }
+
+[[augment]]
+id = 1092
+name = "Vulnerability"
+tags = ["crit"]
+stats = { crit = 0.25 }
+
+[[augment]]
+id = 1084
+name = "Thread the Needle"
+tags = []
+stats = { armor_pen_pct = 0.18, magic_pen_pct = 0.18 }
+
+[[augment]]
+id = 1134
+name = "Draw Your Sword"
+tags = ["attack_speed"]
+stats = { hp_pct = 0.24 }
+
+[[augment]]
+id = 3132
+name = "Heavy Is The Crown"
+tags = ["ap"]
+stats = { ap = 25 }
+
+# ---- scaling / conditional augments (tags only) ----
+
+[[augment]]
+id = 1205
+name = "ADAPt"
+tags = ["ap"]
+
+[[augment]]
+id = 2010
+name = "Double Tap"
+tags = ["crit", "on_hit"]
+
+[[augment]]
+id = 3123
+name = "Jeweled Bracelet"
+tags = ["crit"]
+
+[[augment]]
+id = 3018
+name = "Big Shot"
+tags = ["crit"]
+
+[[augment]]
+id = 1415
+name = "Twin Fire"
+tags = ["crit"]
+
+[[augment]]
+id = 2016
+name = "Juiced"
+tags = ["on_hit"]
+
+[[augment]]
+id = 1029
+name = "Ethereal Weapon"
+tags = ["on_hit"]
+
+[[augment]]
+id = 1058
+name = "Mystic Punch"
+tags = ["on_hit"]
+
+[[augment]]
+id = 1225
+name = "Dual Wield"
+tags = ["on_hit", "attack_speed"]
+
+[[augment]]
+id = 1087
+name = "Typhoon"
+tags = ["on_hit"]
+
+[[augment]]
+id = 3058
+name = "Tickle Monster"
+tags = ["on_hit", "attack_speed"]
+
+[[augment]]
+id = 3078
+name = "The Boom and the Bass"
+tags = ["on_hit"]
+
+[[augment]]
+id = 1006
+name = "Blade Waltz"
+tags = ["on_hit"]
+
+[[augment]]
+id = 3052
+name = "Hands off the Talent"
+tags = ["on_hit", "range"]
+
+[[augment]]
+id = 1036
+name = "Firebrand"
+tags = ["on_hit"]
+
+[[augment]]
+id = 1181
+name = "Heavy Hitter"
+tags = ["on_hit", "tank"]
+
+[[augment]]
+id = 1054
+name = "Master of Duality"
+tags = ["ap", "on_hit"]
+
+[[augment]]
+id = 1129
+name = "Marksmage"
+tags = ["ap", "on_hit"]
+
+[[augment]]
+id = 1079
+name = "Symphony of War"
+tags = ["attack_speed"]
+
+[[augment]]
+id = 1081
+name = "Tap Dancer"
+tags = ["attack_speed", "move_speed"]
+
+[[augment]]
+id = 2018
+name = "Purist - Caster"
+tags = ["haste"]
+
+[[augment]]
+id = 1098
+name = "With Haste"
+tags = ["move_speed"]
+
+[[augment]]
+id = 1105
+name = "Homeguard"
+tags = ["move_speed"]
+
+[[augment]]
+id = 1073
+name = "Shadow Runner"
+tags = ["move_speed"]
+
+[[augment]]
+id = 1332
+name = "Ominous Pact"
+tags = ["ap", "move_speed"]
+
+[[augment]]
+id = 1390
+name = "Phenomenal Evil"
+tags = ["ap"]
+
+[[augment]]
+id = 1045
+name = "Infernal Conduit"
+tags = ["ap"]
+
+[[augment]]
+id = 3059
+name = "No Mana, No Problem"
+tags = ["mana", "ap"]
+
+[[augment]]
+id = 1056
+name = "Mind to Matter"
+tags = ["mana", "tank"]
+
+[[augment]]
+id = 1311
+name = "Overflow"
+tags = ["mana"]
+
+[[augment]]
+id = 3036
+name = "Double Time"
+tags = ["mana"]
+
+[[augment]]
+id = 3063
+name = "Gift of the Drowned"
+tags = ["tank"]
+
+[[augment]]
+id = 1001
+name = "Titan's Resolve"
+tags = ["tank", "tenacity"]
+
+[[augment]]
+id = 1353
+name = "Tank Engine"
+tags = ["tank"]
+
+[[augment]]
+id = 1375
+name = "Soul Eater"
+tags = ["tank"]
+
+[[augment]]
+id = 1141
+name = "All For You"
+tags = ["heal_shield"]
+
+[[augment]]
+id = 1095
+name = "Windspeaker's Blessing"
+tags = ["heal_shield"]
+
+[[augment]]
+id = 1112
+name = "Ultimate Unstoppable"
+tags = ["tenacity"]
+
+# ---- quests ----
+
+[[augment]]
+id = 1156
+name = "Wooglet's Witchcap"
+tags = ["quest_item", "ap"]
+grants = 1058 # Needlessly Large Rod
+requires = [3089, 3157] # Rabadon's Deathcap + Zhonya's Hourglass
+keep_slot = true
+
+[[augment]]
+id = 1361
+name = "Icathia's Fall"
+tags = ["quest_item", "tank"]
+grants = 6660 # Bami's Cinder
+requires = [3068, 6664] # Sunfire Aegis + Hollow Radiance, combined into Void Immolation
+
+[[augment]]
+id = 2141
+name = "Ultra Hydra"
+tags = ["quest_item"]
+requires = [3074, 6698, 3748] # Ravenous, Profane, Titanic Hydra
+keep_slot = true
+
+[[augment]]
+id = 1154
+name = "Urf's Champion"
+tags = ["quest_item"]
+keep_slot = true # reward: Golden Spatula
+
+[[augment]]
+id = 1152
+name = "Steel Your Heart"
+tags = ["tank"]
+requires = [3084] # Heartsteel
