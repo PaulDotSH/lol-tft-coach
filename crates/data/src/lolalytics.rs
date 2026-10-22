@@ -464,6 +464,7 @@ mod tests {
             slug: "ahri".into(),
             classes: vec![],
             traits: Default::default(),
+            base: Default::default(),
         }
     }
 

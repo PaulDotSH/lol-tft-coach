@@ -1,0 +1,40 @@
+# Per-mode item-scoring rules. Every rule names its source; re-check each patch.
+# Sources: W = wiki.leagueoflegends.com/en-us/ARAM:_Mayhem (checked for 26.21),
+#          DD = Data Dragon 16.21.1 item.json.
+
+[rift]
+attack_speed_cap = 3.003 # wiki "Attack speed": 3.003 since V25.S1.3 (was 2.5)
+crit_cap = 1.0           # wiki "Critical strike": chance above 100 % does nothing
+# wiki Elixir of Iron/Sorcery/Wrath: level 9 to purchase; one elixir effect at a time.
+elixirs = [2138, 2139, 2140]
+elixir_level = 9
+
+[aram]
+attack_speed_cap = 3.003
+crit_cap = 1.0
+# DD: the Mayhem-only legendaries carry the Howling Abyss flag (12) too.
+exclude = [3039, 123430, 124011] # Atma's Reckoning, Rite of Ruin, Sword of Blossoming Dawn
+elixirs = [2138, 2139, 2140]
+elixir_level = 9
+
+[mayhem]
+# W "Combo Breaker": each new immobilize grants tenacity (3.25 s), and 5 of the last 7 s
+# immobilized cleanses and grants 3 s CC immunity, so buying tenacity/cleanse is worth less.
+tenacity_need = 0.5
+cleanse_need = 0.4
+# W: each 1 % crit above 100 % grants 0.75 adaptive force, so crit overcap is not wasted.
+# crit_cap omitted = no cap
+attack_speed_cap = 5.0 # W: 5.0 (Symphony of War's Lethal Tempo raises it to 10)
+# W: bonus armor and MR, melee 15 flat, ranged 2 → 25 by level, but ranged currently get
+# none (listed as a bug), so ranged stays 0.
+melee_bonus_resists = 15.0
+ranged_bonus_resists = 0.0
+# W / DD 6032 "Stat Bonus": 750 g, level 9+, consumed on purchase (no slot), random shard
+# tier, each comes with a free Cappa Juice. Can be bought repeatedly.
+stat_anvil = { item = 6032, level = 9, cost = 750 }
+elixirs = [2138, 2139, 2140]
+elixir_level = 9
+# W: augment offers at levels 3, 7, 11 and 15.
+augment_levels = [3, 7, 11, 15]
+# Not modelled: health relics heal 22 % missing health (W), Stormrazor 50 AD / 20 % AS in
+# Mayhem (W; DD still shows the Rift stats).

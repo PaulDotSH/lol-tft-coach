@@ -26,6 +26,8 @@ struct Memo {
     recap: Option<Recap>,
     last_record: Option<Instant>,
     gold: coach::GoldHistory,
+    /// Mayhem: augments I took, detected as offers close.
+    augs: coach::AugmentTracker,
 }
 
 impl Memo {
@@ -264,6 +266,9 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         let o = sh.offered.lock().unwrap();
         if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
     };
+    if snap.mode == Mode::Mayhem {
+        memo.augs.observe(&offered, snap, sd);
+    }
 
     let advice = coach::game_advice(&coach::GameInput {
         snap,
@@ -272,6 +277,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         augments: pool.as_ref().map(|(a, m)| (&**a, &**m)),
         offered: &offered,
         gold_history: &memo.gold.samples,
+        my_augments: &memo.augs.picks,
     });
     if let Some(s) = advice.gold.history.last() {
         memo.gold.push(s.clone());

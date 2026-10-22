@@ -5,4 +5,8 @@ export type AugmentRank = { id: number, name: string, rarity: Rarity | null,
 /**
  * 0-based position in this champ's list for that rarity.
  */
-rank: number | null, of: number, };
+rank: number | null, of: number, 
+/**
+ * Tie-break reason when it matches what I built, e.g. "fits your Nashor's Tooth (on-hit)".
+ */
+synergy: string | null, };

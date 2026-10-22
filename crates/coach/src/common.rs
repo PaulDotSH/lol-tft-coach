@@ -84,6 +84,7 @@ static UNKNOWN: LazyLock<Champion> = LazyLock::new(|| Champion {
     slug: String::new(),
     classes: vec![],
     traits: Traits { magic_share: 0.5, ..Default::default() },
+    base: BaseStats::default(),
 });
 
 pub fn champ(sd: &StaticData, key: ChampKey) -> &Champion {

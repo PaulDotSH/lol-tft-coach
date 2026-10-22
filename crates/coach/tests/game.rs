@@ -8,7 +8,7 @@ use model::*;
 
 fn advise(snap: &GameSnapshot, stats: Option<&ChampStats>) -> GameAdvice {
     let sd = sd();
-    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: &[] })
+    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[] })
 }
 
 /// Zed (index 7) mid, 12/1/3, two lethality items, killed me 3×.
@@ -383,7 +383,7 @@ fn mayhem_offer_picks_highest_ranked_augment() {
     let mut s = fed_zed(&[]);
     s.mode = Mode::Mayhem;
     let offered = [1005, 1001, 1030, 9999];
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &offered, gold_history: &[] });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &offered, gold_history: &[], my_augments: &[] });
     let aug = a.augments.unwrap();
     assert_eq!(aug.best, Some(1001));
     assert_eq!(aug.reason, "#2 of 52 Prismatic for Ahri");
@@ -393,10 +393,10 @@ fn mayhem_offer_picks_highest_ranked_augment() {
     assert_eq!((aug.offered[3].rarity, aug.offered[3].rank), (None, None));
 
     // Normalised rank across rarities: #3 of 30 silver (0.067) beats #5 of 40 gold (0.1).
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[2004, 3002], gold_history: &[] });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[2004, 3002], gold_history: &[], my_augments: &[] });
     assert_eq!(a.augments.unwrap().best, Some(3002));
 
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[], gold_history: &[] });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[], gold_history: &[], my_augments: &[] });
     assert!(a.augments.is_none());
 }
 

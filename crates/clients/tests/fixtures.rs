@@ -39,6 +39,7 @@ fn sd() -> StaticData {
                     slug: id.to_lowercase(),
                     classes: vec![],
                     traits: Default::default(),
+                    base: Default::default(),
                 };
                 (key, c)
             })

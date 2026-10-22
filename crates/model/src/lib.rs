@@ -149,6 +149,42 @@ data_default! {
         pub damage_per_min: Option<f32>,
         pub vision_per_min: Option<f32>,
     }
+
+    /// Data Dragon champion `stats`: level-1 values and per-level growth.
+    pub struct BaseStats {
+        pub hp: f32,
+        pub hp_per_level: f32,
+        pub armor: f32,
+        pub armor_per_level: f32,
+        pub mr: f32,
+        pub mr_per_level: f32,
+        pub attack_range: f32,
+        pub attack_speed: f32,
+    }
+
+    /// Live API `activePlayer.championStats`. Percent stats are fractions;
+    /// `*_pen_pct` is the share of resist ignored (0 = none).
+    pub struct ChampionStats {
+        pub ability_haste: f32,
+        pub ability_power: f32,
+        pub attack_damage: f32,
+        pub attack_range: f32,
+        pub attack_speed: f32,
+        pub armor: f32,
+        pub magic_resist: f32,
+        pub max_health: f32,
+        pub crit_chance: f32,
+        pub heal_shield_power: f32,
+        pub life_steal: f32,
+        pub omnivamp: f32,
+        pub move_speed: f32,
+        pub tenacity: f32,
+        pub lethality: f32,
+        pub armor_pen_pct: f32,
+        pub magic_pen_flat: f32,
+        pub magic_pen_pct: f32,
+        pub resource_max: f32,
+    }
 }
 
 data! {
@@ -179,6 +215,7 @@ data! {
         pub slug: String,
         pub classes: Vec<ChampClass>,
         pub traits: Traits,
+        pub base: BaseStats,
     }
 
     pub struct StaticData {
@@ -289,6 +326,8 @@ data! {
         pub my_gold: f32,
         pub players: Vec<Player>,
         pub events: Vec<GameEvent>,
+        /// My live stats (items, levels, augments applied); None if the API omits them.
+        pub my_stats: Option<ChampionStats>,
     }
 
     pub enum GameEvent {
@@ -407,6 +446,8 @@ data! {
         /// 0-based position in this champ's list for that rarity.
         pub rank: Option<u32>,
         pub of: u32,
+        /// Tie-break reason when it matches what I built, e.g. "fits your Nashor's Tooth (on-hit)".
+        pub synergy: Option<String>,
     }
 
     pub struct AugmentAdvice {
@@ -430,6 +471,11 @@ data! {
         pub timers: Vec<ObjectiveTimer>,
         pub augments: Option<AugmentAdvice>,
         pub gold: GoldDiff,
+        /// Mayhem: augments I took this game (detected, or candidates when unsure).
+        pub my_augments: Vec<MyAugment>,
+        pub defense: Option<Defense>,
+        /// Full build: what else gold can buy (anvils, elixirs, swaps).
+        pub gold_sinks: Vec<GoldSink>,
     }
 
     pub struct PickSuggestion {
@@ -639,6 +685,47 @@ data! {
         pub allies: DraftSide,
         pub enemies: DraftSide,
         pub lanes: Vec<DraftLane>,
+    }
+
+    // ---- augments / resists / gold sinks ----
+
+    /// One closed augment offer. `id` is set only when the pick was identified
+    /// (stat change, granted item); otherwise `candidates` lists what is still possible.
+    pub struct MyAugment {
+        pub id: Option<AugmentId>,
+        pub candidates: Vec<AugmentId>,
+        /// Game time the offer closed.
+        pub time: f32,
+    }
+
+    /// Estimated from visible level + items + static base stats.
+    pub struct EnemyResist {
+        pub champ: ChampKey,
+        pub level: u32,
+        pub armor: f32,
+        pub mr: f32,
+    }
+
+    pub struct Defense {
+        /// Effective HP vs physical / magic damage from my live stats.
+        pub ehp_physical: Option<f32>,
+        pub ehp_magic: Option<f32>,
+        /// Threat-weighted share of enemy damage (physical = the rest).
+        pub enemy_magic: f32,
+        pub enemy_true: f32,
+        pub enemies: Vec<EnemyResist>,
+        /// e.g. "Their armor ~110: % armor pen beats lethality".
+        pub pen_notes: Vec<String>,
+    }
+
+    pub struct GoldSink {
+        /// "anvil" | "elixir" | "sell_boots" | "swap".
+        pub kind: String,
+        pub item: Option<ItemId>,
+        /// Item to sell first (boots, the weakest slot).
+        pub sell: Option<ItemId>,
+        pub cost: u32,
+        pub reason: String,
     }
 }
 

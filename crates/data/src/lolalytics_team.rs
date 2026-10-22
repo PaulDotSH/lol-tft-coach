@@ -187,6 +187,7 @@ mod tests {
             slug: "jinx".into(),
             classes: vec![],
             traits: Default::default(),
+            base: Default::default(),
         };
         let t = team(&http, &jinx, Lane::Bottom, "emerald_plus", "all", "16.21").await.unwrap();
         assert!(t.games as u64 >= MIN_GAMES && t.mates.iter().any(|m| m.lane == Lane::Support));

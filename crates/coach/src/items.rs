@@ -1,13 +1,25 @@
 //! Item scoring (balanced mode), buy-next, alternatives, late-game path.
 
 use crate::{
+    augment_tags::{AugEffects, item_has},
     common::*,
     consts::*,
+    modes::{self, ARMOR_PEN, MAGIC_PEN, Rules},
     needs::{Needs, decay},
+    resists::{PEN_GAIN_FULL, Pen, Targets},
     threat::Foe,
 };
 use model::*;
 use std::collections::HashMap;
+
+/// Score lost by a crit / attack-speed item entirely past the mode's cap (win-rate units).
+const CAP_PENALTY: f32 = 0.04;
+/// Crit amount of a typical crit item (full penalty weight).
+const CAP_REF_CRIT: f32 = 0.25;
+/// Base attack speed when Data Dragon stats are missing.
+const DEFAULT_BASE_AS: f32 = 0.65;
+/// Augment shift at which a reason names the augment.
+const AUG_REASON_MIN: f32 = 0.01;
 
 /// [ap, ad, tank] direction of an item.
 fn item_vec(it: &Item) -> [f32; 3] {
@@ -66,15 +78,23 @@ pub struct Ctx<'a> {
     base: f32,
     /// Snowball items (Mejai's, Dark Seal) are only offered while ahead.
     pub ahead: bool,
+    pub rules: &'static Rules,
+    /// My live stats: crit / attack-speed caps.
+    pub live: Option<&'a ChampionStats>,
+    /// Mayhem: picked augments.
+    pub aug: AugEffects,
+    /// Enemy resists: penetration answers become the real damage gain.
+    pub pen: Option<Targets>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(sd: &'a StaticData, stats: Option<&'a ChampStats>, champ: &'a Champion, mode: Mode) -> Self {
         let dir = build_dir(sd, stats, champ);
+        let rules = modes::rules(mode);
         let mut pool: Vec<_> = sd
             .items
             .values()
-            .filter(|i| i.completed && map_ok(i, mode))
+            .filter(|i| i.completed && map_ok(i, mode) && !rules.exclude.contains(&i.id))
             .map(|i| {
                 let v = item_vec(i);
                 (i, dot3(norm(v), dir), v[0] + v[1] <= 0.0)
@@ -91,7 +111,7 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, agg, base, ahead: false }
+        Ctx { sd, stats, champ, pool, agg, base, ahead: false, rules, live: None, aug: AugEffects::default(), pen: None }
     }
 }
 
@@ -111,10 +131,13 @@ pub struct Scored {
     pub src: Src,
     /// Need index with the largest answers·needs term.
     pub need: Option<usize>,
+    /// Augment shift and the `AugEffects::sources` index behind it.
+    pub aug: f32,
+    pub aug_src: Option<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum Decision {
+pub(crate) enum Decision {
     Slot(usize),
     Boots,
 }
@@ -132,7 +155,68 @@ fn conflicts(sd: &StaticData, it: &Item, have: &[ItemId]) -> bool {
     have.iter().filter_map(|h| sd.items.get(h)).any(|h| groups(h).iter().zip(g).any(|(a, b)| *a && b))
 }
 
-fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], out: &mut Vec<Scored>) {
+/// Crit chance and attack speed already reached (live stats, else owned items) plus the path so far.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct Load {
+    pub crit: f32,
+    pub attack_speed: f32,
+}
+
+impl Load {
+    pub fn new(ctx: &Ctx, owned: &[ItemId]) -> Load {
+        match ctx.live {
+            Some(s) => Load { crit: s.crit_chance, attack_speed: s.attack_speed },
+            None => Load { crit: inventory(ctx.sd, owned).crit, attack_speed: 0.0 },
+        }
+    }
+
+    fn add(&mut self, ctx: &Ctx, it: &Item) {
+        self.crit += frac(it.stats.crit);
+        if self.attack_speed > 0.0 {
+            self.attack_speed += as_gain(ctx, it);
+        }
+    }
+}
+
+/// Bonus attack speed scales with the base (ratio ≈ base attack speed).
+fn as_gain(ctx: &Ctx, it: &Item) -> f32 {
+    let base = if ctx.champ.base.attack_speed > 0.0 { ctx.champ.base.attack_speed } else { DEFAULT_BASE_AS };
+    frac(it.stats.attack_speed) * base
+}
+
+/// Score lost to crit / attack speed past the mode's cap.
+fn cap_penalty(ctx: &Ctx, it: &Item, load: Load) -> f32 {
+    let wasted = |now: f32, add: f32, cap: f32| ((now + add - cap).max(0.0)).min(add) / add;
+    let mut p = 0.0;
+    let c = frac(it.stats.crit);
+    if let Some(cap) = ctx.rules.crit_cap
+        && c > 0.0
+    {
+        p += CAP_PENALTY * wasted(load.crit, c, cap) * (c / CAP_REF_CRIT).min(1.0);
+    }
+    let a = as_gain(ctx, it);
+    if load.attack_speed > 0.0 && a > 0.0 {
+        p += CAP_PENALTY * wasted(load.attack_speed, a, ctx.rules.attack_speed_cap);
+    }
+    p
+}
+
+/// Answers, with penetration replaced by its real gain against the enemy resists.
+fn answers(ctx: &Ctx, it: &Item) -> [f32; N] {
+    let mut ans = arr(&it.answers);
+    if let Some(t) = &ctx.pen {
+        let s = &it.stats;
+        if s.lethality > 0.0 || s.armor_pen_pct > 0.0 {
+            ans[ARMOR_PEN] = clamp01(t.gain(true, Pen { flat: s.lethality, pct: frac(s.armor_pen_pct) }) / PEN_GAIN_FULL);
+        }
+        if s.magic_pen_flat > 0.0 || s.magic_pen_pct > 0.0 {
+            ans[MAGIC_PEN] = clamp01(t.gain(false, Pen { flat: s.magic_pen_flat, pct: frac(s.magic_pen_pct) }) / PEN_GAIN_FULL);
+        }
+    }
+    ans
+}
+
+pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], load: Load, out: &mut Vec<Scored>) {
     out.clear();
     let empty = Vec::new();
     let rows = match (ctx.stats, dec) {
@@ -157,7 +241,7 @@ fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], out: &m
         {
             continue;
         }
-        let ans = arr(&it.answers);
+        let ans = answers(ctx, it);
         let (mut dot, mut need_i, mut best) = (0.0, None, 0.0);
         for i in 0..N {
             let t = ans[i] * need[i];
@@ -178,7 +262,9 @@ fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], out: &m
             continue;
         };
         let sit = weight * dot;
-        out.push(Scored { id: it.id, score: stats_score + sit, stats_score, sit, src, need: need_i });
+        let (aug, aug_src) = ctx.aug.item_bonus(it);
+        let score = stats_score + sit + aug - cap_penalty(ctx, it, load);
+        out.push(Scored { id: it.id, score, stats_score, sit, src, need: need_i, aug, aug_src });
     }
     out.sort_unstable_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));
 }
@@ -199,8 +285,10 @@ pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
     let mut filled = legend + has_boots as usize;
     let mut have = owned.to_vec();
     let mut need = needs.p;
+    let mut load = Load::new(ctx, owned);
+    let max = MAX_ITEMS.saturating_sub(ctx.aug.keep_slots());
     let (mut path, mut alts, mut buf) = (Vec::new(), Vec::new(), Vec::new());
-    while filled < MAX_ITEMS {
+    while filled < max {
         let boots_turn = !boots_done && legend >= BOOTS_AFTER;
         let order = if boots_turn {
             [Some(Decision::Boots), Some(Decision::Slot(legend))]
@@ -208,7 +296,7 @@ pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
             [Some(Decision::Slot(legend)), (!boots_done).then_some(Decision::Boots)]
         };
         let Some(dec) = order.into_iter().flatten().find(|&d| {
-            score_all(ctx, d, &have, &need, &mut buf);
+            score_all(ctx, d, &have, &need, load, &mut buf);
             !buf.is_empty()
         }) else {
             break;
@@ -219,6 +307,7 @@ pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
         }
         if let Some(it) = sd.items.get(&best.id) {
             decay(&mut need, &it.answers);
+            load.add(ctx, it);
         }
         have.push(best.id);
         path.push(best);
@@ -270,8 +359,29 @@ pub fn component_now(sd: &StaticData, item: &Item, inventory: &[ItemId], gold: f
 }
 
 pub fn reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {
+    let base = need_reason(ctx, s, needs, foes);
+    let Some(src) = s.aug_src.and_then(|i| ctx.aug.sources.get(i)).filter(|_| s.aug >= AUG_REASON_MIN) else {
+        return base;
+    };
+    let what = match ctx.sd.items.get(&s.id) {
+        Some(it) if src.requires.contains(&it.id) => "quest item",
+        Some(it) => src.tags.iter().find(|&&t| item_has(t, it)).map_or("", |t| t.label()),
+        None => "",
+    };
+    let note = if what.is_empty() { format!("with {}", src.name) } else { format!("with {} ({what})", src.name) };
+    if s.aug > s.sit.max(s.stats_score - ctx.base) { note } else { format!("{base} · {note}") }
+}
+
+fn need_reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {
     let need_line = s.need.map(|i| match needs.driver[i].and_then(|d| foes.get(d)) {
-        Some(f) => format!("{}: {}", NEED_LABELS[i], f.label()),
+        Some(f) => {
+            let resist = ctx.pen.as_ref().and_then(|t| t.of(f.champ.key)).and_then(|(a, m)| match i {
+                ARMOR_PEN => Some(format!(" ~{a:.0} armor")),
+                MAGIC_PEN => Some(format!(" ~{m:.0} MR")),
+                _ => None,
+            });
+            format!("{}: {}{}", NEED_LABELS[i], f.label(), resist.unwrap_or_default())
+        }
         None => format!("{} vs their team", NEED_LABELS[i]),
     });
     let name = &ctx.champ.name;
