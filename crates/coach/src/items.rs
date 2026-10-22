@@ -363,13 +363,18 @@ pub fn reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {
     let Some(src) = s.aug_src.and_then(|i| ctx.aug.sources.get(i)).filter(|_| s.aug >= AUG_REASON_MIN) else {
         return base;
     };
+    let tag = ctx.sd.items.get(&s.id).and_then(|it| src.tags.iter().copied().find(|&t| item_has(t, it)));
     let what = match ctx.sd.items.get(&s.id) {
         Some(it) if src.requires.contains(&it.id) => "quest item",
-        Some(it) => src.tags.iter().find(|&&t| item_has(t, it)).map_or("", |t| t.label()),
-        None => "",
+        _ => tag.map_or("", |t| t.label()),
     };
     let note = if what.is_empty() { format!("with {}", src.name) } else { format!("with {} ({what})", src.name) };
-    if s.aug > s.sit.max(s.stats_score - ctx.base) { note } else { format!("{base} · {note}") }
+    let decides = s.aug > s.sit.max(s.stats_score - ctx.base);
+    match (decides, tag.is_some_and(|t| t.broad()) && what != "quest item") {
+        (true, _) => note,
+        (false, true) => base,
+        (false, false) => format!("{base} · {note}"),
+    }
 }
 
 fn need_reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {

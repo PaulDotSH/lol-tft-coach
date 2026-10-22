@@ -50,6 +50,11 @@ impl Tag {
         }
     }
 
+    /// Fits most items of a build (AP, tank): named in a reason only when it decides the pick.
+    pub fn broad(self) -> bool {
+        matches!(self, Tag::Ap | Tag::Tank)
+    }
+
     /// Item direction: +1 raises matching items, −1 lowers them (the augment already gives it).
     fn sign(self) -> f32 {
         match self {

@@ -3,7 +3,8 @@
 # text: CommunityDragon game/en_us/data/menu/en_us/lol.stringtable.json. Tags were
 # keyword-parsed from those descriptions (On-Hit, Critical Strike, Attack Speed, Ability
 # Haste, Ability Power, Heal and Shield Power, Health/Armor/Magic Resist, Mana, Attack Range,
-# Tenacity, Move Speed, QUEST … REWARD item), then checked by hand. Re-check every patch.
+# Tenacity, Move Speed, QUEST … REWARD item), then checked by hand against
+# wiki.leagueoflegends.com/en-us/Module:MayhemAugmentData/data. Re-check every patch.
 #
 # tags: on_hit crit attack_speed haste ap heal_shield tank mana range tenacity move_speed quest_item
 # stats: instant gain on pick in championStats units (fractions for %), used to tell which
@@ -38,8 +39,8 @@ stats = { ap = 70 }
 [[augment]]
 id = 3094
 name = "Lich Brain"
-tags = ["ap"]
-stats = { ap = 20 } # ≥, scales
+tags = ["ap", "tank"]
+stats = { ap = 30 } # + 4 % bonus health
 
 [[augment]]
 id = 1037
@@ -75,7 +76,7 @@ stats = { omnivamp = 0.25 }
 id = 2132
 name = "Warlock Juicebox"
 tags = ["ap"]
-stats = { omnivamp = 0.05 } # ≥, scales
+stats = { omnivamp = 0.1 } # + 3 % per 100 AP
 
 [[augment]]
 id = 1068

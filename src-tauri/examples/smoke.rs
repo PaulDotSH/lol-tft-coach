@@ -36,7 +36,9 @@ async fn main() -> anyhow::Result<()> {
     let mut ms = snap.clone();
     ms.mode = Mode::Mayhem;
     let aram = data::lolalytics::champ_stats(&http, &sd.champs[&me.champ], None, Mode::Mayhem, "all", "all", &patch).await?;
-    let a = coach::game_advice(&coach::GameInput { snap: &ms, sd: &sd, stats: Some(&aram), augments: Some((&aug, &m)), offered: &offered, gold_history: &[], my_augments: &[] });
+    // Pretend the first offer's top card (if curated) was taken.
+    let took = [MyAugment { id: Some(aug.gold[0]), candidates: vec![aug.gold[0]], time: 300.0 }];
+    let a = coach::game_advice(&coach::GameInput { snap: &ms, sd: &sd, stats: Some(&aram), augments: Some((&aug, &m)), offered: &offered, gold_history: &[], my_augments: &took });
     println!("\n== Mayhem (u.gg {}) ==", m.patch);
     print_game(&sd, &a);
 
@@ -119,9 +121,21 @@ fn print_game(sd: &StaticData, a: &GameAdvice) {
     }
     println!("self {:?}", a.me);
     println!("timers {:?}", a.timers);
+    if let Some(d) = &a.defense {
+        println!("defense: EHP phys {:?} magic {:?}, enemy dmg {:.0}% magic {:.0}% true, notes {:?}", d.ehp_physical, d.ehp_magic, d.enemy_magic * 100.0, d.enemy_true * 100.0, d.pen_notes);
+        for e in &d.enemies {
+            println!("  {:<10} lvl {:>2} armor {:5.1} mr {:5.1}", sd.champ_name(e.champ), e.level, e.armor, e.mr);
+        }
+    }
+    for g in &a.gold_sinks {
+        println!("gold sink {} {:?} sell {:?} {}g — {}", g.kind, g.item.map(|i| sd.item_name(i)), g.sell.map(|i| sd.item_name(i)), g.cost, g.reason);
+    }
+    if !a.my_augments.is_empty() {
+        println!("my augments {:?}", a.my_augments);
+    }
     if let Some(au) = &a.augments {
         for r in &au.offered {
-            println!("augment {:<28} {:?} rank {:?}/{}", r.name, r.rarity, r.rank, r.of);
+            println!("augment {:<28} {:?} rank {:?}/{} {}", r.name, r.rarity, r.rank, r.of, r.synergy.as_deref().unwrap_or(""));
         }
     }
 }
