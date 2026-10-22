@@ -27,8 +27,9 @@ a glance which enemy is the threat and how you compare to your lane opponent.
 | Stats bracket | Setting, default Emerald+, region all. |
 | Patch window | Current patch; falls back to last 30 days while the current patch's sample is small. |
 | Champ select | Counter-pick suggestions, ban suggestions, build plan once locked. |
-| Pick pool | Top masteries per role from the client, plus manual add/remove in settings. |
-| Bans | Blend: counters to your hovered champ (or pool), then meta threats in your lane. |
+| Pick pool | **All champions** played in your role (changed 2026-10-22, was "my pool"). |
+| Bans | Blend: counters to your hovered champ, then meta threats in your lane. |
+| ARAM: Mayhem | First-class: augment advice from u.gg (bigbrain CDN) per champion, read off screen with Windows OCR (auto-scan, borderless). Bench/reroll ranking in champ select. |
 | Item advice | "Buy next" + 1–2 alternatives on top; full 6-item late-game path below. |
 | Stats vs situation | Balanced: items 1–2 follow lolalytics; boots and items 3–6 swing toward threats. |
 | Threats | All enemies scored by how fed they are; extra weight for whoever kills you and your lane opponent. |
@@ -66,7 +67,7 @@ Read-only calls:
 
 - `/lol-gameflow/v1/gameflow-phase`, `/lol-gameflow/v1/session` — phase and queue id (ARAM = 450).
 - `/lol-champ-select/v1/session` — my cell, assigned position, hovers, picks, bans, revealed enemy picks.
-- `/lol-summoner/v1/current-summoner` and champion mastery — pick pool seed.
+- `/lol-summoner/v1/current-summoner` — who you are (recap).
 - `/lol-end-of-game/v1/eog-stats-block` — real post-game damage, gold, CS, vision for the recap.
 
 Polled at 1 s during champ select, 5 s otherwise. (The LCU websocket is a
@@ -91,6 +92,28 @@ Rules: one request at a time, disk cache with 12 h TTL keyed by the full query,
 browser-like User-Agent, prefetch only what the current phase needs. If any
 call fails or the format changes, that source is marked degraded in the UI and
 the coach runs on rules + Data Dragon only.
+
+### u.gg ARAM: Mayhem data (bigbrain CDN)
+
+lolalytics has no Mayhem data (unknown `queue` values silently fall back to
+generic data). u.gg serves static JSON, patch in `16_21` form:
+
+- `static.bigbrain.gg/custom-aram-mayhem/<p>/aram-mayhem-augment-manifest-<p>.json` — augment id → name (594 entries, includes Arena ids).
+- `.../tierlist-champions-<p>.json` — champion tiers `S+ … D` (champion keys).
+- `.../tierlist-per-champion-augments-rarity-<p>/tierlist-augments-<key>-<p>.json` — per champion, `rarities.kPrismatic|kGold|kSilver`: augment ids ordered best → worst.
+- Icons: `static.bigbrain.gg/cdragon-custom/<p>/augments/<id>.webp`.
+
+Mayhem items use lolalytics ARAM (`queue=aram`) + threat logic; u.gg's Mayhem
+item samples are too small.
+
+### Screen OCR (Mayhem augments)
+
+During games on the ARAM map, every ~1.5 s: find the League window
+(`RiotWindowClass`), BitBlt the centre region of its client area (borderless
+mode), run `Windows.Media.Ocr` (en-US, installed), fuzzy-match recognised lines
+against the augment manifest. When ≥2 augments match, that is an offer: rank
+them by the champion's u.gg list (position within rarity) and show the pick on
+the dashboard. No input is sent to the game; nothing is drawn over it.
 
 ### Data Dragon / static data
 
@@ -210,7 +233,7 @@ between seasons (**spike:** confirm current values in a real game).
 
 ### Champ select
 
-- **Counter-picks**: for each champ in your pool for your role, score =
+- **Counter-picks**: for each champ with ≥5 % of its games in your role, score =
   weighted mean of `vsWr` against revealed enemies (lane opponent weight 1.0,
   others 0.3), blended with the champ's overall win rate. Top 3 with reasons.
 - **Bans**: blend of (a) champs that beat your hovered champ / pool hardest,
@@ -218,7 +241,9 @@ between seasons (**spike:** confirm current values in a real game).
 - **Build plan** after lock-in: starting items (`build-earlyset`), core build
   and boots against the revealed enemy comp, using the same item scoring with
   threat scores replaced by "unknown, assume average".
-- ARAM champ select: build plan only (no picks/bans in ARAM).
+- ARAM / Mayhem champ select: build plan, plus your champ and the bench
+  champions (`benchChampions` in the session) ranked by Mayhem/ARAM tier, so you
+  know whether to swap or reroll.
 
 ### Recap (idle)
 
