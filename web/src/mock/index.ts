@@ -67,7 +67,7 @@ function lookup(champ: number, lane: ChampStats['lane'], mode: ChampStats['mode'
     patch: r() > 0.3 ? '16.21' : '30',
     win_rate: 47 + r() * 7,
     pick_rate: 1 + r() * 12,
-    games: BigInt(Math.round(20000 + r() * 200000)),
+    games: Math.round(20000 + r() * 200000),
     lanes: mode === 'rift' ? { [lane ?? 'middle']: 82, top: 9, support: 4 } : {},
     slots: [0, 1, 2, 3, 4].map((s) => pick(pool, 3).map((id, i) => stat(id, Math.round(40000 / (s + 1) / (i + 1))))),
     boots: pick(BOOTS, 3).map((id, i) => stat(id, Math.round(30000 / (i + 1)))),

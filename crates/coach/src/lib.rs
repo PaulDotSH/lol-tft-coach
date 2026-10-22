@@ -1,5 +1,17 @@
 //! All decisions. Pure functions over `model` types: no I/O, no clock.
 
+mod augments;
+mod champ_select;
+mod common;
+pub mod consts;
+mod items;
+mod matchups;
+mod needs;
+mod recap;
+mod self_stats;
+mod threat;
+mod timers;
+
 use model::*;
 
 /// Inputs for one in-game advice tick.
@@ -15,8 +27,30 @@ pub struct GameInput<'a> {
 }
 
 pub fn game_advice(input: &GameInput) -> GameAdvice {
-    let _ = input;
-    todo!()
+    let GameInput { snap, sd, stats, augments, offered } = *input;
+    let me = snap.players.get(snap.me);
+    let my_champ = me.map_or(0, |p| p.champ);
+    let owned = me.map_or(&[][..], |p| &p.items);
+    let a = threat::assess(snap, sd, stats);
+    let needs = needs::needs(&a.foes);
+    let ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
+    let b = if me.is_some() { items::build(&ctx, owned, &needs) } else { items::Build { path: vec![], alts: vec![] } };
+    let gold = Some((snap.my_gold, owned));
+    let pick = |s: &items::Scored, g| items::to_pick(&ctx, s, &needs, &a.foes, g);
+    GameAdvice {
+        time: snap.time,
+        mode: snap.mode,
+        my_champ,
+        buy_next: b.path.first().map(|s| pick(s, gold)),
+        alternatives: b.alts.iter().map(|s| pick(s, gold)).collect(),
+        path: b.path.iter().map(|s| pick(s, None)).collect(),
+        owned: owned.to_vec(),
+        matchups: matchups::matchups(snap, stats, a.lane_opp),
+        me: self_stats::self_stats(snap, sd, stats, a.lane_opp),
+        timers: timers::timers(snap),
+        augments: augments::advice(sd, my_champ, augments, offered),
+        threats: a.threats,
+    }
 }
 
 pub struct ChampSelectInput<'a> {
@@ -33,11 +67,9 @@ pub struct ChampSelectInput<'a> {
 }
 
 pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
-    let _ = input;
-    todo!()
+    champ_select::advice(input)
 }
 
 pub fn recap(eog: &EogStats, benchmarks: &Benchmarks, recommended: &[ItemId], sd: &StaticData) -> Recap {
-    let _ = (eog, benchmarks, recommended, sd);
-    todo!()
+    recap::recap(eog, benchmarks, recommended, sd)
 }
