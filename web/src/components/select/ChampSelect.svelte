@@ -6,6 +6,7 @@
   import Suggestions from './Suggestions.svelte';
   import BuildPlan from './BuildPlan.svelte';
   import Bench from './Bench.svelte';
+  import DraftPanel from './DraftPanel.svelte';
 
   let { cs }: { cs: ChampSelectAdvice } = $props();
   const rift = $derived(cs.mode === 'rift');
@@ -41,6 +42,10 @@
       <Suggestions title="Suggested picks" items={cs.picks} />
       <Suggestions title="Suggested bans" items={cs.bans} ban />
     </div>
+  {/if}
+
+  {#if cs.draft}
+    <DraftPanel draft={cs.draft} />
   {/if}
 
   {#if cs.build}
