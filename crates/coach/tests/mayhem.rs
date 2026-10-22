@@ -24,6 +24,8 @@ const SCOPIER: AugmentId = 1071; // +100 range
 const WOOGLETS: AugmentId = 1156; // grants a Needlessly Large Rod
 const LEG_DAY: AugmentId = 1305;
 const TITANS: AugmentId = 1001; // tenacity
+const INFERNAL_CONDUIT: AugmentId = 1045; // favors Riftmaker
+const RIFTMAKER: ItemId = 4633;
 
 fn extra_items(sd: &mut StaticData) {
     let mk = |id: ItemId, name: &str, cost: u32, stats: ItemStats, tags: &[&str], completed: bool| Item {
@@ -49,6 +51,7 @@ fn extra_items(sd: &mut StaticData) {
             i.rift = false;
             i
         },
+        mk(RIFTMAKER, "Riftmaker", 3100, ItemStats { ap: 70.0, hp: 350.0, ability_haste: 15.0, ..s() }, &[], true),
         mk(STAT_ANVIL, "Stat Bonus", 750, s(), &["Consumable"], false),
         mk(ELIXIR_SORCERY, "Elixir of Sorcery", 500, s(), &["Consumable"], false),
         mk(ELIXIR_WRATH, "Elixir of Wrath", 500, s(), &["Consumable"], false),
@@ -216,6 +219,17 @@ fn quest_augment_raises_its_items_and_keeps_a_slot() {
 }
 
 #[test]
+fn augment_raises_the_item_it_pairs_with() {
+    let sd = sd_x();
+    let s = mayhem(snap(lobby(STANDARD), vec![]));
+    let score = |a: &GameAdvice| a.path.iter().chain(&a.buy_next).chain(&a.alternatives).find(|p| p.item == RIFTMAKER).cloned();
+    let base = score(&advise(&sd, &s, None, &[])).map_or(0.0, |p| p.score);
+    let r = score(&advise(&sd, &s, None, &[picked(INFERNAL_CONDUIT)])).expect("Riftmaker suggested");
+    assert!(r.score > base, "{} vs {base}", r.score);
+    assert!(r.reason.contains("best with Infernal Conduit"), "{}", r.reason);
+}
+
+#[test]
 fn unresolved_pick_with_shared_tag_still_counts() {
     let sd = sd_x();
     let mut s = mayhem(snap(lobby(STANDARD), vec![]));
@@ -297,6 +311,21 @@ fn rerolled_away_card_is_not_a_candidate() {
     t.observe(&[], &s, &sd);
     assert!(!t.picks[0].candidates.contains(&JUICED), "{:?}", t.picks);
     assert!(t.picks[0].candidates.contains(&RECURSION), "{:?}", t.picks);
+}
+
+#[test]
+fn back_to_back_offers_are_two_picks() {
+    let sd = sd_x();
+    let mut s = mayhem(snap(lobby(STANDARD), vec![]));
+    s.players[0].level = 7;
+    s.my_stats = Some(live(100.0));
+    let mut t = AugmentTracker::default();
+    t.observe(&[JUICED, WITCHFUL, DEFT], &s, &sd);
+    s.my_stats.as_mut().unwrap().ability_power += 70.0;
+    t.observe(&[RECURSION, SCOPED, SCOPIER], &s, &sd); // next offer, cards never closed
+    s.my_stats.as_mut().unwrap().ability_haste += 60.0;
+    t.observe(&[], &s, &sd);
+    assert_eq!(t.picks.iter().map(|p| p.id).collect::<Vec<_>>(), vec![Some(WITCHFUL), Some(RECURSION)], "{:?}", t.picks);
 }
 
 #[test]

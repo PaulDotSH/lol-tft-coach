@@ -374,9 +374,14 @@ pub fn reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {
         Some(it) if src.requires.contains(&it.id) => "quest item",
         _ => tag.map_or("", |t| t.label()),
     };
-    let note = if what.is_empty() { format!("with {}", src.name) } else { format!("with {} ({what})", src.name) };
+    let favored = src.favors.contains(&s.id);
+    let note = match () {
+        _ if favored => format!("best with {}", src.name),
+        _ if what.is_empty() => format!("with {}", src.name),
+        _ => format!("with {} ({what})", src.name),
+    };
     let decides = s.aug > s.sit.max(s.stats_score - ctx.base);
-    match (decides, tag.is_some_and(|t| t.broad()) && what != "quest item") {
+    match (decides, tag.is_some_and(|t| t.broad()) && what != "quest item" && !favored) {
         (true, _) => note,
         (false, true) => base,
         (false, false) => format!("{base} · {note}"),

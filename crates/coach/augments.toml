@@ -11,6 +11,7 @@
 #   offered augment was taken. `*_pct` multiply the value before the pick (as_pct: × base
 #   attack speed). Scaling tooltips use their lower bound (≥).
 # grants: item given on pick. requires: quest items (raised in scoring).
+# favors: items known to pair best with it (player experience), raised in scoring.
 # keep_slot: the quest reward is an extra item that needs a free slot.
 
 # Heal and Shield Power items (Data Dragon has no stat for it).
@@ -333,6 +334,7 @@ tags = ["ap"]
 id = 1045
 name = "Infernal Conduit"
 tags = ["ap"]
+favors = [4633] # Riftmaker
 
 [[augment]]
 id = 3059

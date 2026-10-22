@@ -50,6 +50,11 @@ impl AugmentTracker {
         let Some(me) = snap.players.get(snap.me) else { return };
         let now = Before { stats: snap.my_stats.clone(), items: me.items.clone(), gold: snap.my_gold, level: me.level };
         if !offered.is_empty() {
+            // Nothing in common with the open offer (rerolls change one card): the next
+            // offer arrived without the cards closing in between, so the open one was picked.
+            if self.open.as_ref().is_some_and(|w| !offered.iter().any(|c| w.shown.contains(c))) {
+                self.close(snap, sd, now.clone());
+            }
             match &mut self.open {
                 Some(w) => {
                     union(&mut w.cards, offered);
@@ -73,6 +78,11 @@ impl AugmentTracker {
             }
             return;
         }
+        self.close(snap, sd, now);
+    }
+
+    fn close(&mut self, snap: &GameSnapshot, sd: &StaticData, now: Before) {
+        let Some(me) = snap.players.get(snap.me) else { return };
         let Some(w) = self.open.take() else { return };
         let base_as = Some(champ(sd, me.champ).base.attack_speed).filter(|&a| a > 0.0).unwrap_or(FALLBACK_BASE_AS);
         let mut pick = identify(&w.shown, &w.before, &now, sd, base_as);

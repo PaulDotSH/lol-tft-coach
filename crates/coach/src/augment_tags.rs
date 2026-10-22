@@ -9,6 +9,8 @@ use std::sync::LazyLock;
 pub const AUG_ITEM_BONUS: f32 = 0.025;
 /// Items a picked quest augment asks for.
 pub const AUG_QUEST_BONUS: f32 = 0.08;
+/// Items a picked augment pairs best with (`favors`).
+pub const AUG_FAVOR_BONUS: f32 = 0.06;
 /// Tenacity need kept when an augment grants tenacity.
 pub const AUG_TENACITY_NEED: f32 = 0.3;
 /// Tank item: this much health or armor + MR.
@@ -78,6 +80,8 @@ pub struct Aug {
     #[serde(default)]
     pub requires: Vec<ItemId>,
     #[serde(default)]
+    pub favors: Vec<ItemId>,
+    #[serde(default)]
     pub keep_slot: bool,
 }
 
@@ -122,6 +126,7 @@ pub struct Source {
     pub name: String,
     pub tags: Vec<Tag>,
     pub requires: &'static [ItemId],
+    pub favors: &'static [ItemId],
     pub keep_slot: bool,
 }
 
@@ -138,7 +143,13 @@ impl AugEffects {
             .filter_map(|p| match p.id {
                 Some(id) => {
                     let a = get(id)?;
-                    Some(Source { name: a.name.clone(), tags: a.tags.clone(), requires: &a.requires, keep_slot: a.keep_slot })
+                    Some(Source {
+                        name: a.name.clone(),
+                        tags: a.tags.clone(),
+                        requires: &a.requires,
+                        favors: &a.favors,
+                        keep_slot: a.keep_slot,
+                    })
                 }
                 None => {
                     let cands: Vec<&Aug> = p.candidates.iter().map(|&c| get(c)).collect::<Option<_>>()?;
@@ -146,7 +157,13 @@ impl AugEffects {
                     let tags: Vec<Tag> =
                         first.tags.iter().copied().filter(|t| cands.iter().all(|a| a.tags.contains(t))).collect();
                     let t = tags.first()?;
-                    Some(Source { name: format!("your {} augment", t.label()), tags, requires: &[], keep_slot: false })
+                    Some(Source {
+                        name: format!("your {} augment", t.label()),
+                        tags,
+                        requires: &[],
+                        favors: &[],
+                        keep_slot: false,
+                    })
                 }
             })
             .collect();
@@ -168,6 +185,8 @@ impl AugEffects {
         for (i, s) in self.sources.iter().enumerate() {
             let v = if s.requires.contains(&it.id) {
                 AUG_QUEST_BONUS
+            } else if s.favors.contains(&it.id) {
+                AUG_FAVOR_BONUS
             } else {
                 // Strongest tag per augment, not the sum: one augment, one push.
                 s.tags.iter().filter(|&&t| item_has(t, it)).map(|t| t.sign() * AUG_ITEM_BONUS).fold(0.0, |a: f32, b| {
