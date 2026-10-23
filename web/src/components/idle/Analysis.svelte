@@ -191,7 +191,7 @@
           {/if}
         </section>
         {#if a.phases.length}
-          <Phases rows={a.phases} opponent={a.opponent != null ? name(a.opponent) : null} rich={a.rich_minutes} />
+          <Phases rows={a.phases} opponent={a.opponent != null ? name(a.opponent) : null} rich={a.rich_marks} />
         {/if}
         {#if a.vs_past}<PastCompare c={a.vs_past} champ={name(g.champ)} />{/if}
         <Fights fights={a.fights} />

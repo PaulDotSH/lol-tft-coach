@@ -13,7 +13,7 @@ use std::path::Path;
 /// Games read from the history list, newest first.
 pub const RECENT: u32 = 30;
 /// Bump when parsing changes so cached games are parsed again.
-const CACHE_VERSION: u32 = 5;
+const CACHE_VERSION: u32 = 6;
 
 /// Recent games, newest first. The client lists only the last few games, but
 /// older ones stay fetchable by id, so every game cached in `dir` stays in the

@@ -3,7 +3,7 @@
   import type { PhaseRow } from '../../lib/bindings/PhaseRow';
   import { gold, signed } from '../../lib/ui';
 
-  let { rows, opponent, rich }: { rows: PhaseRow[]; opponent: string | null; rich: number } = $props();
+  let { rows, opponent, rich }: { rows: PhaseRow[]; opponent: string | null; rich: number[] } = $props();
   const vs = (mine: number, theirs: number | null) => (theirs == null ? 0 : mine - theirs);
 </script>
 
@@ -34,8 +34,8 @@
       {/each}
     </tbody>
   </table>
-  {#if rich > 0}
-    <p class="muted small" class:warn={rich >= 3}>You held 1500+ gold at {rich} minute mark{rich === 1 ? '' : 's'}.</p>
+  {#if rich.length}
+    <p class="muted small" class:warn={rich.length >= 2}>You held 1500+ gold unspent at {rich.map((m) => `${m}:00`).join(', ')}.</p>
   {/if}
 </section>
 

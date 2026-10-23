@@ -1395,8 +1395,8 @@ data! {
         pub live: bool,
         /// CS, levels and gold vs my opponent at 5, 10, 15 and 20 minutes.
         pub phases: Vec<PhaseRow>,
-        /// Minute marks where I held 1500+ gold (Rift).
-        pub rich_minutes: u32,
+        /// Minute marks (game minutes) where I held 1500+ gold, the closing push aside (Rift).
+        pub rich_marks: Vec<u32>,
         pub vs_past: Option<PastCompare>,
         pub focus: Option<Focus>,
     }
@@ -1451,9 +1451,11 @@ pub const MAP_END: i32 = 14800;
 pub enum MapZone { BlueBase, RedBase, Top, Mid, Bot, River, BlueJungle, RedJungle }
 
 impl MapZone {
-    /// A position as seen from blue side: red side's map turned around.
+    /// A position as seen from blue side: red side's map mirrored across the river
+    /// diagonal, so the bases and jungles swap but top lane stays top (a 180° turn
+    /// would put red-side top-lane deaths in bot lane).
     pub fn from_blue(x: i32, y: i32, blue: bool) -> (i32, i32) {
-        if blue { (x, y) } else { (MAP_END - x, MAP_END - y) }
+        if blue { (x, y) } else { (MAP_END - y, MAP_END - x) }
     }
 
     pub fn at(x: i32, y: i32) -> MapZone {

@@ -41,6 +41,6 @@ live: boolean,
  */
 phases: Array<PhaseRow>, 
 /**
- * Minute marks where I held 1500+ gold (Rift).
+ * Minute marks (game minutes) where I held 1500+ gold, the closing push aside (Rift).
  */
-rich_minutes: number, vs_past: PastCompare | null, focus: Focus | null, };
+rich_marks: Array<number>, vs_past: PastCompare | null, focus: Focus | null, };

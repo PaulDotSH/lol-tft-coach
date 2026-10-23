@@ -181,11 +181,27 @@ fn death_spots_are_seen_from_blue_side() {
     // I was blue here: positions as recorded.
     let first = tl["frames"].as_array().unwrap().iter().flat_map(|f| f["events"].as_array().unwrap()).find(|e| e["victimId"] == 5).unwrap();
     assert_eq!((g.death_spots[0].x, g.death_spots[0].y), (first["position"]["x"].as_i64().unwrap() as i32, first["position"]["y"].as_i64().unwrap() as i32));
-    // The same game as a red-side player: turned around.
+    // The same game as a red-side player: mirrored across the river diagonal.
     let mut j = game.clone();
     j["participantIdentities"][4]["player"]["puuid"] = "x".into();
     j["participantIdentities"][9]["player"]["puuid"] = "me-puuid".into();
     let r = history::parse_game(&j, Some("me-puuid"), Some(&tl)).unwrap();
     let e = tl["frames"].as_array().unwrap().iter().flat_map(|f| f["events"].as_array().unwrap()).find(|e| e["victimId"] == 10).unwrap();
-    assert_eq!((r.death_spots[0].x, r.death_spots[0].y), (MAP_END - e["position"]["x"].as_i64().unwrap() as i32, MAP_END - e["position"]["y"].as_i64().unwrap() as i32));
+    assert_eq!((r.death_spots[0].x, r.death_spots[0].y), (MAP_END - e["position"]["y"].as_i64().unwrap() as i32, MAP_END - e["position"]["x"].as_i64().unwrap() as i32));
+}
+
+#[test]
+fn red_side_lanes_stay_put_and_bases_swap() {
+    use model::MapZone::*;
+    let seen = |x, y| {
+        let (a, b) = model::MapZone::from_blue(x, y, false);
+        model::MapZone::at(a, b)
+    };
+    // Red top lane (near the top-left corner) is still top; red bot still bot.
+    assert_eq!(seen(1200, 13600), Top);
+    assert_eq!(seen(13600, 1200), Bot);
+    // Red base and jungle become "mine": blue base and blue jungle.
+    assert_eq!(seen(14000, 14000), BlueBase);
+    assert_eq!(seen(10000, 6500), BlueJungle);
+    assert_eq!(seen(7400, 7400), Mid);
 }

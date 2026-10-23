@@ -37,7 +37,10 @@ const FIGHTS_GOOD: f32 = 0.7;
 const PHASE_MINUTES: [u32; 4] = [5, 10, 15, 20];
 /// Gold held at a minute mark that counts as sitting on it.
 const RICH_GOLD: u32 = 1500;
-const RICH_MINUTES: u32 = 3;
+const RICH_MARKS: usize = 2;
+/// The closing push (s before the end) and the first minutes are left out: nobody backs then.
+const RICH_SKIP_END: f32 = 180.0;
+const RICH_FROM: f32 = 180.0;
 /// Phase gaps worth a takeaway: CS at 15:00.
 const CS_GAP_15: i32 = 20;
 /// Wards placed below this share of my opponent's (supports, junglers).
@@ -115,10 +118,15 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
             })
         })
         .collect();
-    let rich_minutes = if g.mode == Mode::Rift {
-        d.frames.iter().filter(|f| f.time >= 180.0 && f.players[d.me].current_gold >= RICH_GOLD).count() as u32
+    let end = g.duration_s as f32 - RICH_SKIP_END;
+    let rich_marks = if g.mode == Mode::Rift {
+        d.frames
+            .iter()
+            .filter(|f| f.time >= RICH_FROM && f.time <= end && f.players[d.me].current_gold >= RICH_GOLD)
+            .map(|f| (f.time / 60.0).round() as u32)
+            .collect()
     } else {
-        0
+        vec![]
     };
     let mut a = MatchAnalysis {
         game: g.clone(),
@@ -138,13 +146,23 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         takeaways: vec![],
         live: recap.is_some(),
         phases,
-        rich_minutes,
+        rich_marks,
         vs_past: None,
         focus: None,
     };
     a.takeaways = takeaways(&a, d, sd, team_kills);
     a.focus = focus(&a, d, sd);
     a
+}
+
+/// "12:00, 18:00 and 21:00".
+fn marks(minutes: &[u32]) -> String {
+    let v: Vec<String> = minutes.iter().map(|m| format!("{m}:00")).collect();
+    match v.as_slice() {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
 }
 
 fn round1(x: f32) -> f32 {
@@ -173,11 +191,11 @@ fn focus(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData) -> Option<Focus> {
         );
     }
     let held = a.review.deaths.iter().filter(|n| n.unspent >= 1000).count();
-    if held >= PATTERN_MIN || a.rich_minutes >= RICH_MINUTES {
+    if held >= PATTERN_MIN || a.rich_marks.len() >= RICH_MARKS {
         let why = if held >= PATTERN_MIN {
             format!("You died {held}× holding 1000+ gold.")
         } else {
-            format!("You held {RICH_GOLD}+ gold at {} minute marks.", a.rich_minutes)
+            format!("You held {RICH_GOLD}+ gold unspent at {}.", marks(&a.rich_marks))
         };
         return pick("Back and spend before you sit on 1000+ gold".into(), why, goal(GoalKind::Unspent, 1000.0));
     }
@@ -463,8 +481,8 @@ fn takeaways(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData, team_kills: u3
             }
         }
     }
-    if a.rich_minutes >= RICH_MINUTES {
-        say(false, format!("Held {RICH_GOLD}+ gold at {} minute marks: back and spend sooner", a.rich_minutes));
+    if a.rich_marks.len() >= RICH_MARKS {
+        say(false, format!("Held {RICH_GOLD}+ gold unspent at {}: back and spend sooner", marks(&a.rich_marks)));
     }
 
     if rift && team_kills >= KP_MIN_KILLS
