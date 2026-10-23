@@ -26,6 +26,8 @@
     <select id="region" value={settings.region} onchange={(e) => set('region', e.currentTarget.value)}>
       {#each REGIONS as r (r)}<option value={r}>{regionName(r)}</option>{/each}
     </select>
+    <label for="audio">Speak in-game calls aloud</label>
+    <input id="audio" type="checkbox" checked={settings.audio} onchange={(e) => set('audio', e.currentTarget.checked)} />
     <label for="ocr">Read Mayhem augments from screen</label>
     <input id="ocr" type="checkbox" checked={settings.ocr_enabled} onchange={(e) => set('ocr_enabled', e.currentTarget.checked)} />
     <label for="rec">Record games as test fixtures</label>

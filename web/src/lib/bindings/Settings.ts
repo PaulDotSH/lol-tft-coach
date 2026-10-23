@@ -13,4 +13,8 @@ region: string, ocr_enabled: boolean, record_fixtures: boolean,
 /**
  * Up to two self-coaching goals.
  */
-goals: Array<Goal>, };
+goals: Array<Goal>, 
+/**
+ * Speak in-game calls aloud.
+ */
+audio: boolean, };

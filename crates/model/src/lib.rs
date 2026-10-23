@@ -541,6 +541,12 @@ data! {
         pub gold_sinks: Vec<GoldSink>,
         /// Mayhem: ask the user to hold Tab so enemy augments can be read.
         pub tab_hint: Option<TabHint>,
+        /// Players worth a shutdown (or very little), from kill streaks and item gold.
+        pub bounties: Vec<Bounty>,
+        /// Whether my team should take fights right now, and why.
+        pub readiness: Option<Readiness>,
+        /// Short calls (back for an objective, take one with numbers), newest situation only.
+        pub calls: Vec<Call>,
     }
 
     pub struct PickSuggestion {
@@ -650,6 +656,9 @@ data! {
         /// Up to two self-coaching goals.
         #[serde(default)]
         pub goals: Vec<Goal>,
+        /// Speak in-game calls aloud.
+        #[serde(default = "yes")]
+        pub audio: bool,
     }
 
     pub struct UiChamp {
@@ -1200,6 +1209,33 @@ data! {
         pub level: u32,
     }
 
+    pub struct Bounty {
+        pub champ: ChampKey,
+        pub ally: bool,
+        pub me: bool,
+        /// Kills since their last death.
+        pub streak: u32,
+        /// Deaths since their last kill.
+        pub cold: u32,
+        /// Item gold over their team's average.
+        pub item_lead: i32,
+        pub text: String,
+    }
+
+    pub struct Readiness {
+        pub verdict: Verdict,
+        pub text: String,
+        pub reasons: Vec<String>,
+    }
+
+    pub struct Call {
+        /// Stable while the situation lasts (deduplicates audio).
+        pub key: String,
+        pub text: String,
+        /// Shorter, for speech.
+        pub say: String,
+    }
+
     /// Silent prompt to hold Tab; gone once the scoreboard was read.
     pub struct TabHint {
         pub text: String,
@@ -1387,13 +1423,19 @@ enums! {
     /// Self-coaching goal / trend metric.
     pub enum GoalKind { Cs10, EarlyDeaths, Vision, Unspent, BuyNext }
 
+    pub enum Verdict { Fight, Even, Avoid }
+
     /// Where I was for a fight or objective: in it (or close), dead, or elsewhere.
     pub enum Presence { There, Dead, Away }
 }
 
+fn yes() -> bool {
+    true
+}
+
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![] }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true }
     }
 }
 

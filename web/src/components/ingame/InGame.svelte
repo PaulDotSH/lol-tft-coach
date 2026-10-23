@@ -14,6 +14,9 @@
   import MyAugments from './MyAugments.svelte';
   import GoldSinks from './GoldSinks.svelte';
   import TabHint from './TabHint.svelte';
+  import Calls from './Calls.svelte';
+  import Readiness from './Readiness.svelte';
+  import Bounties from './Bounties.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -21,6 +24,7 @@
 </script>
 
 <div class="ingame" class:rift>
+  {#if game.calls.length}<div class="calls"><Calls calls={game.calls} /></div>{/if}
   {#if game.augments || game.my_augments.length}
     <div class="aug">
       {#if game.augments}<AugmentOffer advice={game.augments} champ={game.my_champ} />{/if}
@@ -35,7 +39,9 @@
   </div>
   <div class="threats">
     {#if game.tab_hint}<TabHint hint={game.tab_hint} />{/if}
+    {#if game.readiness}<Readiness r={game.readiness} />{/if}
     <Threats threats={game.threats} />
+    {#if game.bounties.length}<Bounties bounties={game.bounties} />{/if}
     <DeathWindows deaths={game.deaths} at={game.time} />
   </div>
   <div class="me"><SelfCoach me={game.me} {laneOpp} /></div>
@@ -55,6 +61,7 @@
     gap: var(--gap);
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
+      'calls calls'
       'aug aug'
       'build threats'
       'me me'
@@ -62,6 +69,9 @@
       'gold gold'
       'side side';
     align-content: start;
+  }
+  .calls {
+    grid-area: calls;
   }
   .aug {
     grid-area: aug;
@@ -105,6 +115,7 @@
     .ingame.rift {
       grid-template-columns: minmax(0, 6fr) minmax(0, 5fr) minmax(0, 3fr);
       grid-template-areas:
+        'calls calls calls'
         'aug aug aug'
         'build threats side'
         'me me side'
@@ -119,7 +130,7 @@
   @media (max-width: 760px) {
     .ingame {
       grid-template-columns: 1fr;
-      grid-template-areas: 'aug' 'build' 'threats' 'me' 'def' 'gold' 'side';
+      grid-template-areas: 'calls' 'aug' 'build' 'threats' 'me' 'def' 'gold' 'side';
     }
   }
 </style>

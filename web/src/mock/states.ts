@@ -10,7 +10,7 @@ import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoa
 import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true };
 
 const src = (p: Partial<Sources>): Sources => ({
   client: 'ok',
@@ -147,6 +147,19 @@ const riftGame: GameAdvice = {
   defense: riftDefense,
   gold_sinks: [],
   tab_hint: null,
+  bounties: [
+    { champ: 238, ally: false, me: false, streak: 4, cold: 0, item_lead: 1900, text: '4-kill streak: big shutdown' },
+    { champ: 145, ally: false, me: false, streak: 0, cold: 3, item_lead: -1200, text: '3 deaths in a row: worth little' },
+    { champ: 222, ally: true, me: false, streak: 0, cold: 0, item_lead: 1600, text: '1.6k item gold over their team: shutdown' },
+  ],
+  readiness: {
+    verdict: 'avoid',
+    text: 'Their team is stronger right now: avoid fights, farm safely; or back for Zhonya’s Hourglass first',
+    reasons: ['−2.4k item gold', '−0.6 levels on average', 'you can afford Zhonya’s Hourglass in ~35 s'],
+  },
+  calls: [
+    { key: 'back-Baron-1200', text: 'Baron in 1:28: back now, buy Zhonya’s Hourglass, and be there', say: 'Baron in 90 seconds. Back and buy now.' },
+  ],
 };
 
 const mayhemGame: GameAdvice = {
@@ -223,6 +236,9 @@ const mayhemGame: GameAdvice = {
   defense: mayhemDefense,
   gold_sinks: [],
   tab_hint: null,
+  bounties: [],
+  readiness: { verdict: 'even', text: 'Even: fight only with numbers or near your side', reasons: ['+0.6k item gold'] },
+  calls: [],
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.

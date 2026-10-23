@@ -3,6 +3,7 @@
 mod analysis;
 mod augment_tags;
 mod augments;
+mod calls;
 mod champ_select;
 mod common;
 pub mod consts;
@@ -127,6 +128,9 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         my_augments: my_augments.to_vec(),
         gold_sinks,
         tab_hint: enemy_augments::tab_hint(snap, enemy_augments.seen, enemy_augments.stale_since),
+        bounties: vec![],
+        readiness: None,
+        calls: vec![],
     }
 }
 
@@ -148,6 +152,7 @@ pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
         advice.gold_eta = Some(shop::eta(sd, snap.mode, me, snap.my_gold, &path, tracker.income()));
     }
     spikes::annotate(&mut advice.threats, snap, tracker, ults);
+    calls::annotate(advice, snap, sd);
 }
 
 pub struct ChampSelectInput<'a> {
