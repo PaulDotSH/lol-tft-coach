@@ -4,7 +4,7 @@ use crate::{
     augment_tags::{AugEffects, item_has},
     common::*,
     consts::*,
-    modes::{self, ARMOR_PEN, MAGIC_PEN, Rules},
+    modes::{self, ARMOR, ARMOR_PEN, MAGIC_PEN, MR, Rules},
     needs::{Needs, decay},
     resists::{PEN_GAIN_FULL, Pen, Targets},
     threat::Foe,
@@ -263,9 +263,11 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
             let pr = PR_BONUS * r.games as f32 / total.max(1) as f32;
             (shrunk(r.wins, r.games) + pr, Src::Row { wins: r.wins, games: r.games })
         } else if let Some(&(w, g)) = ctx.agg.get(&it.id).filter(|a| a.1 >= MIN_ITEM_GAMES) {
-            // Pulled toward this slot's average like a row: other slots' win rates are
-            // mostly later buys in longer, won games (Spirit Visage 64% over 115 games).
-            let wr = if total > 0 { (w as f32 + SHRINK_GAMES * avg) / (g as f32 + SHRINK_GAMES) } else { wilson(w, g) };
+            // Pessimistic both ways: the Wilson bound keeps a weak item weak, and pulling
+            // toward this slot's average caps a lucky small sample (Spirit Visage 64% over
+            // 115 games, mostly later buys in longer, won games).
+            let shrunk = (w as f32 + SHRINK_GAMES * avg) / (g as f32 + SHRINK_GAMES);
+            let wr = if total > 0 { wilson(w, g).min(shrunk) } else { wilson(w, g) };
             (wr - OFF_SLOT_PENALTY, Src::Other { wins: w, games: g })
         } else if fits && (ctx.stats.is_none() || dot >= ANSWER_MIN) {
             (ctx.base + FIT_BONUS * fit.max(0.0), Src::Rule)
@@ -274,7 +276,13 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         };
         let sit = weight * dot;
         let (aug, aug_src) = ctx.aug.item_bonus(it);
-        let score = stats_score + sit + aug - cap_penalty(ctx, it, load);
+        // Nothing to amplify: Spirit Visage on a champion without self-healing.
+        let no_heal = HEAL_AMP_ITEMS.contains(&it.id) && ctx.champ.traits.heals < SELF_HEAL_MIN;
+        // MR into a physical team (or armor into a magic one): a good win rate doesn't make up for it.
+        let off_type = (ans[MR] - ans[ARMOR]).max(0.0) * (need[ARMOR] - need[MR]).max(0.0)
+            + (ans[ARMOR] - ans[MR]).max(0.0) * (need[MR] - need[ARMOR]).max(0.0);
+        let score = stats_score + sit + aug - cap_penalty(ctx, it, load) - if no_heal { SELF_HEAL_PENALTY } else { 0.0 }
+            - RESIST_MISMATCH * off_type;
         out.push(Scored { id: it.id, score, stats_score, sit, src, need: need_i, aug, aug_src });
     }
     out.sort_unstable_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));

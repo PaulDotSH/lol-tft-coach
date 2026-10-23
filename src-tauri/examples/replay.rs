@@ -22,6 +22,9 @@ async fn main() -> anyhow::Result<()> {
         enemy_augments: Default::default(),
     });
     println!("{} at {:.0}s", sd.champ_name(me.champ), snap.time);
+    if let Some(d) = &a.defense {
+        println!("  enemy magic {:.0}%, my EHP physical {:.0} magic {:.0}", 100.0 * d.enemy_magic, d.ehp_physical.unwrap_or(0.0), d.ehp_magic.unwrap_or(0.0));
+    }
     for p in a.buy_next.iter().chain(&a.alternatives) {
         println!("  option {:<22} {}", p.name, p.reason);
     }
@@ -30,6 +33,9 @@ async fn main() -> anyhow::Result<()> {
     }
     for p in &a.path {
         println!("  path   {:<22} {:.3} {}", p.name, p.score, p.reason);
+    }
+    for t in &a.threats {
+        println!("  threat {:<12} {:>3.0} {}", t.name, t.score, t.damage);
     }
     Ok(())
 }

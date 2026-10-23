@@ -57,8 +57,10 @@ fn healer_team_puts_anti_heal_in_path_and_others_do_not() {
     let m = a.path.iter().find(|p| p.item == MORELLO).unwrap();
     assert!(m.reason.starts_with("Anti-heal"), "{}", m.reason);
 
+    // No healers: Morello is at most the last filler (Banshee's MR is wrong into this AD team).
     let a = advise(&snap(lobby(STANDARD), vec![]), Some(&ahri_stats()));
-    assert!(!a.path.iter().any(|p| p.item == MORELLO), "{:?}", a.path);
+    let i = a.path.iter().position(|p| p.item == MORELLO).unwrap_or(usize::MAX);
+    assert!(i >= a.path.len() - 1, "{:?}", a.path);
 }
 
 #[test]

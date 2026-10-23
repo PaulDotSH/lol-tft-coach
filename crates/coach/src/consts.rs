@@ -92,6 +92,14 @@ pub const START_GOLD: u32 = 500;
 pub const OFF_SLOT_PENALTY: f32 = 0.01;
 /// Item my champ does not build at all (vs the champ's own win rate).
 pub const OFF_LIST_PENALTY: f32 = 0.03;
+/// Resist item against the other damage type: score lost per unit of
+/// (its armor-vs-MR answer gap) × (the opposite need's lead). Stats can't fix a wrong resist.
+pub const RESIST_MISMATCH: f32 = 0.08;
+/// Spirit Visage: amplifies my own healing and shields, so it needs some.
+pub const HEAL_AMP_ITEMS: [model::ItemId; 1] = [3065];
+/// Below this `heals` trait, a heal-amp item loses SELF_HEAL_PENALTY (win-rate units).
+pub const SELF_HEAL_MIN: f32 = 0.3;
+pub const SELF_HEAL_PENALTY: f32 = 0.03;
 pub const NO_STATS_WR: f32 = 0.5;
 pub const FIT_BONUS: f32 = 0.02;
 pub const FIT_MIN: f32 = 0.5;

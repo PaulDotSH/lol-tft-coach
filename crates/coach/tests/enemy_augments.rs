@@ -61,13 +61,18 @@ fn mayhem_snap() -> GameSnapshot {
 fn healing_augment_puts_anti_heal_in_path_and_shows_on_threat_row() {
     let s = mayhem_snap();
     let base = advise(&s, Default::default());
-    assert!(!base.path.iter().any(|p| p.item == MORELLO), "{:?}", base.path);
+    // Without healers Morello is at most the last filler (Banshee's MR is wrong into this AD team).
+    let morello = |a: &GameAdvice| a.path.iter().position(|p| p.item == MORELLO).unwrap_or(usize::MAX);
+    assert!(morello(&base) >= base.path.len() - 1, "{:?}", base.path);
 
     let enemy = s.players[7].champ;
     let ranks = [ChampAugments { champ: enemy, prismatic: vec![], gold: vec![9, SOUL_SIPHON], silver: vec![] }];
     let read = [seen(enemy, &[&[SOUL_SIPHON]])];
     let a = advise(&s, EnemyAugmentInput { seen: &read, ranks: &ranks, stale_since: None });
-    assert!(a.path.iter().any(|p| p.item == MORELLO), "{:?}", a.path);
+    // With it, Morello is there for the augment's holder.
+    let m = a.path.iter().find(|p| p.item == MORELLO).expect("Morello in path");
+    let name = &a.threats.iter().find(|t| t.champ == enemy).unwrap().name;
+    assert!(m.reason.starts_with(&format!("Anti-heal: {name}")), "{}", m.reason);
     let t = a.threats.iter().find(|t| t.champ == enemy).unwrap();
     assert!(t.flags.iter().any(|f| f == "heals"), "{:?}", t.flags);
     assert_eq!(t.augments.len(), 1);
