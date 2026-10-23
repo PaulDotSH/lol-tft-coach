@@ -28,12 +28,13 @@ mod shop;
 mod spikes;
 mod team;
 mod threat;
+mod tips;
 mod timers;
 mod tracker;
 mod trends;
 mod windows;
 
-pub use analysis::analyze_match;
+pub use analysis::{analyze_match, compare_past};
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use memory::matchup_memory;
@@ -131,6 +132,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         bounties: vec![],
         readiness: None,
         calls: vec![],
+        tips: vec![],
     }
 }
 
@@ -143,8 +145,8 @@ pub struct LiveInput<'a> {
     pub ults: &'a std::collections::HashMap<ChampKey, UltCooldowns>,
 }
 
-/// Second pass over [`game_advice`]: gold ETA from tracked income, enemy R ranks
-/// and newly finished items.
+/// Second pass over [`game_advice`]: gold ETA from tracked income, enemy R ranks,
+/// newly finished items, calls and quiet tips.
 pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
     let LiveInput { snap, sd, tracker, ults } = *input;
     if let (Some(me), Some(_)) = (snap.players.get(snap.me), &advice.gold_eta) {
@@ -153,6 +155,7 @@ pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
     }
     spikes::annotate(&mut advice.threats, snap, tracker, ults);
     calls::annotate(advice, snap, sd);
+    tips::annotate(advice, snap, sd, tracker);
 }
 
 pub struct ChampSelectInput<'a> {

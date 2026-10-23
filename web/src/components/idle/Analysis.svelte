@@ -9,6 +9,9 @@
   import DeathMap from './DeathMap.svelte';
   import DeathReview from './DeathReview.svelte';
   import Fights from './Fights.svelte';
+  import FocusCard from './FocusCard.svelte';
+  import PastCompare from './PastCompare.svelte';
+  import Phases from './Phases.svelte';
   import GoldChart from './GoldChart.svelte';
   import Scoreboard from './Scoreboard.svelte';
 
@@ -50,7 +53,8 @@
         ]
       : [],
   );
-  const built = $derived(new Set(a?.players.find((p) => p.me)?.items ?? []));
+  const me = $derived(a?.players.find((p) => p.me));
+  const built = $derived(new Set(me?.items ?? []));
   const epic = $derived(a?.marks.filter((m) => m.kind !== 'Tower' && m.kind !== 'Inhibitor') ?? []);
   const MARK = { there: '✓', dead: '✝', away: '✗' } as const;
   const WHERE = { there: 'You were there', dead: 'You were dead', away: 'You were elsewhere' } as const;
@@ -85,6 +89,7 @@
   {:else}
     <div class="cols">
       <div class="col">
+        {#if a.focus}<FocusCard focus={a.focus} />{/if}
         <section class="panel">
           <h2>What stood out</h2>
           {#if a.takeaways.length}
@@ -115,6 +120,13 @@
                   <tr><th>{label}</th><td class="num">{(v * 100).toFixed(0)}%</td><td class="muted small">of your team</td></tr>
                 {/if}
               {/each}
+              {#if me && g.mode === 'rift'}
+                <tr>
+                  <th>Wards placed</th>
+                  <td class="num">{me.wards_placed}</td>
+                  <td class="muted small">{me.wards_killed} cleared · {me.control_wards} Control Ward{me.control_wards === 1 ? '' : 's'}</td>
+                </tr>
+              {/if}
               {#if g.gold_diff_10 != null || g.gold_diff_15 != null}
                 <tr>
                   <th>Gold vs {a.opponent != null ? name(a.opponent) : 'opponent'}</th>
@@ -178,6 +190,10 @@
             </p>
           {/if}
         </section>
+        {#if a.phases.length}
+          <Phases rows={a.phases} opponent={a.opponent != null ? name(a.opponent) : null} rich={a.rich_minutes} />
+        {/if}
+        {#if a.vs_past}<PastCompare c={a.vs_past} champ={name(g.champ)} />{/if}
         <Fights fights={a.fights} />
         <section class="panel">
           <Scoreboard players={a.players} win={g.win} />

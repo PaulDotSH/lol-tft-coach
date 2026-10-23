@@ -8,4 +8,8 @@ export type MatchPlayer = { champ: number,
 /**
  * Riot ID game name; empty when hidden.
  */
-name: string, ally: boolean, me: boolean, lane: Lane | null, level: number, kills: number, deaths: number, assists: number, cs: number, gold: number, damage: number, taken: number, vision: number, items: Array<number>, };
+name: string, ally: boolean, me: boolean, lane: Lane | null, level: number, kills: number, deaths: number, assists: number, cs: number, gold: number, damage: number, taken: number, vision: number, items: Array<number>, wards_placed: number, wards_killed: number, 
+/**
+ * Control Wards bought.
+ */
+control_wards: number, };

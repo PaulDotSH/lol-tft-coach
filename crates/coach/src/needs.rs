@@ -8,6 +8,8 @@ pub struct Needs {
     pub p: [f32; N],
     /// Index into the foe list of the enemy driving each need.
     pub driver: [Option<usize>; N],
+    /// Magic share of the worst burst: a magic-only shield answers only this part.
+    pub burst_magic: f32,
 }
 
 struct Agg {
@@ -36,7 +38,7 @@ fn mix(a: &Agg, mean_w: f32) -> f32 {
 }
 
 pub fn needs(foes: &[Foe]) -> Needs {
-    let mut n = Needs { p: [0.0; N], driver: [None; N] };
+    let mut n = Needs { p: [0.0; N], driver: [None; N], burst_magic: 0.5 };
     if foes.is_empty() {
         return n;
     }
@@ -72,6 +74,7 @@ pub fn needs(foes: &[Foe]) -> Needs {
         (clamp01(mix(&crit, MEAN_W) / CRIT_NEED_FULL), crit.driver),
         (clamp01(mix(&aspd, MEAN_W) / AS_NEED_FULL), aspd.driver),
     ];
+    n.burst_magic = burst.driver.map_or(0.5, |d| foes[d].magic);
     for (i, (v, d)) in vals.into_iter().enumerate() {
         n.p[i] = v;
         n.driver[i] = if v > 0.0 { d } else { None };

@@ -547,6 +547,9 @@ data! {
         pub readiness: Option<Readiness>,
         /// Short calls (back for an objective, take one with numbers), newest situation only.
         pub calls: Vec<Call>,
+        /// Quiet tips: lane pace, vision, spending.
+        #[serde(default)]
+        pub tips: Vec<LiveTip>,
     }
 
     pub struct PickSuggestion {
@@ -1262,6 +1265,56 @@ data! {
         pub taken: u32,
         pub vision: u32,
         pub items: Vec<ItemId>,
+        #[serde(default)]
+        pub wards_placed: u32,
+        #[serde(default)]
+        pub wards_killed: u32,
+        /// Control Wards bought.
+        #[serde(default)]
+        pub control_wards: u32,
+    }
+
+    /// Me and my lane opponent at one minute mark (timeline frames).
+    pub struct PhaseRow {
+        pub minute: u32,
+        pub cs: u32,
+        pub level: u32,
+        pub opp_cs: Option<u32>,
+        pub opp_level: Option<u32>,
+        /// My total gold minus my opponent's.
+        pub gold_lead: Option<i32>,
+    }
+
+    /// This game against my recent games on the same champion and mode.
+    pub struct PastCompare {
+        pub games: u32,
+        pub wins: u32,
+        pub rows: Vec<CompareRow>,
+    }
+
+    pub struct CompareRow {
+        pub label: String,
+        pub this: f32,
+        pub avg: f32,
+        /// Best of the earlier games (lowest when lower is better).
+        pub best: f32,
+        pub lower_better: bool,
+        pub digits: u32,
+    }
+
+    /// The one thing to work on next game, as a goal when it maps to one.
+    pub struct Focus {
+        pub text: String,
+        pub why: String,
+        pub goal: Option<Goal>,
+    }
+
+    /// A quiet in-game tip (not spoken): lane pace, vision, spending.
+    pub struct LiveTip {
+        pub key: String,
+        /// "lane", "vision", "back".
+        pub kind: String,
+        pub text: String,
     }
 
     /// An objective or structure taken, for the timeline.
@@ -1340,6 +1393,12 @@ data! {
         pub takeaways: Vec<Takeaway>,
         /// The app watched this game live: deaths carry held gold and Buy next.
         pub live: bool,
+        /// CS, levels and gold vs my opponent at 5, 10, 15 and 20 minutes.
+        pub phases: Vec<PhaseRow>,
+        /// Minute marks where I held 1500+ gold (Rift).
+        pub rich_minutes: u32,
+        pub vs_past: Option<PastCompare>,
+        pub focus: Option<Focus>,
     }
 }
 

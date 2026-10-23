@@ -33,6 +33,19 @@ const PATTERN_MIN: usize = 2;
 /// Fights I was in before their win share is a takeaway, and the share that counts.
 const FIGHTS_MIN: usize = 4;
 const FIGHTS_GOOD: f32 = 0.7;
+/// Minute marks for the phase table.
+const PHASE_MINUTES: [u32; 4] = [5, 10, 15, 20];
+/// Gold held at a minute mark that counts as sitting on it.
+const RICH_GOLD: u32 = 1500;
+const RICH_MINUTES: u32 = 3;
+/// Phase gaps worth a takeaway: CS at 15:00.
+const CS_GAP_15: i32 = 20;
+/// Wards placed below this share of my opponent's (supports, junglers).
+const WARD_SHARE: f32 = 0.6;
+const WARD_MIN_OPP: u32 = 10;
+/// Earlier games on the champion before comparing, and at most this many takeaways from it.
+const PAST_MIN: usize = 3;
+const PAST_TAKEAWAYS: usize = 2;
 const LANE_ORDER: [Lane; 5] = [Lane::Top, Lane::Jungle, Lane::Middle, Lane::Bottom, Lane::Support];
 
 /// `stats`: my champion's lolalytics data (benchmarks, the build into this comp).
@@ -86,6 +99,27 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
 
     let marks = fights::with_presence(d);
     let fights = fights::fights(d, &marks);
+    let at = |minute: u32| d.frames.iter().find(|f| f.time >= minute as f32 * 60.0 && f.time <= g.duration_s as f32);
+    let phases = PHASE_MINUTES
+        .iter()
+        .filter_map(|&minute| {
+            let f = at(minute)?;
+            let (m, o) = (&f.players[d.me], opp.map(|o| &f.players[o]));
+            Some(PhaseRow {
+                minute,
+                cs: m.cs,
+                level: m.level,
+                opp_cs: o.map(|o| o.cs),
+                opp_level: o.map(|o| o.level),
+                gold_lead: o.map(|o| m.total_gold as i32 - o.total_gold as i32),
+            })
+        })
+        .collect();
+    let rich_minutes = if g.mode == Mode::Rift {
+        d.frames.iter().filter(|f| f.time >= 180.0 && f.players[d.me].current_gold >= RICH_GOLD).count() as u32
+    } else {
+        0
+    };
     let mut a = MatchAnalysis {
         game: g.clone(),
         players,
@@ -103,9 +137,150 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         recommended,
         takeaways: vec![],
         live: recap.is_some(),
+        phases,
+        rich_minutes,
+        vs_past: None,
+        focus: None,
     };
     a.takeaways = takeaways(&a, d, sd, team_kills);
+    a.focus = focus(&a, d, sd);
     a
+}
+
+fn round1(x: f32) -> f32 {
+    (x * 10.0).round() / 10.0
+}
+
+/// The one thing to work on next game: early deaths, then gold held, fight
+/// openings, CS, the lane, objectives and vision, the first that applies.
+fn focus(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData) -> Option<Focus> {
+    let g = &a.game;
+    if g.mode != Mode::Rift || g.remake {
+        return None;
+    }
+    let me = &d.players[d.me];
+    let min = (g.duration_s as f32 / 60.0).max(1.0);
+    let b = a.benchmarks.as_ref();
+    let goal = |kind: GoalKind, target: f32| Some(Goal { kind, target });
+    let pick = |text: String, why: String, goal: Option<Goal>| Some(Focus { text, why, goal });
+
+    let early = a.review.deaths.iter().filter(|n| n.time < EARLY_S && !n.traded).count();
+    if early >= PATTERN_MIN {
+        return pick(
+            "At most 1 death before 14:00".into(),
+            format!("You died {early}× before 14:00 outside fights your team won."),
+            goal(GoalKind::EarlyDeaths, 1.0),
+        );
+    }
+    let held = a.review.deaths.iter().filter(|n| n.unspent >= 1000).count();
+    if held >= PATTERN_MIN || a.rich_minutes >= RICH_MINUTES {
+        let why = if held >= PATTERN_MIN {
+            format!("You died {held}× holding 1000+ gold.")
+        } else {
+            format!("You held {RICH_GOLD}+ gold at {} minute marks.", a.rich_minutes)
+        };
+        return pick("Back and spend before you sit on 1000+ gold".into(), why, goal(GoalKind::Unspent, 1000.0));
+    }
+    let lost: Vec<&Fight> = a.fights.iter().filter(|f| f.lost > f.won && f.won + f.lost >= 2 && f.presence == Presence::There).collect();
+    let first = lost.iter().filter(|f| f.died_first).count();
+    if first >= PATTERN_MIN && first * 2 >= lost.len() {
+        return pick(
+            "Let your frontline start fights; stay behind it".into(),
+            format!("You died first in {first} of {} lost fights you were in.", lost.len()),
+            None,
+        );
+    }
+    let cs = g.cs as f32 / min;
+    if me.lane != Some(Lane::Support)
+        && let Some(avg) = b.and_then(|b| b.cs_per_min).filter(|avg| cs < LOW * avg)
+    {
+        let target = round1((cs + 1.0).min(avg));
+        return pick(
+            format!("Reach {target:.1} CS/min by 10:00"),
+            format!("You had {cs:.1} CS/min against {avg:.1} on average for {}.", sd.champ_name(g.champ)),
+            goal(GoalKind::Cs10, target),
+        );
+    }
+    if let (Some(o), Some(v)) = (a.opponent, g.gold_diff_15.filter(|v| *v <= -LANE_GAP_15)) {
+        return pick(
+            format!("Play the lane safer against {}: farm until your first item", sd.champ_name(o)),
+            format!("You were {} gold behind at 15:00.", -v),
+            None,
+        );
+    }
+    let away = a.marks.iter().filter(|m| !m.ours && m.presence == Some(Presence::Away)).count();
+    if away >= PATTERN_MIN {
+        return pick("Move to objectives a minute before they spawn".into(), format!("You were away for {away} objectives they took."), None);
+    }
+    let vision = g.vision as f32 / min;
+    let vision_avg = b.and_then(|b| b.vision_per_min);
+    if vision_avg.is_some_and(|avg| vision < LOW * avg) || (me.control_wards == 0 && g.duration_s >= 900) {
+        let target = round1(vision_avg.unwrap_or(vision + 0.3).max(vision + 0.1));
+        let why = match vision_avg {
+            Some(avg) => format!("Vision {vision:.2}/min against {avg:.2} on average; {} Control Wards bought.", me.control_wards),
+            None => format!("{} Control Wards bought.", me.control_wards),
+        };
+        return pick(format!("Vision {target:.1}/min: a Control Ward every back"), why, goal(GoalKind::Vision, target));
+    }
+    None
+}
+
+/// Adds this game against my earlier games on the same champion and mode
+/// (`past`: the match history), with up to two takeaways from it.
+pub fn compare_past(a: &mut MatchAnalysis, past: &[PastGame], sd: &StaticData) {
+    let g = a.game.clone();
+    let earlier: Vec<&PastGame> = past
+        .iter()
+        .filter(|p| p.champ == g.champ && p.mode == g.mode && p.game_id != g.game_id && !p.remake && p.created < g.created)
+        .collect();
+    if earlier.len() < PAST_MIN || g.remake {
+        return;
+    }
+    let per_min = |v: u32, p: &PastGame| v as f32 / (p.duration_s as f32 / 60.0).max(1.0);
+    let kda = |p: &PastGame| (p.kills + p.assists) as f32 / p.deaths.max(1) as f32;
+    let mut rows: Vec<CompareRow> = Vec::new();
+    let mut row = |label: &str, this: f32, vals: Vec<f32>, lower_better: bool, digits: u32| {
+        if vals.is_empty() {
+            return;
+        }
+        let avg = vals.iter().sum::<f32>() / vals.len() as f32;
+        let best = if lower_better { vals.iter().copied().fold(f32::MAX, f32::min) } else { vals.iter().copied().fold(f32::MIN, f32::max) };
+        rows.push(CompareRow { label: label.into(), this, avg, best, lower_better, digits });
+    };
+    let rift = g.mode == Mode::Rift;
+    row("Deaths", g.deaths as f32, earlier.iter().map(|p| p.deaths as f32).collect(), true, 0);
+    row("KDA", kda(&g), earlier.iter().map(|p| kda(p)).collect(), false, 1);
+    if rift && g.lane != Some(Lane::Support) {
+        row("CS / min", per_min(g.cs, &g), earlier.iter().map(|p| per_min(p.cs, p)).collect(), false, 1);
+    }
+    row("Damage / min", per_min(g.damage_to_champs, &g), earlier.iter().map(|p| per_min(p.damage_to_champs, p)).collect(), false, 0);
+    if rift {
+        row("Vision / min", per_min(g.vision, &g), earlier.iter().map(|p| per_min(p.vision, p)).collect(), false, 2);
+    }
+    if let Some(v) = g.gold_diff_15 {
+        let vals = earlier.iter().filter_map(|p| p.gold_diff_15.map(|x| x as f32)).collect();
+        row("Gold vs opponent at 15:00", v as f32, vals, false, 0);
+    }
+
+    let champ = sd.champ_name(g.champ);
+    let n = earlier.len() + 1;
+    let mut notes: Vec<Takeaway> = Vec::new();
+    for r in &rows {
+        let fmt = |v: f32| format!("{v:.prec$}", prec = r.digits as usize);
+        let better = if r.lower_better { r.this < r.best } else { r.this > r.best };
+        // Deaths: three over my usual; per-minute stats well under it.
+        let worse = if r.lower_better { r.this >= r.avg + 3.0 } else { r.label.ends_with("/ min") && r.this < LOW * r.avg };
+        if worse {
+            notes.push(Takeaway { good: false, text: format!("{} {} vs your usual {} on {champ}", r.label, fmt(r.this), fmt(r.avg)) });
+        } else if better {
+            let what = if r.lower_better { format!("Fewest {}", r.label.to_lowercase()) } else { format!("Your best {}", r.label) };
+            notes.push(Takeaway { good: true, text: format!("{what} in {n} {champ} games ({})", fmt(r.this)) });
+        }
+    }
+    notes.sort_by_key(|t| t.good);
+    a.takeaways.extend(notes.into_iter().take(PAST_TAKEAWAYS));
+    a.takeaways.sort_by_key(|t| t.good);
+    a.vs_past = Some(PastCompare { games: earlier.len() as u32, wins: earlier.iter().filter(|p| p.win).count() as u32, rows });
 }
 
 /// My deaths from the timeline, with what a live recap knew about each.
@@ -255,6 +430,41 @@ fn takeaways(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData, team_kills: u3
     vs("Damage", g.damage_to_champs as f32 / min, b.damage_per_min, 0);
     if rift {
         vs("Vision", g.vision as f32 / min, b.vision_per_min, 2);
+    }
+
+    // Wards: Control Wards bought, and placed against my opponent's (supports, junglers).
+    if rift && g.duration_s >= 900 && me.control_wards == 0 {
+        say(false, "No Control Wards bought".into());
+    }
+    let opp = d.players.iter().find(|p| !p.ally && Some(p.champ) == a.opponent);
+    if rift
+        && matches!(me.lane, Some(Lane::Support | Lane::Jungle))
+        && let Some(o) = opp.filter(|o| o.wards_placed >= WARD_MIN_OPP && (me.wards_placed as f32) < WARD_SHARE * o.wards_placed as f32)
+    {
+        say(false, format!("Placed {} wards vs {} for {}", me.wards_placed, o.wards_placed, sd.champ_name(o.champ)));
+    }
+
+    // Phases: levels at 10:00, CS at 15:00, gold sat on.
+    if rift && let Some(o) = a.opponent {
+        let name = sd.champ_name(o);
+        let row = |m: u32| a.phases.iter().find(|r| r.minute == m);
+        if let Some(r) = row(10)
+            && let Some(ol) = r.opp_level.filter(|ol| *ol > r.level)
+        {
+            say(false, format!("Level {} vs {name} {ol} at 10:00", r.level));
+        }
+        if me.lane != Some(Lane::Support)
+            && let Some(r) = row(15)
+            && let Some(oc) = r.opp_cs
+        {
+            let gap = r.cs as i32 - oc as i32;
+            if gap.abs() >= CS_GAP_15 {
+                say(gap > 0, format!("CS {} vs {name} {oc} at 15:00", r.cs));
+            }
+        }
+    }
+    if a.rich_minutes >= RICH_MINUTES {
+        say(false, format!("Held {RICH_GOLD}+ gold at {} minute marks: back and spend sooner", a.rich_minutes));
     }
 
     if rift && team_kills >= KP_MIN_KILLS

@@ -82,7 +82,10 @@ pub async fn analyze_game(sh: Sh<'_>, game_id: u64) -> Result<MatchAnalysis, Str
     };
     let recap = selfcoach::recap_for(g);
     tracing::info!("analysed game {game_id} (live recap: {})", recap.is_some());
-    Ok(coach::analyze_match(&d, &sd, stats.as_deref(), recap.as_ref()))
+    let mut a = coach::analyze_match(&d, &sd, stats.as_deref(), recap.as_ref());
+    let past = sh.ui.lock().unwrap().history.clone();
+    coach::compare_past(&mut a, &past, &sd);
+    Ok(a)
 }
 
 /// Frontend errors and warnings (and debug-mode messages) into the app log.

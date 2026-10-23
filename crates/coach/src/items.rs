@@ -4,7 +4,7 @@ use crate::{
     augment_tags::{AugEffects, item_has},
     common::*,
     consts::*,
-    modes::{self, ARMOR, ARMOR_PEN, MAGIC_PEN, MR, Rules},
+    modes::{self, ANTI_BURST, ARMOR, ARMOR_PEN, MAGIC_PEN, MR, Rules},
     needs::{Needs, decay},
     resists::{PEN_GAIN_FULL, Pen, Targets},
     threat::Foe,
@@ -145,6 +145,13 @@ pub(crate) enum Decision {
 }
 
 /// Unique-ish groups the model does not encode: one Last Whisper, one %magic pen, one anti-heal.
+/// `part` is somewhere in `it`'s recipe.
+fn part_of(sd: &StaticData, part: ItemId, it: &Item) -> bool {
+    it.from.iter().any(|&c| c == part || sd.items.get(&c).is_some_and(|ci| part_of(sd, part, ci)))
+}
+
+/// A held item rules `it` out when they share a one-per-inventory group, unless
+/// it is a component `it` consumes (Bramble Vest into Thornmail).
 fn conflicts(sd: &StaticData, it: &Item, have: &[ItemId]) -> bool {
     let groups = |i: &Item| {
         [
@@ -159,8 +166,8 @@ fn conflicts(sd: &StaticData, it: &Item, have: &[ItemId]) -> bool {
         (Some(a), Some(b)) => a.iter().any(|x| b.contains(x)),
         _ => false,
     };
-    have.iter().any(shared)
-        || have.iter().filter_map(|h| sd.items.get(h)).any(|h| groups(h).iter().zip(g).any(|(a, b)| *a && b))
+    let held: Vec<&ItemId> = have.iter().filter(|h| !part_of(sd, **h, it)).collect();
+    held.iter().any(|h| shared(h)) || held.iter().filter_map(|h| sd.items.get(*h)).any(|h| groups(h).iter().zip(g).any(|(a, b)| *a && b))
 }
 
 /// Crit chance and attack speed already reached (live stats, else owned items) plus the path so far.
@@ -224,7 +231,8 @@ fn answers(ctx: &Ctx, it: &Item) -> [f32; N] {
     ans
 }
 
-pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], load: Load, out: &mut Vec<Scored>) {
+/// `burst_magic`: magic share of the burst need (`Needs::burst_magic`).
+pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], burst_magic: f32, load: Load, out: &mut Vec<Scored>) {
     out.clear();
     let empty = Vec::new();
     let rows = match (ctx.stats, dec) {
@@ -249,7 +257,11 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         {
             continue;
         }
-        let ans = answers(ctx, it);
+        let mut ans = answers(ctx, it);
+        // Kaenic Rookern's shield blocks magic damage only: no answer to an AD assassin.
+        if MAGIC_SHIELDS.contains(&it.id) {
+            ans[ANTI_BURST] *= burst_magic;
+        }
         let (mut dot, mut need_i, mut best) = (0.0, None, 0.0);
         for i in 0..N {
             let t = ans[i] * need[i];
@@ -281,7 +293,9 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         // MR into a physical team (or armor into a magic one): a good win rate doesn't make up for it.
         let off_type = (ans[MR] - ans[ARMOR]).max(0.0) * (need[ARMOR] - need[MR]).max(0.0)
             + (ans[ARMOR] - ans[MR]).max(0.0) * (need[MR] - need[ARMOR]).max(0.0);
-        let score = stats_score + sit + aug - cap_penalty(ctx, it, load) - if no_heal { SELF_HEAL_PENALTY } else { 0.0 }
+        // A held component (Bramble Vest) is gold already spent toward it.
+        let held_part = if have.iter().any(|h| part_of(ctx.sd, *h, it)) { HELD_COMPONENT_BONUS } else { 0.0 };
+        let score = stats_score + sit + aug + held_part - cap_penalty(ctx, it, load) - if no_heal { SELF_HEAL_PENALTY } else { 0.0 }
             - RESIST_MISMATCH * off_type;
         out.push(Scored { id: it.id, score, stats_score, sit, src, need: need_i, aug, aug_src });
     }
@@ -315,7 +329,7 @@ pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
             [Some(Decision::Slot(legend)), (!boots_done).then_some(Decision::Boots)]
         };
         let Some(dec) = order.into_iter().flatten().find(|&d| {
-            score_all(ctx, d, &have, &need, load, &mut buf);
+            score_all(ctx, d, &have, &need, needs.burst_magic, load, &mut buf);
             !buf.is_empty()
         }) else {
             break;

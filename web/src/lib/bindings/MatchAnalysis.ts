@@ -2,10 +2,13 @@
 import type { Benchmarks } from "./Benchmarks";
 import type { DeathReview } from "./DeathReview";
 import type { Fight } from "./Fight";
+import type { Focus } from "./Focus";
 import type { GoldPoint } from "./GoldPoint";
 import type { KillMark } from "./KillMark";
 import type { MatchPlayer } from "./MatchPlayer";
+import type { PastCompare } from "./PastCompare";
 import type { PastGame } from "./PastGame";
+import type { PhaseRow } from "./PhaseRow";
 import type { Takeaway } from "./Takeaway";
 import type { TimelineMark } from "./TimelineMark";
 
@@ -32,4 +35,12 @@ recommended: Array<number>, takeaways: Array<Takeaway>,
 /**
  * The app watched this game live: deaths carry held gold and Buy next.
  */
-live: boolean, };
+live: boolean, 
+/**
+ * CS, levels and gold vs my opponent at 5, 10, 15 and 20 minutes.
+ */
+phases: Array<PhaseRow>, 
+/**
+ * Minute marks where I held 1500+ gold (Rift).
+ */
+rich_minutes: number, vs_past: PastCompare | null, focus: Focus | null, };

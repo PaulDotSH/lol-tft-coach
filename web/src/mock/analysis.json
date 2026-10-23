@@ -59,6 +59,19 @@
         "x": 6314,
         "y": 8550
       }
+    ],
+    "enemies": [
+      79,
+      234,
+      246,
+      523,
+      201
+    ],
+    "opponent": 201,
+    "killed_by": [
+      523,
+      201,
+      234
     ]
   },
   "players": [
@@ -85,7 +98,10 @@
         6333,
         3134,
         3364
-      ]
+      ],
+      "wards_placed": 8,
+      "wards_killed": 0,
+      "control_wards": 0
     },
     {
       "champ": 131,
@@ -110,7 +126,10 @@
         4645,
         3100,
         3364
-      ]
+      ],
+      "wards_placed": 1,
+      "wards_killed": 12,
+      "control_wards": 0
     },
     {
       "champ": 27,
@@ -135,7 +154,10 @@
         3168,
         3065,
         3340
-      ]
+      ],
+      "wards_placed": 10,
+      "wards_killed": 0,
+      "control_wards": 0
     },
     {
       "champ": 22,
@@ -159,7 +181,10 @@
         3036,
         3144,
         3340
-      ]
+      ],
+      "wards_placed": 8,
+      "wards_killed": 2,
+      "control_wards": 0
     },
     {
       "champ": 111,
@@ -184,7 +209,10 @@
         3076,
         1031,
         3364
-      ]
+      ],
+      "wards_placed": 25,
+      "wards_killed": 9,
+      "control_wards": 0
     },
     {
       "champ": 79,
@@ -207,7 +235,10 @@
         3020,
         4645,
         3363
-      ]
+      ],
+      "wards_placed": 12,
+      "wards_killed": 1,
+      "control_wards": 1
     },
     {
       "champ": 234,
@@ -232,7 +263,10 @@
         1037,
         1038,
         3340
-      ]
+      ],
+      "wards_placed": 11,
+      "wards_killed": 0,
+      "control_wards": 0
     },
     {
       "champ": 246,
@@ -257,7 +291,10 @@
         6694,
         1055,
         3364
-      ]
+      ],
+      "wards_placed": 7,
+      "wards_killed": 0,
+      "control_wards": 0
     },
     {
       "champ": 523,
@@ -281,7 +318,10 @@
         3036,
         3144,
         3340
-      ]
+      ],
+      "wards_placed": 5,
+      "wards_killed": 0,
+      "control_wards": 0
     },
     {
       "champ": 201,
@@ -306,7 +346,10 @@
         1057,
         1033,
         3364
-      ]
+      ],
+      "wards_placed": 43,
+      "wards_killed": 8,
+      "control_wards": 16
     }
   ],
   "opponent": 201,
@@ -1317,6 +1360,14 @@
   ],
   "takeaways": [
     {
+      "good": false,
+      "text": "No Control Wards bought"
+    },
+    {
+      "good": false,
+      "text": "Placed 25 wards vs 43 for Braum"
+    },
+    {
       "good": true,
       "text": "Damage 407/min vs 340 average on Nautilus"
     },
@@ -1329,5 +1380,49 @@
       "text": "Your team took 3 of 4 dragons"
     }
   ],
-  "live": false
+  "live": false,
+  "phases": [
+    {
+      "minute": 5,
+      "cs": 8,
+      "level": 4,
+      "opp_cs": 10,
+      "opp_level": 4,
+      "gold_lead": -266
+    },
+    {
+      "minute": 10,
+      "cs": 17,
+      "level": 6,
+      "opp_cs": 20,
+      "opp_level": 6,
+      "gold_lead": 487
+    },
+    {
+      "minute": 15,
+      "cs": 29,
+      "level": 8,
+      "opp_cs": 27,
+      "opp_level": 8,
+      "gold_lead": 345
+    },
+    {
+      "minute": 20,
+      "cs": 31,
+      "level": 11,
+      "opp_cs": 31,
+      "opp_level": 10,
+      "gold_lead": 810
+    }
+  ],
+  "rich_minutes": 2,
+  "vs_past": null,
+  "focus": {
+    "text": "At most 1 death before 14:00",
+    "why": "You died 2× before 14:00 outside fights your team won.",
+    "goal": {
+      "kind": "earlydeaths",
+      "target": 1.0
+    }
+  }
 }

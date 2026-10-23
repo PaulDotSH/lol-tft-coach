@@ -359,6 +359,9 @@ pub fn parse_match(game: &Value, puuid: Option<&str>, timeline: Option<&Value>) 
                 taken: n("totalDamageTaken"),
                 vision: n("visionScore"),
                 items: (0..=6).filter_map(|i| id(&s[&format!("item{i}")])).collect(),
+                wards_placed: n("wardsPlaced"),
+                wards_killed: n("wardsKilled"),
+                control_wards: n("visionWardsBoughtInGame"),
             }
         })
         .collect();

@@ -14,7 +14,12 @@ pub struct Tracker {
     seen: Vec<(usize, ItemId, Option<f32>)>,
     started: bool,
     last_time: f32,
+    /// (game time, my gold) every HOLD_STEP s over the last HOLD_WINDOW s.
+    held: VecDeque<(f32, f32)>,
 }
+
+const HOLD_STEP: f32 = 5.0;
+const HOLD_WINDOW: f32 = 300.0;
 
 pub fn is_legendary(it: &Item) -> bool {
     it.completed && !it.boots
@@ -30,6 +35,12 @@ impl Tracker {
             // Keep one sample at or before the window start so the window stays full.
             while self.gold.len() > 2 && self.gold[1].0 <= snap.time - INCOME_WINDOW {
                 self.gold.pop_front();
+            }
+        }
+        if self.held.back().is_none_or(|&(t, _)| snap.time - t >= HOLD_STEP) {
+            self.held.push_back((snap.time, snap.my_gold));
+            while self.held.front().is_some_and(|&(t, _)| t < snap.time - HOLD_WINDOW) {
+                self.held.pop_front();
             }
         }
         for (i, p) in snap.players.iter().enumerate() {
@@ -54,6 +65,18 @@ impl Tracker {
             }
         }
         (span >= INCOME_MIN_SPAN).then(|| gain / span)
+    }
+
+    /// How long (s) my gold has stayed at or above `amount` up to now.
+    pub fn held_for(&self, amount: f32, now: f32) -> f32 {
+        let mut since = None;
+        for &(t, g) in self.held.iter().rev() {
+            if g < amount {
+                break;
+            }
+            since = Some(t);
+        }
+        since.map_or(0.0, |t| now - t)
     }
 
     /// Legendaries player `i` finished within ITEM_NEW_WINDOW of `now` and still holds.

@@ -93,7 +93,7 @@ fn best<'b>(ctx: &Ctx, have: &[ItemId], needs: &Needs, buf: &'b mut Vec<Scored>)
     for it in have.iter().filter_map(|i| ctx.sd.items.get(i)) {
         decay(&mut need, &it.answers);
     }
-    score_all(ctx, Decision::Slot(5), have, &need, Load::new(ctx, have), buf);
+    score_all(ctx, Decision::Slot(5), have, &need, needs.burst_magic, Load::new(ctx, have), buf);
     buf
 }
 

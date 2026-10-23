@@ -63,6 +63,9 @@ fn line(champ: ChampKey, ally: bool, lane: Lane, kills: u32) -> MatchPlayer {
         taken: 20000,
         vision: 20,
         items: vec![],
+        wards_placed: 10,
+        wards_killed: 2,
+        control_wards: 1,
     }
 }
 
@@ -274,4 +277,36 @@ fn fights_and_where_i_was_for_objectives() {
     d2.kills.push(KillEvent { time: 685.0, killer: Some(OPP), victim: ME, assisters: vec![], pos: Some((1500, 13000)) });
     let a = analyze_match(&d2, &sd(), None, None);
     assert_eq!(a.marks[0].presence, Some(Presence::Dead));
+}
+
+#[test]
+fn focus_picks_early_deaths_as_a_goal() {
+    let a = analyze_match(&detail(), &sd(), None, None);
+    let f = a.focus.expect("focus");
+    assert_eq!(f.text, "At most 1 death before 14:00");
+    assert_eq!(f.goal, Some(Goal { kind: GoalKind::EarlyDeaths, target: 1.0 }));
+    // Phase rows at 5, 10, 15 and 20 minutes, with the gold lead over Zed.
+    let minutes: Vec<u32> = a.phases.iter().map(|r| r.minute).collect();
+    assert_eq!(minutes, [5, 10, 15, 20]);
+    assert!(a.phases.iter().all(|r| r.gold_lead.is_some()));
+}
+
+#[test]
+fn this_game_against_my_earlier_games_on_the_champion() {
+    let mut d = detail();
+    d.game.created = 10_000;
+    let earlier = |i: u64| PastGame { game_id: 100 + i, created: i, deaths: 0, cs: 150, ..past_game() };
+    let past = vec![earlier(1), earlier(2), earlier(3), PastGame { champ: ZED, created: 4, ..past_game() }];
+    let mut a = analyze_match(&d, &sd(), None, None);
+    coach::compare_past(&mut a, &past, &sd());
+    let c = a.vs_past.as_ref().expect("comparison");
+    assert_eq!((c.games, c.wins), (3, 0));
+    let texts: Vec<&str> = a.takeaways.iter().map(|t| t.text.as_str()).collect();
+    assert!(texts.contains(&"Deaths 3 vs your usual 0 on Ahri"), "{texts:?}");
+    assert!(texts.contains(&"Your best CS / min in 4 Ahri games (8.0)"), "{texts:?}");
+
+    // Two earlier games are not enough.
+    let mut b = analyze_match(&d, &sd(), None, None);
+    coach::compare_past(&mut b, &past[..2], &sd());
+    assert!(b.vs_past.is_none());
 }

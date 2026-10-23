@@ -144,11 +144,40 @@ fn clock(s: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
+/// "A", "A and B", "A, B and C".
+fn and_list(v: Vec<String>) -> String {
+    match v.as_slice() {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
 fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
     let Some(me) = snap.players.get(snap.me) else { return vec![] };
     let mut out = Vec::new();
-    let enemies_dead = a.deaths.enemies.iter().filter(|r| r.in_s >= DEAD_FOR).count();
+    // Enemies dead long enough to count, and the ones about to respawn (named, not counted).
+    let dead_enemies = || snap.players.iter().filter(|p| p.team != me.team && p.dead);
+    let long: Vec<&Player> = dead_enemies().filter(|p| p.respawn_in >= DEAD_FOR).collect();
+    let short: Vec<&Player> = dead_enemies().filter(|p| p.respawn_in < DEAD_FOR).collect();
+    let enemies_dead = long.len();
+    let jungler_dead = long.iter().any(|p| p.position == Some(Lane::Jungle));
     let allies_dead = a.deaths.allies.iter().filter(|r| r.in_s >= DEAD_FOR).count() + (me.dead && me.respawn_in >= DEAD_FOR) as usize;
+    // One window of enemy deaths: the earliest death among enemies still dead. Keys
+    // "take" calls, so each window is spoken once rather than every tick.
+    let window = snap
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.team != me.team && p.dead && p.respawn_in >= DEAD_FOR)
+        .filter_map(|(i, _)| {
+            snap.events.iter().rev().find_map(|e| match e {
+                GameEvent::Kill { time, victim, .. } if *victim == i => Some(*time),
+                _ => None,
+            })
+        })
+        .fold(None, |w: Option<f32>, t| Some(w.map_or(t, |w| w.min(t))))
+        .map_or(0, |t| t as u32);
     for t in &a.timers {
         let left = t.next_spawn.map(|s| s - snap.time);
         let at = t.next_spawn.unwrap_or(snap.time) as u32;
@@ -169,16 +198,33 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
                 });
             }
         }
-        // Up (or nearly) with enemies dead: take it.
-        if left.is_none_or(|dt| dt <= TAKE_SOON) && enemies_dead >= 2 && enemies_dead >= allies_dead + 2 {
+        // Up (or nearly) with enemies dead: take it. Their jungler dead means no smite
+        // to contest it: enough on its own for the smaller objectives.
+        let numbers = enemies_dead as i32 - allies_dead as i32;
+        let big = matches!(t.name.as_str(), "Baron" | "Elder");
+        let take = if jungler_dead { numbers >= 1 && (!big || enemies_dead >= 2) } else { enemies_dead >= 2 && numbers >= 2 };
+        if left.is_none_or(|dt| dt <= TAKE_SOON) && take {
             let when = match left {
                 Some(dt) if dt > 0.0 => format!("spawns in {}", clock(dt)),
                 _ => "is up".to_string(),
             };
+            let secs = |p: &Player| format!("{} ({:.0} s)", sd.champ_name(p.champ), p.respawn_in);
+            let dead = and_list(long.iter().map(|p| secs(p)).collect());
+            let back = if short.is_empty() {
+                String::new()
+            } else {
+                let v = short.iter().map(|p| format!("{} back in {:.0} s", sd.champ_name(p.champ), p.respawn_in)).collect();
+                format!(", {}", and_list(v))
+            };
+            let jg = if jungler_dead { ", their jungler can't smite" } else { "" };
             out.push(Call {
-                key: format!("take-{}-{at}-{enemies_dead}", t.name),
-                text: format!("{} {when} and {enemies_dead} enemies are dead: take it", t.name),
-                say: format!("{enemies_dead} enemies dead. Take {}.", t.name),
+                key: format!("take-{}-{window}", t.name),
+                text: format!("{} {when}: {dead} dead{back}{jg}. Take it", t.name),
+                say: if jungler_dead {
+                    format!("Their jungler is dead. Take {}.", t.name)
+                } else {
+                    format!("{enemies_dead} enemies dead. Take {}.", t.name)
+                },
             });
         }
     }

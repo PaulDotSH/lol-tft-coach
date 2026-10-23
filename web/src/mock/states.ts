@@ -159,6 +159,11 @@ const riftGame: GameAdvice = {
   },
   calls: [
     { key: 'back-Baron-1200', text: 'Baron in 1:28: back now, buy Zhonya’s Hourglass, and be there', say: 'Baron in 90 seconds. Back and buy now.' },
+    { key: 'item-238-3142', text: 'Zed finished Youmuu’s Ghostblade: 2 legendary items now, respect the spike', say: 'Zed finished Youmuu’s Ghostblade.' },
+  ],
+  tips: [
+    { key: 'cs', kind: 'lane', text: 'CS 21 behind the average pace (6.2/min vs 7.4): last-hit every wave, catch side waves' },
+    { key: 'control-ward', kind: 'vision', text: 'Next back: buy a Control Ward (75 g)' },
   ],
 };
 
@@ -239,6 +244,7 @@ const mayhemGame: GameAdvice = {
   bounties: [],
   readiness: { verdict: 'even', text: 'Even: fight only with numbers or near your side', reasons: ['+0.6k item gold'] },
   calls: [],
+  tips: [],
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.

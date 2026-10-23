@@ -8,6 +8,7 @@ import type { GoldDiff } from "./GoldDiff";
 import type { GoldEta } from "./GoldEta";
 import type { GoldSink } from "./GoldSink";
 import type { ItemPick } from "./ItemPick";
+import type { LiveTip } from "./LiveTip";
 import type { MatchupTip } from "./MatchupTip";
 import type { Mode } from "./Mode";
 import type { MyAugment } from "./MyAugment";
@@ -58,4 +59,8 @@ readiness: Readiness | null,
 /**
  * Short calls (back for an objective, take one with numbers), newest situation only.
  */
-calls: Array<Call>, };
+calls: Array<Call>, 
+/**
+ * Quiet tips: lane pace, vision, spending.
+ */
+tips: Array<LiveTip>, };

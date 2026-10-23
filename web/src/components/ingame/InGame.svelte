@@ -17,6 +17,7 @@
   import Calls from './Calls.svelte';
   import Readiness from './Readiness.svelte';
   import Bounties from './Bounties.svelte';
+  import Tips from './Tips.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -33,6 +34,7 @@
   {/if}
   <div class="build">
     <Shopping list={game.shopping} at={game.time} />
+    {#if game.tips.length}<Tips tips={game.tips} />{/if}
     <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} />
     {#if game.gold_sinks.length}<GoldSinks sinks={game.gold_sinks} />{/if}
     <BuildPath owned={game.owned} path={game.path} />

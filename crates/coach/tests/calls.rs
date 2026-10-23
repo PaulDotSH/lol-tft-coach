@@ -42,7 +42,7 @@ fn objective_calls_from_timers_gold_and_death_timers() {
     let a = advise(&s);
     let texts: Vec<&str> = a.calls.iter().map(|c| c.text.as_str()).collect();
     assert!(texts.contains(&"Baron in 1:10: back now, spend 1500 gold, and be there"), "{texts:?}");
-    assert!(texts.contains(&"Dragon is up and 3 enemies are dead: take it"), "{texts:?}");
+    assert!(texts.contains(&"Dragon is up: Darius (30 s), Lee Sin (30 s) and Zed (30 s) dead, their jungler can't smite. Take it"), "{texts:?}");
     let r = a.readiness.unwrap();
     assert_eq!(r.verdict, Verdict::Fight);
     assert!(r.reasons.iter().any(|x| x.starts_with("3 enemies dead")), "{:?}", r.reasons);
@@ -68,4 +68,45 @@ fn readiness_turns_on_item_gold_and_waits_for_the_first_minutes() {
     assert!(r.reasons[0].starts_with("−") && r.reasons[0].ends_with("item gold"), "{:?}", r.reasons);
     let early = GameSnapshot { time: 120.0, ..snap(p, vec![]) };
     assert!(advise(&early).readiness.is_none());
+}
+
+#[test]
+fn a_take_call_keeps_its_key_while_the_objective_is_up() {
+    // Baron up at 22:00; Darius, Lee Sin and Zed died at 21:40-21:45. The key must not
+    // follow the clock, or the call is spoken again every tick.
+    let mut p = lobby(STANDARD);
+    for e in &mut p[5..8] {
+        e.dead = true;
+        e.respawn_in = 30.0;
+    }
+    let ev = vec![kill(1300.0, 0, 5), kill(1302.0, 1, 6), kill(1305.0, 2, 7)];
+    let take = |time: f32| {
+        let a = advise(&GameSnapshot { time, ..snap(p.clone(), ev.clone()) });
+        a.calls.iter().filter(|c| c.key.starts_with("take-Baron")).map(|c| c.key.clone()).collect::<Vec<_>>()
+    };
+    let (first, later) = (take(1320.0), take(1326.0));
+    assert_eq!(first, ["take-Baron-1300"]);
+    assert_eq!(later, first);
+}
+
+#[test]
+fn a_dead_jungler_is_enough_for_dragon_and_respawning_enemies_are_named() {
+    // Only Lee Sin, their jungler, is dead: take Dragon (no smite to contest it).
+    let mut p = lobby(STANDARD);
+    p[6].dead = true;
+    p[6].respawn_in = 40.0;
+    let a = advise(&GameSnapshot { time: 1130.0, ..snap(p.clone(), vec![]) });
+    let c = a.calls.iter().find(|c| c.key.starts_with("take-Dragon")).expect("take Dragon");
+    assert_eq!(c.text, "Dragon is up: Lee Sin (40 s) dead, their jungler can't smite. Take it");
+    assert_eq!(c.say, "Their jungler is dead. Take Dragon.");
+
+    // Darius and Zed long dead, Lee Sin back in 7 s: two counted, Lee Sin named.
+    p[6].respawn_in = 7.0;
+    for i in [5, 7] {
+        p[i].dead = true;
+        p[i].respawn_in = 30.0;
+    }
+    let a = advise(&GameSnapshot { time: 1130.0, ..snap(p, vec![]) });
+    let c = a.calls.iter().find(|c| c.key.starts_with("take-Dragon")).expect("take Dragon");
+    assert_eq!(c.text, "Dragon is up: Darius (30 s) and Zed (30 s) dead, Lee Sin back in 7 s. Take it");
 }
