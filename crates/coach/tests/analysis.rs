@@ -110,7 +110,15 @@ fn detail() -> MatchDetail {
         kill(710.0, 5, 2, (9000, 9000)),
         kill(715.0, 6, 3, (9000, 9000)),
     ];
-    let marks = vec![TimelineMark { time: 690.0, ours: false, kind: "Baron".into(), detail: None }];
+    let marks = vec![TimelineMark {
+        time: 690.0,
+        ours: false,
+        kind: "Baron".into(),
+        detail: None,
+        pos: Some((5000, 10400)),
+        mine: false,
+        presence: None,
+    }];
     MatchDetail { game: past_game(), me: ME, players, frames, kills, marks }
 }
 
@@ -215,4 +223,49 @@ fn one_enemy_doing_the_killing_gets_a_note() {
     d.kills.push(KillEvent { time: 1300.0, killer: Some(OPP), victim: ME, assisters: vec![], pos: Some((7000, 7000)) });
     a = analyze_match(&d, &sd(), None, None);
     assert!(a.review.notes.contains(&"Zed killed you 3× (trades aside)".to_string()), "{:?}", a.review.notes);
+}
+
+#[test]
+fn fights_and_where_i_was_for_objectives() {
+    // I sit in top lane all game; Baron (11:30) and a dragon (16:40) go to them far away.
+    let mut d = detail();
+    for f in &mut d.frames {
+        f.players[ME].pos = Some((1500, 13000));
+    }
+    d.marks.push(TimelineMark {
+        time: 1000.0,
+        ours: false,
+        kind: "Dragon".into(),
+        detail: Some("Infernal".into()),
+        pos: Some((9850, 4400)),
+        mine: false,
+        presence: None,
+    });
+    let a = analyze_match(&d, &sd(), None, None);
+    let fights: Vec<(f32, u32, u32, Presence, bool, Option<&str>)> =
+        a.fights.iter().map(|f| (f.start, f.won, f.lost, f.presence, f.died_first, f.then.as_ref().map(|m| m.kind.as_str()))).collect();
+    assert_eq!(
+        fights,
+        [
+            (300.0, 0, 1, Presence::There, true, None),
+            (420.0, 0, 1, Presence::There, true, None),
+            (650.0, 2, 1, Presence::There, true, Some("Baron")),
+            (700.0, 0, 3, Presence::Away, false, None),
+        ]
+    );
+    let presence: Vec<Option<Presence>> = a.marks.iter().map(|m| m.presence).collect();
+    assert_eq!(presence, [Some(Presence::Away), Some(Presence::Away)]);
+    assert!(
+        a.takeaways.iter().any(|t| t.text == "Away for 2 of 2 objectives they took (Baron 11:30, Dragon 16:40)"),
+        "{:?}",
+        a.takeaways
+    );
+    // Solo deaths are not "lost fights" to have died first in.
+    assert!(a.takeaways.iter().all(|t| !t.text.starts_with("You died first")));
+
+    // Dead when Baron went: not "away".
+    let mut d2 = d.clone();
+    d2.kills.push(KillEvent { time: 685.0, killer: Some(OPP), victim: ME, assisters: vec![], pos: Some((1500, 13000)) });
+    let a = analyze_match(&d2, &sd(), None, None);
+    assert_eq!(a.marks[0].presence, Some(Presence::Dead));
 }

@@ -415,15 +415,18 @@ pub fn parse_match(game: &Value, puuid: Option<&str>, timeline: Option<&Value>) 
             }
             _ => continue,
         };
+        let mine = e["type"] == "ELITE_MONSTER_KILL"
+            && (e["killerId"].as_i64() == Some(me_id) || arr(&e["assistingParticipantIds"]).any(|a| a.as_i64() == Some(me_id)));
         // Grubs die in quick succession: one mark per team per pit visit.
         if kind == "Grubs"
             && let Some(m) = marks.iter_mut().rev().find(|m| m.kind == "Grubs" && m.ours == ours && time - m.time < 90.0)
         {
             let n = m.detail.as_deref().and_then(|d| d.trim_start_matches('×').parse::<u32>().ok()).unwrap_or(1);
             m.detail = Some(format!("×{}", n + 1));
+            m.mine |= mine;
             continue;
         }
-        marks.push(TimelineMark { time, ours, kind: kind.to_string(), detail });
+        marks.push(TimelineMark { time, ours, kind: kind.to_string(), detail, pos: pos(&e["position"]), mine, presence: None });
     }
     let frames = frames.into_iter().flatten().map(frame).collect();
     Some(MatchDetail { game: past, me, players, frames, kills, marks })

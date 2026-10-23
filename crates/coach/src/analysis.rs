@@ -4,7 +4,7 @@
 
 use crate::common::champ;
 use crate::selfcoach::review_deaths;
-use crate::{items, needs, threat};
+use crate::{fights, items, needs, threat};
 use model::*;
 
 /// Frame gold counts as held at a death when the frame is this recent (s).
@@ -28,6 +28,11 @@ const KP_BAD: f32 = 0.35;
 const KP_MIN_KILLS: u32 = 10;
 const EARLY_S: f32 = 14.0 * 60.0;
 const EARLY_DEATHS: usize = 3;
+/// Lost fights / enemy objectives before a pattern in them is a takeaway.
+const PATTERN_MIN: usize = 2;
+/// Fights I was in before their win share is a takeaway, and the share that counts.
+const FIGHTS_MIN: usize = 4;
+const FIGHTS_GOOD: f32 = 0.7;
 const LANE_ORDER: [Lane; 5] = [Lane::Top, Lane::Jungle, Lane::Middle, Lane::Bottom, Lane::Support];
 
 /// `stats`: my champion's lolalytics data (benchmarks, the build into this comp).
@@ -79,19 +84,22 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
     let order = |p: &MatchPlayer| (!p.ally, p.lane.map_or(LANE_ORDER.len(), |l| LANE_ORDER.iter().position(|x| *x == l).unwrap_or(0)));
     players.sort_by_key(order);
 
+    let marks = fights::with_presence(d);
+    let fights = fights::fights(d, &marks);
     let mut a = MatchAnalysis {
         game: g.clone(),
         players,
         opponent: opp.map(|o| d.players[o].champ),
         benchmarks,
         gold,
-        marks: d.marks.clone(),
+        marks,
         kills,
         kill_participation: share(me.kills + me.assists, team_kills).filter(|_| team_kills > 0),
         damage_share: share(me.damage, team(|p| p.damage)),
         gold_share: share(me.gold, team(|p| p.gold)),
         taken_share: share(me.taken, team(|p| p.taken)),
         review,
+        fights,
         recommended,
         takeaways: vec![],
         live: recap.is_some(),
@@ -137,7 +145,7 @@ fn review(d: &MatchDetail, sd: &StaticData, recap: Option<&Recap>) -> DeathRevie
 }
 
 /// A map zone as seen from my side.
-fn place(z: MapZone, blue: bool) -> &'static str {
+pub(crate) fn place(z: MapZone, blue: bool) -> &'static str {
     let mine = |b: bool| b == blue;
     match z {
         MapZone::BlueBase | MapZone::RedBase if mine(z == MapZone::BlueBase) => "your base",
@@ -253,6 +261,30 @@ fn takeaways(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData, team_kills: u3
         && (kp >= KP_GOOD || kp < KP_BAD)
     {
         say(kp >= KP_GOOD, format!("Kill participation {:.0}%", kp * 100.0));
+    }
+
+    // Fights: dying first in lost ones, and the record in the ones I was in.
+    let lost: Vec<&Fight> = a.fights.iter().filter(|f| f.lost > f.won && f.won + f.lost >= 2 && f.presence == Presence::There).collect();
+    let first = lost.iter().filter(|f| f.died_first).count();
+    if first >= PATTERN_MIN && first * 2 >= lost.len() {
+        say(false, format!("You died first in {first} of {} lost fights you were in", lost.len()));
+    }
+    let mine: Vec<&Fight> = a.fights.iter().filter(|f| f.presence == Presence::There && f.won + f.lost >= 2).collect();
+    let won = mine.iter().filter(|f| f.won > f.lost).count();
+    if mine.len() >= FIGHTS_MIN && won as f32 / mine.len() as f32 >= FIGHTS_GOOD {
+        say(true, format!("Your team won {won} of {} fights you were in", mine.len()));
+    }
+
+    // Objectives the enemy took while I was elsewhere (not dead).
+    let away: Vec<String> = a
+        .marks
+        .iter()
+        .filter(|m| !m.ours && m.presence == Some(Presence::Away))
+        .map(|m| format!("{} {}", m.kind, clock(m.time)))
+        .collect();
+    if rift && away.len() >= PATTERN_MIN {
+        let taken = a.marks.iter().filter(|m| !m.ours && m.presence.is_some()).count();
+        say(false, format!("Away for {} of {taken} objectives they took ({})", away.len(), away.join(", ")));
     }
 
     let early = a.review.deaths.iter().filter(|n| n.time < EARLY_S && !n.traded).count();

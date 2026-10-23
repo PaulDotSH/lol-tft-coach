@@ -4,7 +4,7 @@ import type { MatchAnalysis } from '../lib/bindings/MatchAnalysis';
 import type { PastGame } from '../lib/bindings/PastGame';
 import recorded from './analysis.json';
 
-const reviewed = recorded as MatchAnalysis;
+const reviewed = recorded as unknown as MatchAnalysis;
 const HOUR = 3_600_000;
 const t0 = Date.now() - 2 * HOUR;
 

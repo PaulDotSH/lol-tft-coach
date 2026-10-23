@@ -7,6 +7,7 @@
   import { champName, clockText, LANE_NAMES, queueName } from '../../lib/ui';
   import Icon from '../Icon.svelte';
   import DeathReview from './DeathReview.svelte';
+  import Fights from './Fights.svelte';
   import GoldChart from './GoldChart.svelte';
   import Scoreboard from './Scoreboard.svelte';
 
@@ -50,6 +51,8 @@
   );
   const built = $derived(new Set(a?.players.find((p) => p.me)?.items ?? []));
   const epic = $derived(a?.marks.filter((m) => m.kind !== 'Tower' && m.kind !== 'Inhibitor') ?? []);
+  const MARK = { there: '✓', dead: '✝', away: '✗' } as const;
+  const WHERE = { there: 'You were there', dead: 'You were dead', away: 'You were elsewhere' } as const;
   const date = $derived(g ? new Date(g.created).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 </script>
 
@@ -149,9 +152,10 @@
           {#if epic.length}
             <div class="objectives">
               {#each epic as m, i (i)}
-                <span class="obj" class:ours={m.ours}>
+                <span class="obj" class:ours={m.ours} title={m.presence ? WHERE[m.presence] : ''}>
                   <span class="num">{clockText(m.time)}</span>
                   {m.kind}{m.detail ? ` ${m.detail}` : ''}
+                  {#if m.presence}<span class="where {m.presence}">{MARK[m.presence]}</span>{/if}
                 </span>
               {/each}
             </div>
@@ -162,6 +166,7 @@
             </p>
           {/if}
         </section>
+        <Fights fights={a.fights} />
         <section class="panel">
           <Scoreboard players={a.players} win={g.win} />
         </section>
@@ -291,6 +296,17 @@
   }
   .obj.ours {
     color: var(--good);
+  }
+  .where {
+    margin-left: 3px;
+    font-weight: 700;
+  }
+  .where.there {
+    color: var(--good);
+  }
+  .where.dead,
+  .where.away {
+    color: var(--warn);
   }
   .obj .num {
     color: var(--muted);

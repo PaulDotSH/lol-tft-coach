@@ -1200,6 +1200,26 @@ data! {
         pub kind: String,
         /// e.g. "Infernal", "bot outer".
         pub detail: Option<String>,
+        pub pos: Option<(i32, i32)>,
+        /// I killed or helped kill it (epic monsters).
+        pub mine: bool,
+        /// Where I was when it was taken (epic monsters; set by the review).
+        pub presence: Option<Presence>,
+    }
+
+    /// A chain of kills at most 10 s apart.
+    pub struct Fight {
+        pub start: f32,
+        pub end: f32,
+        /// Enemies / allies who died.
+        pub won: u32,
+        pub lost: u32,
+        pub place: Option<String>,
+        pub presence: Presence,
+        /// Mine was my team's first death in it.
+        pub died_first: bool,
+        /// An epic monster taken within a minute after it.
+        pub then: Option<TimelineMark>,
     }
 
     pub struct KillMark {
@@ -1240,6 +1260,8 @@ data! {
         pub gold_share: Option<f32>,
         pub taken_share: Option<f32>,
         pub review: DeathReview,
+        /// Fights with at least two deaths, or any I was in.
+        pub fights: Vec<Fight>,
         /// What the coach recommended live, else what it would build into this comp.
         pub recommended: Vec<ItemId>,
         pub takeaways: Vec<Takeaway>,
@@ -1320,6 +1342,9 @@ impl MapZone {
 enums! {
     /// Self-coaching goal / trend metric.
     pub enum GoalKind { Cs10, EarlyDeaths, Vision, Unspent, BuyNext }
+
+    /// Where I was for a fight or objective: in it (or close), dead, or elsewhere.
+    pub enum Presence { There, Dead, Away }
 }
 
 impl Default for Settings {

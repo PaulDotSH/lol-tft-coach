@@ -461,121 +461,241 @@
       "time": 503.111,
       "ours": true,
       "kind": "Grubs",
-      "detail": "×3"
+      "detail": "×3",
+      "pos": [
+        4790,
+        10182
+      ],
+      "mine": false,
+      "presence": "away"
     },
     {
       "time": 526.286,
       "ours": false,
       "kind": "Dragon",
-      "detail": "Hextech"
+      "detail": "Hextech",
+      "pos": [
+        9858,
+        4420
+      ],
+      "mine": false,
+      "presence": "there"
     },
     {
       "time": 931.568,
       "ours": true,
       "kind": "Dragon",
-      "detail": "Infernal"
+      "detail": "Infernal",
+      "pos": [
+        9837,
+        4397
+      ],
+      "mine": true,
+      "presence": "there"
     },
     {
       "time": 989.066,
       "ours": false,
       "kind": "Tower",
-      "detail": "top outer"
+      "detail": "top outer",
+      "pos": [
+        981,
+        10441
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1132.768,
       "ours": true,
       "kind": "Tower",
-      "detail": "top outer"
+      "detail": "top outer",
+      "pos": [
+        4318,
+        13875
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1204.252,
       "ours": false,
       "kind": "Tower",
-      "detail": "mid outer"
+      "detail": "mid outer",
+      "pos": [
+        5846,
+        6396
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1251.388,
       "ours": true,
       "kind": "Tower",
-      "detail": "mid outer"
+      "detail": "mid outer",
+      "pos": [
+        8955,
+        8510
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1280.182,
       "ours": true,
       "kind": "Tower",
-      "detail": "bot outer"
+      "detail": "bot outer",
+      "pos": [
+        13866,
+        4505
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1288.984,
       "ours": true,
       "kind": "Dragon",
-      "detail": "Ocean"
+      "detail": "Ocean",
+      "pos": [
+        9837,
+        4397
+      ],
+      "mine": false,
+      "presence": "there"
     },
     {
       "time": 1508.557,
       "ours": false,
       "kind": "Tower",
-      "detail": "bot outer"
+      "detail": "bot outer",
+      "pos": [
+        10504,
+        1029
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1528.469,
       "ours": true,
       "kind": "Tower",
-      "detail": "top inner"
+      "detail": "top inner",
+      "pos": [
+        7943,
+        13411
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1538.892,
       "ours": false,
       "kind": "Tower",
-      "detail": "bot inner"
+      "detail": "bot inner",
+      "pos": [
+        6919,
+        1483
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1602.461,
       "ours": true,
       "kind": "Dragon",
-      "detail": "Ocean"
+      "detail": "Ocean",
+      "pos": [
+        9837,
+        4397
+      ],
+      "mine": false,
+      "presence": "there"
     },
     {
       "time": 1644.53,
       "ours": true,
       "kind": "Tower",
-      "detail": "bot inner"
+      "detail": "bot inner",
+      "pos": [
+        13327,
+        8226
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1693.435,
       "ours": true,
       "kind": "Baron",
-      "detail": null
+      "detail": null,
+      "pos": [
+        5073,
+        10457
+      ],
+      "mine": true,
+      "presence": "there"
     },
     {
       "time": 1746.263,
       "ours": true,
       "kind": "Tower",
-      "detail": "mid inner"
+      "detail": "mid inner",
+      "pos": [
+        9767,
+        10113
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1757.392,
       "ours": true,
       "kind": "Tower",
-      "detail": "mid inhibitor"
+      "detail": "mid inhibitor",
+      "pos": [
+        11134,
+        11207
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1762.174,
       "ours": true,
       "kind": "Inhibitor",
-      "detail": "mid"
+      "detail": "mid",
+      "pos": [
+        11593,
+        11669
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1769.182,
       "ours": true,
       "kind": "Tower",
-      "detail": "mid nexus"
+      "detail": "mid nexus",
+      "pos": [
+        13052,
+        12612
+      ],
+      "mine": false,
+      "presence": null
     },
     {
       "time": 1775.097,
       "ours": true,
       "kind": "Tower",
-      "detail": "mid nexus"
+      "detail": "mid nexus",
+      "pos": [
+        12611,
+        13084
+      ],
+      "mine": false,
+      "presence": null
     }
   ],
   "kills": [
@@ -944,6 +1064,221 @@
       "1 of 3 deaths were trades: your team won the fight"
     ]
   },
+  "fights": [
+    {
+      "start": 232.057,
+      "end": 238.069,
+      "won": 1,
+      "lost": 1,
+      "place": "bot lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 261.198,
+      "end": 261.198,
+      "won": 0,
+      "lost": 1,
+      "place": "river",
+      "presence": "there",
+      "died_first": true,
+      "then": null
+    },
+    {
+      "start": 454.472,
+      "end": 467.624,
+      "won": 3,
+      "lost": 1,
+      "place": "enemy jungle",
+      "presence": "there",
+      "died_first": false,
+      "then": {
+        "time": 503.111,
+        "ours": true,
+        "kind": "Grubs",
+        "detail": "×3",
+        "pos": [
+          4790,
+          10182
+        ],
+        "mine": false,
+        "presence": "away"
+      }
+    },
+    {
+      "start": 481.237,
+      "end": 489.83,
+      "won": 1,
+      "lost": 1,
+      "place": "river",
+      "presence": "away",
+      "died_first": false,
+      "then": {
+        "time": 503.111,
+        "ours": true,
+        "kind": "Grubs",
+        "detail": "×3",
+        "pos": [
+          4790,
+          10182
+        ],
+        "mine": false,
+        "presence": "away"
+      }
+    },
+    {
+      "start": 536.741,
+      "end": 539.015,
+      "won": 2,
+      "lost": 0,
+      "place": "river",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 657.403,
+      "end": 664.798,
+      "won": 1,
+      "lost": 2,
+      "place": "bot lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 798.519,
+      "end": 802.093,
+      "won": 2,
+      "lost": 1,
+      "place": "bot lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 839.621,
+      "end": 847.816,
+      "won": 1,
+      "lost": 2,
+      "place": "river",
+      "presence": "away",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 901.268,
+      "end": 911.869,
+      "won": 3,
+      "lost": 1,
+      "place": "bot lane",
+      "presence": "there",
+      "died_first": false,
+      "then": {
+        "time": 931.568,
+        "ours": true,
+        "kind": "Dragon",
+        "detail": "Infernal",
+        "pos": [
+          9837,
+          4397
+        ],
+        "mine": true,
+        "presence": "there"
+      }
+    },
+    {
+      "start": 987.563,
+      "end": 987.563,
+      "won": 1,
+      "lost": 0,
+      "place": "bot lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1086.829,
+      "end": 1092.783,
+      "won": 1,
+      "lost": 1,
+      "place": "bot lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1187.462,
+      "end": 1203.551,
+      "won": 3,
+      "lost": 1,
+      "place": "enemy jungle",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1298.657,
+      "end": 1303.834,
+      "won": 3,
+      "lost": 0,
+      "place": "enemy jungle",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1398.573,
+      "end": 1406.592,
+      "won": 4,
+      "lost": 1,
+      "place": "river",
+      "presence": "there",
+      "died_first": true,
+      "then": null
+    },
+    {
+      "start": 1507.288,
+      "end": 1514.02,
+      "won": 0,
+      "lost": 2,
+      "place": "mid lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1609.388,
+      "end": 1621.875,
+      "won": 4,
+      "lost": 1,
+      "place": "enemy jungle",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1725.872,
+      "end": 1745.058,
+      "won": 4,
+      "lost": 1,
+      "place": "mid lane",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    },
+    {
+      "start": 1777.645,
+      "end": 1777.645,
+      "won": 1,
+      "lost": 0,
+      "place": "enemy base",
+      "presence": "there",
+      "died_first": false,
+      "then": null
+    }
+  ],
   "recommended": [
     3111,
     2525,

@@ -9,6 +9,7 @@ pub mod consts;
 mod gold;
 mod draft;
 mod enemy_augments;
+mod fights;
 mod items;
 mod macro_coach;
 mod late;
