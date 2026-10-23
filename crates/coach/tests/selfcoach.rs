@@ -295,3 +295,26 @@ fn mayhem_augments_games_and_damage_only() {
         ]
     );
 }
+
+#[test]
+fn traded_deaths_stay_out_of_the_blame_notes() {
+    let sd = sd();
+    let mut p = lobby(STANDARD);
+    p[7] = p[7].clone().kda(12, 1, 3).lvl(11).items(&[YOUMUUS, EDGE_OF_NIGHT]);
+    let mut log = GameLog::default();
+    let mut ev = vec![];
+    tick(&mut log, &sd, 60.0, 300.0, &p, &ev);
+    tick(&mut log, &sd, 599.0, 300.0, &p, &ev);
+    ev.push(kill(600.0, 7, 0));
+    // Two enemies die right after: I went down for a won fight.
+    ev.extend([kill(604.0, 1, 7), kill(607.0, 2, 8)]);
+    tick(&mut log, &sd, 612.0, 300.0, &p, &ev);
+    tick(&mut log, &sd, 699.0, 300.0, &p, &ev);
+    ev.push(kill(700.0, 7, 0));
+    tick(&mut log, &sd, 712.0, 300.0, &p, &ev);
+
+    let r = death_review(&log, &sd);
+    assert_eq!(r.deaths.iter().map(|d| d.traded).collect::<Vec<_>>(), vec![true, false]);
+    assert!(r.deaths.iter().all(|d| d.killer_top_threat), "both still to the top threat");
+    assert_eq!(r.notes, vec!["1 of 2 deaths were trades: your team got as many kills within 10 s".to_string()]);
+}

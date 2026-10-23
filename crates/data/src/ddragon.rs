@@ -1,7 +1,7 @@
 //! Data Dragon items/champions + bundled `traits.toml` → [`StaticData`].
 
 use anyhow::Context;
-use model::{BaseStats, ChampClass, ChampKey, Champion, Item, ItemId, ItemStats, Profile, StaticData, Traits};
+use model::{BaseStats, ChampClass, ChampKey, Champion, Item, ItemId, ItemStats, Profile, RuneId, RuneInfo, StaticData, Traits};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -22,7 +22,57 @@ pub async fn load(http: &crate::Http) -> anyhow::Result<StaticData> {
         tracing::warn!("item groups unavailable, using stat rules only: {e:#}");
         Default::default()
     });
-    Ok(StaticData { version, items, champs, item_groups })
+    let runes = http.get_parsed(&file("runesReforged"), 720 * hour, parse_runes).await.unwrap_or_else(|e| {
+        tracing::warn!("runes unavailable: {e:#}");
+        Default::default()
+    });
+    Ok(StaticData { version, items, champs, item_groups, runes })
+}
+
+/// Stat shards aren't in `runesReforged.json`.
+const SHARDS: [(RuneId, &str, &str); 9] = [
+    (5008, "Adaptive Force", "StatModsAdaptiveForceIcon"),
+    (5005, "Attack Speed", "StatModsAttackSpeedIcon"),
+    (5007, "Ability Haste", "StatModsCDRScalingIcon"),
+    (5010, "Move Speed", "StatModsMovementSpeedIcon"),
+    (5001, "Health Scaling", "StatModsHealthScalingIcon"),
+    (5011, "Health", "StatModsHealthPlusIcon"),
+    (5013, "Tenacity and Slow Resist", "StatModsTenacityIcon"),
+    (5002, "Armor", "StatModsArmorIcon"),
+    (5003, "Magic Resist", "StatModsMagicResIcon.MagicResist_Fix"),
+];
+
+/// Tree styles and their runes from `runesReforged.json`, plus the stat shards.
+pub fn parse_runes(json: &str) -> anyhow::Result<HashMap<RuneId, RuneInfo>> {
+    #[derive(Deserialize)]
+    struct Rune {
+        id: RuneId,
+        name: String,
+        icon: String,
+    }
+    #[derive(Deserialize)]
+    struct Slot {
+        runes: Vec<Rune>,
+    }
+    #[derive(Deserialize)]
+    struct Style {
+        id: RuneId,
+        name: String,
+        icon: String,
+        slots: Vec<Slot>,
+    }
+    let styles: Vec<Style> = serde_json::from_str(json)?;
+    let mut m = HashMap::new();
+    for s in styles {
+        for r in s.slots.into_iter().flat_map(|s| s.runes) {
+            m.insert(r.id, RuneInfo { name: r.name, icon: r.icon });
+        }
+        m.insert(s.id, RuneInfo { name: s.name, icon: s.icon });
+    }
+    for (id, name, icon) in SHARDS {
+        m.insert(id, RuneInfo { name: name.into(), icon: format!("perk-images/StatMods/{icon}.png") });
+    }
+    Ok(m)
 }
 
 pub fn parse_version(json: &str) -> anyhow::Result<String> {
@@ -408,6 +458,15 @@ mod tests {
 
     const ITEMS: &str = include_str!("../../../fixtures/data/ddragon-item.json");
     const CHAMPS: &str = include_str!("../../../fixtures/data/ddragon-champion.json");
+
+    #[test]
+    fn runes() {
+        let r = parse_runes(include_str!("../../../fixtures/data/ddragon-runes.json")).unwrap();
+        assert_eq!(r[&8439].name, "Aftershock");
+        assert!(r[&8439].icon.starts_with("perk-images/Styles/"));
+        assert_eq!(r[&8400].name, "Resolve");
+        assert_eq!(r[&5013].icon, "perk-images/StatMods/StatModsTenacityIcon.png");
+    }
 
     #[test]
     fn items() {

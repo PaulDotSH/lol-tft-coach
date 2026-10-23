@@ -17,6 +17,7 @@ mod needs;
 mod picks;
 mod recap;
 mod resists;
+mod runes;
 mod self_stats;
 mod selfcoach;
 mod shop;
@@ -69,6 +70,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let mut needs = needs::needs(&a.foes);
     enemy_augments::adjust_needs(&mut needs, &a, &aug_tags);
     rules.scale_needs(&mut needs.p);
+    resists::tilt_needs(&mut needs.p, snap.my_stats.as_ref());
     let mut ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
     ctx.ahead = me.is_some_and(|p| {
         p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0)

@@ -323,6 +323,7 @@ pub fn sd() -> StaticData {
         items: items().into_iter().map(|i| (i.id, i)).collect(),
         champs: champs().into_iter().map(|c| (c.key, c)).collect(),
         item_groups: Default::default(),
+        runes: Default::default(),
     }
 }
 
@@ -474,5 +475,6 @@ pub fn ahri_stats() -> ChampStats {
             damage_per_min: Some(950.0),
             vision_per_min: None,
         },
+        runes: None,
     }
 }

@@ -16,6 +16,8 @@ const CS_AT: f32 = 600.0;
 const EARLY_AT: f32 = 840.0;
 /// Average item-gold gap to the killer worth a note.
 const GAP_NOTE: i32 = -500;
+/// Kills this close to a death (s, either side) count as the same fight.
+const TRADE_WINDOW: f32 = 10.0;
 
 /// What I had and what the coach said at one tick.
 #[derive(Clone, Default)]
@@ -42,6 +44,8 @@ pub struct GameLog {
     spikes: Vec<(usize, u32, f32)>,
     last_death: f32,
     pub deaths: Vec<DeathNote>,
+    /// Every champion kill so far: (game time, my team got it).
+    kills: Vec<(f32, bool)>,
     pub cs_10: Option<u32>,
     pub early_deaths: Option<u32>,
     pub buys: u32,
@@ -82,6 +86,15 @@ impl GameLog {
                 _ => None,
             })
         };
+
+        self.kills = snap
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                GameEvent::Kill { time, victim, .. } => Some((*time, snap.players.get(*victim)?.team != me.team)),
+                _ => None,
+            })
+            .collect();
 
         let Some(prev) = self.prev.take() else {
             // First tick (possibly mid-game): baselines only, nothing before it is judged.
@@ -138,6 +151,7 @@ impl GameLog {
                 could_buy: m.buy_next.as_ref().is_some_and(|p| p.cost <= unspent || p.component_now.is_some()),
                 owned: m.owned.clone(),
                 spikes,
+                traded: false,
             });
             self.last_death = self.last_death.max(time);
         }
@@ -155,14 +169,25 @@ impl GameLog {
     }
 }
 
-/// In-game patterns from the death notes.
+/// My team won the fight: at least as many kills as it lost, this death included.
+fn traded(log: &GameLog, time: f32) -> bool {
+    let fight = log.kills.iter().filter(|k| (k.0 - time).abs() <= TRADE_WINDOW);
+    let (won, lost) = fight.fold((0, 0), |(w, l), k| if k.1 { (w + 1, l) } else { (w, l + 1) });
+    won > 0 && won >= lost
+}
+
+/// In-game patterns from the death notes. Traded deaths (a support peeling,
+/// a tank soaking for a won fight) are listed but kept out of the blame notes.
 pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
-    let d = &log.deaths;
+    let all: Vec<DeathNote> = log.deaths.iter().map(|n| DeathNote { traded: traded(log, n.time), ..n.clone() }).collect();
+    let d: Vec<&DeathNote> = all.iter().filter(|n| !n.traded).collect();
     let mut notes = Vec::new();
+    let trades = all.len() - d.len();
+    let aside = if trades > 0 { " (trades aside)" } else { "" };
 
     // Deaths per enemy who had just spiked, and the levels involved.
     let mut by_champ: Vec<(ChampKey, u32, Vec<u32>)> = Vec::new();
-    for n in d {
+    for n in &d {
         let mut counted: Vec<ChampKey> = Vec::new();
         for &(c, l) in &n.spikes {
             let i = by_champ.iter().position(|x| x.0 == c).unwrap_or_else(|| {
@@ -187,7 +212,8 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
         notes.push(format!("Died {n}× within 60 s of {} reaching level {lv}", sd.champ_name(c)));
     }
 
-    let holding = d.iter().filter(|n| n.unspent >= HOLDING_GOLD).count();
+    // Gold held is worth fixing whether or not the fight was won.
+    let holding = all.iter().filter(|n| n.unspent >= HOLDING_GOLD).count();
     if holding > 0 && !log.shop_on_death {
         let times = if holding == 1 { "once".to_string() } else { format!("{holding}×") };
         notes.push(format!("Died {times} with {HOLDING_GOLD}+ g unspent"));
@@ -195,7 +221,7 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
 
     let top = d.iter().filter(|n| n.killer_top_threat).count();
     if top >= 2 {
-        notes.push(format!("{top} of {} deaths were to the enemy on top of the threat board", d.len()));
+        notes.push(format!("{top} of {} deaths{aside} were to the enemy on top of the threat board", d.len()));
     }
 
     let gaps: Vec<i32> = d.iter().filter_map(|n| n.gold_gap).collect();
@@ -205,7 +231,11 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
             notes.push(format!("You had {:.1}k less item gold than your killer on average", -avg as f32 / 1000.0));
         }
     }
-    DeathReview { deaths: d.clone(), notes }
+    if trades > 0 {
+        let n = all.len();
+        notes.push(format!("{trades} of {n} deaths were trades: your team got as many kills within {TRADE_WINDOW:.0} s"));
+    }
+    DeathReview { deaths: all, notes }
 }
 
 /// The game's numbers for trends. `ended` is unix seconds.

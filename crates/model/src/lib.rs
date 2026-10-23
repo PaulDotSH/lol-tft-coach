@@ -11,6 +11,8 @@ use ts_rs::TS;
 pub type ChampKey = u32;
 pub type ItemId = u32;
 pub type AugmentId = u32;
+/// Riot perk id: runes 8xxx/9xxx, stat shards 5xxx.
+pub type RuneId = u32;
 
 macro_rules! data {
     ($($item:item)*) => {$(
@@ -229,6 +231,15 @@ data! {
         /// two items sharing a group can't be owned together. Empty if unavailable.
         #[serde(default)]
         pub item_groups: HashMap<ItemId, Vec<u32>>,
+        /// Rune and stat shard id → name and icon. Empty if unavailable.
+        #[serde(default)]
+        pub runes: HashMap<RuneId, RuneInfo>,
+    }
+
+    pub struct RuneInfo {
+        pub name: String,
+        /// Data Dragon image path under `cdn/img/`, e.g. "perk-images/Styles/…png".
+        pub icon: String,
     }
 
     // ---- lolalytics ----
@@ -272,6 +283,34 @@ data! {
         pub early: Vec<EarlySet>,
         pub counters: Vec<Matchup>,
         pub benchmarks: Benchmarks,
+        /// Build page rune pages and per-rune stats; None when the page had none.
+        #[serde(default)]
+        pub runes: Option<RuneData>,
+    }
+
+    /// One full rune page from lolalytics.
+    pub struct RunePage {
+        /// Keystone first, then the three primary-tree runes.
+        pub primary: Vec<RuneId>,
+        pub secondary: Vec<RuneId>,
+        pub shards: Vec<RuneId>,
+        pub win_rate: f32,
+        pub games: u32,
+    }
+
+    pub struct RuneStat {
+        pub pick_rate: f32,
+        pub win_rate: f32,
+        pub games: u32,
+    }
+
+    pub struct RuneData {
+        /// Most played page.
+        pub popular: RunePage,
+        /// Highest win rate page.
+        pub best: RunePage,
+        /// Per rune: as a primary-tree pick first, then as a secondary (shards have one entry).
+        pub stats: HashMap<RuneId, Vec<RuneStat>>,
     }
 
     /// One row of a lolalytics lane tier list.
@@ -513,6 +552,33 @@ data! {
         pub boots: Option<ItemPick>,
     }
 
+    pub struct RunePick {
+        pub id: RuneId,
+        pub name: String,
+        /// Data Dragon image path under `cdn/img/`.
+        pub icon: String,
+        /// Why it replaces the most played rune in its row; None when it is the most played.
+        pub reason: Option<String>,
+    }
+
+    pub struct RuneAdvice {
+        /// Keystone first.
+        pub primary: Vec<RunePick>,
+        pub secondary: Vec<RunePick>,
+        pub shards: Vec<RunePick>,
+        /// Of the most played page this one starts from.
+        pub win_rate: f32,
+        pub games: u32,
+        /// Highest win rate page when its keystone differs: keystone, win rate, games.
+        pub alt: Option<RuneAlt>,
+    }
+
+    pub struct RuneAlt {
+        pub keystone: RunePick,
+        pub win_rate: f32,
+        pub games: u32,
+    }
+
     pub struct BenchRank {
         pub champ: ChampKey,
         pub tier: Option<String>,
@@ -532,6 +598,8 @@ data! {
         pub picks: Vec<PickSuggestion>,
         pub bans: Vec<PickSuggestion>,
         pub build: Option<BuildPlan>,
+        /// Rift / ARAM rune page for my champion (Mayhem has no runes).
+        pub runes: Option<RuneAdvice>,
         /// ARAM / Mayhem: you + bench, best first.
         pub bench: Vec<BenchRank>,
         pub enemies: Vec<ChampKey>,
@@ -952,6 +1020,10 @@ data! {
         pub owned: Vec<ItemId>,
         /// Killer / assisters who reached level 6, 11 or 16 within 60 s before.
         pub spikes: Vec<(ChampKey, u32)>,
+        /// My team got at least as many kills as it lost around this death
+        /// (set by the review; absent in recaps saved before it existed).
+        #[serde(default)]
+        pub traded: bool,
     }
 
     pub struct DeathReview {

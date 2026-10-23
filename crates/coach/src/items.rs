@@ -469,6 +469,7 @@ mod tests {
             items: items.into_iter().map(|i| (i.id, i)).collect(),
             champs: Default::default(),
             item_groups: Default::default(),
+            runes: Default::default(),
         };
         let archangels = &sd.items[&3003];
         assert_eq!(component_now(&sd, archangels, &[], 1300.0), Some(3070));

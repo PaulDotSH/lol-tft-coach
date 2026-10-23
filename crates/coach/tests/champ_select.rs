@@ -201,3 +201,64 @@ fn recap_notes_compare_to_benchmarks() {
     assert_eq!(r.recommended, vec![LUDENS, SORCS, RABADONS]);
     assert_eq!(r.stats, eog);
 }
+
+/// Sona support: Aftershock / Font of Life / Conditioning / Unflinching + Inspiration.
+fn sona_runes() -> ChampStats {
+    let page = |primary: Vec<RuneId>, win_rate, games| RunePage {
+        primary,
+        secondary: vec![8347, 8345],
+        shards: vec![5008, 5008, 5001],
+        win_rate,
+        games,
+    };
+    let st = |games, win_rate| RuneStat { pick_rate: 10.0, win_rate, games };
+    let mut s = ahri_stats();
+    s.champ = SONA;
+    s.runes = Some(RuneData {
+        popular: page(vec![8439, 8463, 8429, 8242], 52.9, 30_000),
+        best: page(vec![8465, 8463, 8444, 8242], 54.4, 13_000),
+        stats: [
+            (8429, vec![st(20_000, 52.8)]),
+            (8473, vec![st(2_000, 52.5)]),
+            (8444, vec![st(100, 60.0)]),
+            (5001, vec![st(40_000, 52.9)]),
+            (5013, vec![st(400, 53.0)]),
+        ]
+        .into_iter()
+        .collect(),
+    });
+    s
+}
+
+fn rune_run(enemies: &[ChampKey], mode: Mode) -> Option<RuneAdvice> {
+    let mut c = cs(mode);
+    c.my_pick = Some(SONA);
+    c.enemies = enemies.to_vec();
+    run(&c, Some(&sona_runes()), &[], &[], None).runes
+}
+
+fn ids(v: &[RunePick]) -> Vec<RuneId> {
+    v.iter().map(|r| r.id).collect()
+}
+
+#[test]
+fn runes_follow_the_most_played_page() {
+    let r = rune_run(&[JINX], Mode::Rift).unwrap();
+    assert_eq!(ids(&r.primary), vec![8439, 8463, 8429, 8242]);
+    assert_eq!(ids(&r.secondary), vec![8347, 8345]);
+    assert_eq!(ids(&r.shards), vec![5008, 5008, 5001]);
+    assert!(r.primary.iter().chain(&r.shards).all(|p| p.reason.is_none()));
+    let alt = r.alt.unwrap();
+    assert_eq!((alt.keystone.id, alt.games), (8465, 13_000), "Guardian wins more");
+    assert!(rune_run(&[JINX], Mode::Mayhem).is_none(), "Mayhem has no runes");
+}
+
+#[test]
+fn runes_answer_burst_and_cc() {
+    let r = rune_run(&[ZED, SYNDRA, LEONA, MALPHITE, THRESH], Mode::Rift).unwrap();
+    assert_eq!(ids(&r.primary), vec![8439, 8463, 8473, 8242], "Bone Plating vs two assassins");
+    assert!(r.primary[2].reason.as_deref().unwrap().starts_with("burst from Zed, Syndra"), "{:?}", r.primary[2].reason);
+    assert_eq!(ids(&r.shards), vec![5008, 5008, 5013], "Tenacity vs three hard CC");
+    // Second Wind wins more but has too few games to be offered.
+    assert!(!ids(&r.primary).contains(&8444));
+}

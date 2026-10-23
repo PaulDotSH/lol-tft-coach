@@ -90,6 +90,7 @@ pub async fn lane_stats(
         early: vec![],
         counters: c.counters,
         benchmarks: Default::default(),
+        runes: None,
     })
 }
 

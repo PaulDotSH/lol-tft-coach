@@ -35,12 +35,13 @@
                 <span class="muted">Executed</span>
               {/if}
               {#each d.assisters as a, j (`${j}-${a}`)}<span class="assist"><Icon kind="champ" id={a} size={18} /></span>{/each}
+              {#if d.traded}<span class="tag trade" title="Your team got as many kills within 10 s">trade</span>{/if}
               {#if d.killer_top_threat}<span class="tag">top threat</span>{/if}
               {#each d.spikes as [c, lvl], j (`${j}-${c}-${lvl}`)}
                 <span class="tag spike" title="{name(c)} reached level {lvl} within 60 s before">{name(c)} {lvl}</span>
               {/each}
             </td>
-            <td class="num" class:bad={d.gold_gap != null && d.gold_gap < 0}>{d.gold_gap != null ? signed(d.gold_gap, gold) : ''}</td>
+            <td class="num" class:bad={!d.traded && d.gold_gap != null && d.gold_gap < 0}>{d.gold_gap != null ? signed(d.gold_gap, gold) : ''}</td>
             <td class="num" class:warn={d.unspent >= HOLDING}>{gold(d.unspent)}</td>
             <td>
               {#if d.buy_next != null}
@@ -104,6 +105,9 @@
   }
   .spike {
     color: var(--warn);
+  }
+  .trade {
+    color: var(--good);
   }
   .warn {
     color: var(--warn);

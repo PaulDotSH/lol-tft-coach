@@ -28,4 +28,9 @@ could_buy: boolean, owned: Array<number>,
 /**
  * Killer / assisters who reached level 6, 11 or 16 within 60 s before.
  */
-spikes: Array<[number, number]>, };
+spikes: Array<[number, number]>, 
+/**
+ * My team got at least as many kills as it lost around this death
+ * (set by the review; absent in recaps saved before it existed).
+ */
+traded: boolean, };

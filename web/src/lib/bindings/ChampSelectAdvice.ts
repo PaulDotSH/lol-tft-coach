@@ -6,8 +6,13 @@ import type { DraftSide } from "./DraftSide";
 import type { Lane } from "./Lane";
 import type { Mode } from "./Mode";
 import type { PickSuggestion } from "./PickSuggestion";
+import type { RuneAdvice } from "./RuneAdvice";
 
 export type ChampSelectAdvice = { mode: Mode, my_lane: Lane | null, my_champ: number | null, picks: Array<PickSuggestion>, bans: Array<PickSuggestion>, build: BuildPlan | null, 
+/**
+ * Rift / ARAM rune page for my champion (Mayhem has no runes).
+ */
+runes: RuneAdvice | null, 
 /**
  * ARAM / Mayhem: you + bench, best first.
  */

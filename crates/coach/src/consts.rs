@@ -35,6 +35,9 @@ pub const ASSASSIN_FLAG_BURST: f32 = 0.75;
 pub const CRIT_FLAG: f32 = 0.4;
 
 // ---- needs ----
+/// Bounds on the armor/MR need multiplier from my current resists.
+pub const RESIST_TILT_MIN: f32 = 0.5;
+pub const RESIST_TILT_MAX: f32 = 1.5;
 pub const NEED_W_FLOOR: f32 = 0.25;
 /// Share of a true-damage champion's damage that ignores resists.
 pub const TRUE_FRAC: f32 = 0.3;
@@ -154,6 +157,17 @@ pub const BAN_COUNTER_W: f32 = 1.0;
 pub const BAN_META_W: f32 = 0.6;
 pub const BAN_OFFLANE_W: f32 = 0.3;
 pub const CORE_ITEMS: usize = 3;
+/// A rune swapped in for the enemy team needs this many games on the champion…
+pub const RUNE_MIN_GAMES: u32 = 300;
+/// …and at most this many win-rate points below the rune it replaces.
+pub const RUNE_WR_SLACK: f32 = 1.5;
+/// Enemies with burst ≥ ASSASSIN_FLAG_BURST (or tanks) needed for Bone Plating (Cut Down).
+pub const RUNE_THREATS: usize = 2;
+/// Enemies with CC trait ≥ RUNE_HARD_CC needed for the tenacity shard.
+pub const RUNE_CC_FOES: usize = 3;
+pub const RUNE_HARD_CC: f32 = 0.8;
+/// The highest win rate page is shown when its keystone differs and has this many games.
+pub const RUNE_ALT_MIN_GAMES: u32 = 1000;
 
 // ---- draft ----
 /// Lane share (percent) below which a champion is not placed in that lane.

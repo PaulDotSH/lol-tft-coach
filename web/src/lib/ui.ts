@@ -13,6 +13,9 @@ export const itemIcon = (ui: UiStatic, id: number) => `${DD}/${ui.version}/img/i
 export const augmentIcon = (ui: UiStatic, id: number) =>
   ui.ugg_patch ? `https://static.bigbrain.gg/cdragon-custom/${ui.ugg_patch}/augments/${id}.webp` : '';
 
+/** Rune / stat shard image path from Data Dragon (`perk-images/…`); not versioned. */
+export const runeIcon = (path: string) => (path ? `${DD}/img/${path}` : '');
+
 export const champName = (ui: UiStatic, key: number) => ui.champs[key]?.name ?? `#${key}`;
 export const itemName = (ui: UiStatic, id: number) => ui.items[id]?.name ?? `Item ${id}`;
 

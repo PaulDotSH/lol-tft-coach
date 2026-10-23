@@ -30,6 +30,7 @@ fn sd() -> StaticData {
         version: "16.21.1".into(),
         items: Default::default(),
         item_groups: Default::default(),
+        runes: Default::default(),
         champs: champs
             .into_iter()
             .map(|(key, id, name)| {

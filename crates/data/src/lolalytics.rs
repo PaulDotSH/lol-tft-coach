@@ -14,11 +14,18 @@
 //!   averages (`stats` rows `[name, int_flag, value, percentile, rank]`: gold,
 //!   minions, jungleCS, damage, …; no vision) and a game-length histogram
 //!   (`time`/`timeWin`, buckets 1..7 = 0-15, 15-20, …, 35-40, 40+ minutes).
+//! - Runes (build page): `{pick, win}` summaries hold the most played and the
+//!   highest win rate page (`runes.set` = `{pri: [keystone, 3], sec: [2], mod: [3]}`,
+//!   `wr`, `n`); a `{stats}` object maps every rune id to `[[pick %, wr, games]]`,
+//!   one row as a primary-tree pick and one as secondary (shards: one row; an
+//!   `f` suffix, "5008f", is the shard taken in the flex row).
 //! - Tier list: `ep=list` (`cid` → `{rank, tier, wr, pr, br, games}`), tier
 //!   1..15 = S+ … D-, rank/tier 0 = not ranked in that lane.
 
 use crate::num;
-use model::{Benchmarks, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, Mode, TierEntry};
+use model::{
+    Benchmarks, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, Mode, RuneData, RunePage, RuneStat, TierEntry,
+};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -90,6 +97,7 @@ pub async fn champ_stats(
         early,
         counters,
         benchmarks: page.benchmarks,
+        runes: page.runes,
     })
 }
 
@@ -275,6 +283,7 @@ pub struct PageStats {
     pub win_rate: Option<f32>,
     pub pick_rate: Option<f32>,
     pub benchmarks: Benchmarks,
+    pub runes: Option<RuneData>,
 }
 
 /// Header and per-minute benchmarks from a build page; missing parts are None.
@@ -305,7 +314,39 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
             damage_per_min: per_min(&["damage"]),
             vision_per_min: per_min(&["visionScore"]),
         },
+        runes: parse_runes(&q),
     })
+}
+
+fn parse_runes(q: &crate::qwik::Qwik) -> Option<RuneData> {
+    let ids = |v: &Value| -> Option<Vec<u32>> { v.as_array()?.iter().map(|x| num(x).map(|n| n as u32)).collect() };
+    let page = |r: &Value| {
+        let set = &r["runes"]["set"];
+        Some(RunePage {
+            primary: ids(&set["pri"])?,
+            secondary: ids(&set["sec"])?,
+            shards: ids(&set["mod"])?,
+            win_rate: num(&r["runes"]["wr"])? as f32,
+            games: num(&r["runes"]["n"])? as u32,
+        })
+    };
+    let (popular, best) = q.find_map(5, &["pick", "win"], |v| Some((page(&v["pick"])?, page(&v["win"])?)))?;
+    // Keyed by rune id; other `{stats}` objects (per-game averages) are arrays.
+    let stats = q
+        .find_map(4, &["stats"], |v| {
+            let m = v["stats"].as_object()?;
+            let rows = |r: &Value| -> Option<Vec<RuneStat>> {
+                r.as_array()?
+                    .iter()
+                    .map(|x| Some(RuneStat { pick_rate: num(&x[0])? as f32, win_rate: num(&x[1])? as f32, games: num(&x[2])? as u32 }))
+                    .collect()
+            };
+            // "5008f": a shard taken in the flex (second) row; plain ids are their own row.
+            let s: HashMap<u32, Vec<RuneStat>> = m.iter().filter_map(|(k, r)| Some((k.parse().ok()?, rows(r)?))).collect();
+            (s.len() * 2 > m.len()).then_some(s)
+        })
+        .unwrap_or_default();
+    Some(RuneData { popular, best, stats })
 }
 
 /// Mean game length from the `time` histogram (bucket midpoints).
@@ -418,6 +459,22 @@ mod tests {
         let p = parse_build_page(&fixture("lolalytics-build-ahri-aram.html")).unwrap();
         assert_eq!((p.games, p.win_rate), (Some(503), Some(56.06)));
         assert!(p.benchmarks.gold_per_min.unwrap() > 500.0, "ARAM games are short");
+    }
+
+    #[test]
+    fn build_page_runes() {
+        let p = parse_build_page(&fixture("lolalytics-build-thresh-support.html")).unwrap();
+        assert_eq!(p.games, Some(62757));
+        let r = p.runes.unwrap();
+        // Aftershock / Font of Life / Bone Plating / Unflinching + Cosmic Insight, Biscuits.
+        assert_eq!(r.popular.primary, vec![8439, 8463, 8473, 8242]);
+        assert_eq!(r.popular.secondary, vec![8347, 8345]);
+        assert_eq!(r.popular.shards, vec![5008, 5008, 5001]);
+        assert_eq!((r.popular.win_rate, r.popular.games), (52.88, 34569));
+        assert_eq!(r.best.primary[0], 8465, "Guardian wins most");
+        let unflinching = &r.stats[&8242];
+        assert_eq!((unflinching[0].games, unflinching[1].games), (43786, 11828));
+        assert_eq!(r.stats[&5013].len(), 1, "shards have one row");
     }
 
     #[test]

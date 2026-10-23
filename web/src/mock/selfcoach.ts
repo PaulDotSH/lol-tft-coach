@@ -27,13 +27,13 @@ export const review: DeathReview = {
     'You had 1.4k less item gold than your killer on average',
   ],
   deaths: [
-    { time: 371, killer: ZED, assisters: [], gold_gap: -350, killer_top_threat: false, unspent: 640, buy_next: 6655, could_buy: false, owned: [1056, 2003], spikes: [[ZED, 6]] },
-    { time: 698, killer: VI, assisters: [ZED], gold_gap: 120, killer_top_threat: false, unspent: 1180, buy_next: 6655, could_buy: true, owned: [1056, 3020, 1058], spikes: [[ZED, 6]] },
-    { time: 812, killer: ZED, assisters: [VI], gold_gap: -1450, killer_top_threat: true, unspent: 420, buy_next: SHADOWFLAME, could_buy: false, owned: [6655, 3020], spikes: [] },
-    { time: 1003, killer: ZED, assisters: [], gold_gap: -2100, killer_top_threat: true, unspent: 1310, buy_next: ZHONYAS, could_buy: true, owned: [6655, 3020, 1058], spikes: [[ZED, 11]] },
-    { time: 1290, killer: KAISA, assisters: [NAUTILUS], gold_gap: -900, killer_top_threat: false, unspent: 300, buy_next: ZHONYAS, could_buy: false, owned: [6655, 3020, SHADOWFLAME], spikes: [] },
-    { time: 1544, killer: ZED, assisters: [DARIUS, NAUTILUS], gold_gap: -2600, killer_top_threat: true, unspent: 1650, buy_next: ZHONYAS, could_buy: true, owned: [6655, 3020, SHADOWFLAME, 1058], spikes: [] },
-    { time: 1801, killer: ZED, assisters: [KAISA], gold_gap: -2400, killer_top_threat: true, unspent: 210, buy_next: RABADONS, could_buy: false, owned: [6655, 3020, SHADOWFLAME, 3089, 1058], spikes: [] },
+    { time: 371, killer: ZED, assisters: [], gold_gap: -350, killer_top_threat: false, unspent: 640, buy_next: 6655, could_buy: false, owned: [1056, 2003], spikes: [[ZED, 6]], traded: false },
+    { time: 698, killer: VI, assisters: [ZED], gold_gap: 120, killer_top_threat: false, unspent: 1180, buy_next: 6655, could_buy: true, owned: [1056, 3020, 1058], spikes: [[ZED, 6]], traded: true },
+    { time: 812, killer: ZED, assisters: [VI], gold_gap: -1450, killer_top_threat: true, unspent: 420, buy_next: SHADOWFLAME, could_buy: false, owned: [6655, 3020], spikes: [], traded: false },
+    { time: 1003, killer: ZED, assisters: [], gold_gap: -2100, killer_top_threat: true, unspent: 1310, buy_next: ZHONYAS, could_buy: true, owned: [6655, 3020, 1058], spikes: [[ZED, 11]], traded: false },
+    { time: 1290, killer: KAISA, assisters: [NAUTILUS], gold_gap: -900, killer_top_threat: false, unspent: 300, buy_next: ZHONYAS, could_buy: false, owned: [6655, 3020, SHADOWFLAME], spikes: [], traded: false },
+    { time: 1544, killer: ZED, assisters: [DARIUS, NAUTILUS], gold_gap: -2600, killer_top_threat: true, unspent: 1650, buy_next: ZHONYAS, could_buy: true, owned: [6655, 3020, SHADOWFLAME, 1058], spikes: [], traded: false },
+    { time: 1801, killer: ZED, assisters: [KAISA], gold_gap: -2400, killer_top_threat: true, unspent: 210, buy_next: RABADONS, could_buy: false, owned: [6655, 3020, SHADOWFLAME, 3089, 1058], spikes: [], traded: false },
   ],
 };
 

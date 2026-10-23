@@ -61,6 +61,8 @@ pub fn rules(mode: Mode) -> &'static Rules {
 }
 
 // Need indices (`common::NEED_LABELS` order).
+pub const ARMOR: usize = 0;
+pub const MR: usize = 1;
 pub const TENACITY: usize = 4;
 pub const CLEANSE: usize = 5;
 pub const ARMOR_PEN: usize = 7;

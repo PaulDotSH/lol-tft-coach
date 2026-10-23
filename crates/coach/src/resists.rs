@@ -3,8 +3,8 @@
 
 use crate::{
     common::*,
-    consts::NEED_W_FLOOR,
-    modes::Rules,
+    consts::{NEED_W_FLOOR, RESIST_TILT_MAX, RESIST_TILT_MIN},
+    modes::{ARMOR, MR, Rules},
     threat::Foe,
 };
 use model::*;
@@ -149,6 +149,18 @@ impl Targets {
     }
 }
 
+/// Tilt the armor and MR needs toward the resist I lack. Damage taken scales
+/// with 1/(1 + R/100), so a point of R is worth 1/(1 + R/100)²: with 120 armor
+/// and 40 MR, MR is worth about twice as much. Unchanged without live stats.
+pub fn tilt_needs(p: &mut [f32; N], mine: Option<&ChampionStats>) {
+    let Some(s) = mine else { return };
+    let worth = |r: f32| (1.0 + r.max(0.0) / 100.0).powi(-2);
+    let (a, m) = (worth(s.armor), worth(s.magic_resist));
+    let k = |x: f32| (2.0 * x / (a + m)).clamp(RESIST_TILT_MIN, RESIST_TILT_MAX);
+    p[ARMOR] *= k(a);
+    p[MR] *= k(m);
+}
+
 /// My EHP split and the threat-weighted enemy damage mix.
 pub fn defense(mine: Option<&ChampionStats>, foes: &[Foe], est: Vec<Option<EnemyResist>>, notes: Vec<String>) -> Option<Defense> {
     if foes.is_empty() {
@@ -176,6 +188,21 @@ pub fn defense(mine: Option<&ChampionStats>, foes: &[Foe], est: Vec<Option<Enemy
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn needs_tilt_toward_the_missing_resist() {
+        let tilted = |armor, magic_resist| {
+            let mut p = [0.5; N];
+            tilt_needs(&mut p, Some(&ChampionStats { armor, magic_resist, ..Default::default() }));
+            (p[ARMOR], p[MR])
+        };
+        let (a, m) = tilted(120.0, 40.0);
+        assert!(a < 0.4 && m > 0.6, "armor {a} mr {m}");
+        assert_eq!(tilted(60.0, 60.0), (0.5, 0.5));
+        let mut p = [0.5; N];
+        tilt_needs(&mut p, None);
+        assert_eq!(p, [0.5; N]);
+    }
 
     #[test]
     fn growth_formula_matches_data_dragon() {

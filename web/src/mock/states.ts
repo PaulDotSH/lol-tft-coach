@@ -284,6 +284,35 @@ export const fixtures = {
         ],
         boots: { item: 3020, name: 'Sorcerer’s Shoes', cost: 1100, score: 0.6, reason: 'No heavy CC revealed yet', component_now: null },
       },
+      runes: {
+        primary: [
+          { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
+          { id: 8139, name: 'Taste of Blood', icon: 'perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png', reason: null },
+          { id: 8140, name: 'Grisly Mementos', icon: 'perk-images/Styles/Domination/GrislyMementos/GrislyMementos.png', reason: null },
+          { id: 8106, name: 'Ultimate Hunter', icon: 'perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png', reason: null },
+        ],
+        secondary: [
+          { id: 8226, name: 'Manaflow Band', icon: 'perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png', reason: null },
+          { id: 8210, name: 'Transcendence', icon: 'perk-images/Styles/Sorcery/Transcendence/Transcendence.png', reason: null },
+        ],
+        shards: [
+          { id: 5008, name: 'Adaptive Force', icon: 'perk-images/StatMods/StatModsAdaptiveForceIcon.png', reason: null },
+          { id: 5008, name: 'Adaptive Force', icon: 'perk-images/StatMods/StatModsAdaptiveForceIcon.png', reason: null },
+          {
+            id: 5013,
+            name: 'Tenacity and Slow Resist',
+            icon: 'perk-images/StatMods/StatModsTenacityIcon.png',
+            reason: 'CC from Leona, Malphite, Sejuani (53.4% over 1.2k games)',
+          },
+        ],
+        win_rate: 52.1,
+        games: 18240,
+        alt: {
+          keystone: { id: 8229, name: 'Arcane Comet', icon: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png', reason: null },
+          win_rate: 53.6,
+          games: 4210,
+        },
+      },
       bench: [],
       team: null,
       enemies: [238, 145, 254],
@@ -356,6 +385,7 @@ export const fixtures = {
         ],
         boots: { item: 3158, name: 'Ionian Boots of Lucidity', cost: 900, score: 0.6, reason: 'Haste for spam', component_now: null },
       },
+      runes: null,
       bench: [
         {
           champ: 86,
@@ -413,6 +443,7 @@ export const fixtures = {
       picks: [],
       bans: [],
       build: null,
+      runes: null,
       bench: [
         {
           champ: 360,

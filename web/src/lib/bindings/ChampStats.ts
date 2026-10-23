@@ -5,6 +5,7 @@ import type { ItemStat } from "./ItemStat";
 import type { Lane } from "./Lane";
 import type { Matchup } from "./Matchup";
 import type { Mode } from "./Mode";
+import type { RuneData } from "./RuneData";
 
 export type ChampStats = { champ: number, lane: Lane | null, mode: Mode, 
 /**
@@ -18,4 +19,8 @@ lanes: { [key in Lane]?: number },
 /**
  * `slots[0]` = first completed item … up to 5 slots.
  */
-slots: Array<Array<ItemStat>>, boots: Array<ItemStat>, early: Array<EarlySet>, counters: Array<Matchup>, benchmarks: Benchmarks, };
+slots: Array<Array<ItemStat>>, boots: Array<ItemStat>, early: Array<EarlySet>, counters: Array<Matchup>, benchmarks: Benchmarks, 
+/**
+ * Build page rune pages and per-rune stats; None when the page had none.
+ */
+runes: RuneData | null, };

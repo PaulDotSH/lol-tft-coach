@@ -1,6 +1,6 @@
 //! Champ select: counter-picks, bans, build plan (ARAM bench and team comp: `team`).
 
-use crate::{ChampSelectInput, common::*, consts::*, draft, items, needs, team, threat};
+use crate::{ChampSelectInput, common::*, consts::*, draft, items, needs, runes, team, threat};
 use model::*;
 
 /// Percent from a percent or a fraction.
@@ -19,6 +19,7 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
         picks: if rift { picks(inp, mine) } else { vec![] },
         bans: if rift { bans(inp, mine) } else { vec![] },
         build: mine.and_then(|c| build_plan(inp, c)),
+        runes: if cs.mode == Mode::Mayhem { None } else { mine.and_then(|c| rune_page(inp, c)) },
         bench: if rift { vec![] } else { team::bench(inp, mine) },
         enemies: cs.enemies.clone(),
         draft: if rift { draft::report(inp) } else { None },
@@ -142,6 +143,12 @@ fn bans(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> {
         .map(|(champ, score, _, reason)| PickSuggestion { champ, score, reason })
         .collect();
     top(v, BANS)
+}
+
+fn rune_page(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<RuneAdvice> {
+    let mine = inp.mine.filter(|m| m.champ == champ_key)?;
+    let foes: Vec<threat::Foe> = inp.cs.enemies.iter().map(|&e| threat::generic_foe(champ(inp.sd, e))).collect();
+    runes::advice(inp.sd, mine, &foes)
 }
 
 fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> {

@@ -53,7 +53,8 @@ pub fn needs(foes: &[Foe]) -> Needs {
     let at = agg(foes, Foe::armor_tank);
     let mt = agg(foes, Foe::mr_tank);
     let crit = agg(foes, Foe::crit);
-    let aspd = agg(foes, Foe::attack_speed);
+    // Anti attack speed items are armor items: an AP on-hit champion (Teemo) barely calls for them.
+    let aspd = agg(foes, |e| e.attack_speed() * (1.0 - e.magic));
     let top_i = foes.iter().enumerate().max_by(|a, b| a.1.score.total_cmp(&b.1.score)).map(|(i, _)| i);
 
     let cc_v = mix(&cc, MEAN_W_CC);
@@ -82,5 +83,30 @@ pub fn needs(foes: &[Foe]) -> Needs {
 pub fn decay(p: &mut [f32; N], answers: &Profile) {
     for (v, a) in p.iter_mut().zip(arr(answers)) {
         *v *= 1.0 - NEED_DECAY * clamp01(a);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::threat::generic_foe;
+
+    fn marksman(name: &str, magic_share: f32) -> Champion {
+        Champion {
+            key: 1,
+            id: name.into(),
+            name: name.into(),
+            slug: name.to_lowercase(),
+            classes: vec![ChampClass::Marksman],
+            traits: Traits { magic_share, on_hit: 0.6, ..Default::default() },
+            base: Default::default(),
+        }
+    }
+
+    #[test]
+    fn ap_on_hit_barely_calls_for_anti_attack_speed() {
+        let anti_as = |c: &Champion| needs(&[generic_foe(c)]).p[N - 1];
+        let (teemo, jinx) = (marksman("Teemo", 0.9), marksman("Jinx", 0.1));
+        assert!(anti_as(&teemo) < 0.2 * anti_as(&jinx), "{} vs {}", anti_as(&teemo), anti_as(&jinx));
     }
 }

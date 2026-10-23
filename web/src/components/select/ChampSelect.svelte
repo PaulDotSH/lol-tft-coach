@@ -5,6 +5,7 @@
   import Icon from '../Icon.svelte';
   import Suggestions from './Suggestions.svelte';
   import BuildPlan from './BuildPlan.svelte';
+  import Runes from './Runes.svelte';
   import Bench from './Bench.svelte';
   import DraftPanel from './DraftPanel.svelte';
   import MacroChampLine from './MacroChampLine.svelte';
@@ -58,6 +59,10 @@
     <BuildPlan plan={cs.build} />
   {:else if !cs.picks.length}
     <p class="empty">Build plan appears once you lock in.</p>
+  {/if}
+
+  {#if cs.runes}
+    <Runes runes={cs.runes} />
   {/if}
 </div>
 
