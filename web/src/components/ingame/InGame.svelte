@@ -29,7 +29,7 @@
   {/if}
   <div class="build">
     <Shopping list={game.shopping} at={game.time} />
-    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} />
+    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} />
     {#if game.gold_sinks.length}<GoldSinks sinks={game.gold_sinks} />{/if}
     <BuildPath owned={game.owned} path={game.path} />
   </div>

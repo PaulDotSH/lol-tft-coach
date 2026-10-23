@@ -156,10 +156,8 @@ fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> 
     let sd = inp.sd;
     let foes: Vec<threat::Foe> = inp.cs.enemies.iter().map(|&e| threat::generic_foe(champ(sd, e))).collect();
     let needs = needs::needs(&foes);
-    let ctx = items::Ctx::new(sd, Some(mine), champ(sd, champ_key), inp.cs.mode);
-    let b = items::build(&ctx, &[], &needs);
+    let mut ctx = items::Ctx::new(sd, Some(mine), champ(sd, champ_key), inp.cs.mode);
     let is_boots = |id: ItemId| sd.items.get(&id).is_some_and(|i| i.boots);
-    let pick = |s: &items::Scored| items::to_pick(&ctx, s, &needs, &foes, None);
     // Early sets include the first back; keep the opening purchases that fit in
     // starting gold and pick the most played opening.
     let mut openings: Vec<(Vec<ItemId>, u32)> = Vec::new();
@@ -181,7 +179,12 @@ fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> 
         }
     }
     let start = openings.into_iter().max_by_key(|(_, g)| *g).map(|(o, _)| o).unwrap_or_default();
+    ctx.support = inp.cs.mode == Mode::Rift
+        && (inp.cs.my_lane == Some(Lane::Support) || start.iter().any(|i| SUPPORT_QUEST.contains(i)));
+    let b = items::build(&ctx, &[], &needs);
+    let pick = |s: &items::Scored| items::to_pick(&ctx, s, &needs, &foes, None);
     Some(BuildPlan {
+        upgrade: items::support_upgrade(&ctx, &[]),
         start,
         core: b.path.iter().filter(|s| !is_boots(s.id)).take(CORE_ITEMS).map(pick).collect(),
         boots: b.path.iter().find(|s| is_boots(s.id)).map(pick),

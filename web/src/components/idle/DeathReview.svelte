@@ -35,7 +35,7 @@
                 <span class="muted">Executed</span>
               {/if}
               {#each d.assisters as a, j (`${j}-${a}`)}<span class="assist"><Icon kind="champ" id={a} size={18} /></span>{/each}
-              {#if d.traded}<span class="tag trade" title="Your team got as many kills within 10 s">trade</span>{/if}
+              {#if d.traded}<span class="tag trade" title="Your team won the fight around this death">trade</span>{/if}
               {#if d.killer_top_threat}<span class="tag">top threat</span>{/if}
               {#each d.spikes as [c, lvl], j (`${j}-${c}-${lvl}`)}
                 <span class="tag spike" title="{name(c)} reached level {lvl} within 60 s before">{name(c)} {lvl}</span>

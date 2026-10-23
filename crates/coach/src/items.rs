@@ -78,6 +78,8 @@ pub struct Ctx<'a> {
     base: f32,
     /// Snowball items (Mejai's, Dark Seal) are only offered while ahead.
     pub ahead: bool,
+    /// Support: the quest item holds a slot, and lolalytics counts its upgrade as item 1.
+    pub support: bool,
     pub rules: &'static Rules,
     /// My live stats: crit / attack-speed caps.
     pub live: Option<&'a ChampionStats>,
@@ -111,7 +113,7 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, agg, base, ahead: false, rules, live: None, aug: AugEffects::default(), pen: None }
+        Ctx { sd, stats, champ, pool, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None }
     }
 }
 
@@ -261,7 +263,10 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
             let pr = PR_BONUS * r.games as f32 / total.max(1) as f32;
             (shrunk(r.wins, r.games) + pr, Src::Row { wins: r.wins, games: r.games })
         } else if let Some(&(w, g)) = ctx.agg.get(&it.id).filter(|a| a.1 >= MIN_ITEM_GAMES) {
-            (wilson(w, g) - OFF_SLOT_PENALTY, Src::Other { wins: w, games: g })
+            // Pulled toward this slot's average like a row: other slots' win rates are
+            // mostly later buys in longer, won games (Spirit Visage 64% over 115 games).
+            let wr = if total > 0 { (w as f32 + SHRINK_GAMES * avg) / (g as f32 + SHRINK_GAMES) } else { wilson(w, g) };
+            (wr - OFF_SLOT_PENALTY, Src::Other { wins: w, games: g })
         } else if fits && (ctx.stats.is_none() || dot >= ANSWER_MIN) {
             (ctx.base + FIT_BONUS * fit.max(0.0), Src::Rule)
         } else {
@@ -285,7 +290,7 @@ pub struct Build {
 pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
     let sd = ctx.sd;
     let fin = |id: &ItemId| sd.items.get(id).filter(|i| i.completed);
-    let mut legend = owned.iter().filter_map(fin).filter(|i| !i.boots).count();
+    let mut legend = owned.iter().filter_map(fin).filter(|i| !i.boots).count() + ctx.support as usize;
     let has_boots = owned.iter().filter_map(fin).any(|i| i.boots);
     let mut boots_done = has_boots || ctx.stats.is_some_and(|s| s.boots.is_empty() && !s.slots.is_empty());
     let mut filled = legend + has_boots as usize;
@@ -324,6 +329,35 @@ pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
         filled += 1;
     }
     Build { path, alts }
+}
+
+/// Supports: the quest upgrade most worth taking, while none is owned.
+pub fn support_upgrade(ctx: &Ctx, owned: &[ItemId]) -> Option<ItemPick> {
+    if !ctx.support || owned.iter().any(|i| SUPPORT_UPGRADES.contains(i)) {
+        return None;
+    }
+    let seen: Vec<(ItemId, u32, u32)> =
+        SUPPORT_UPGRADES.iter().filter_map(|&id| ctx.agg.get(&id).map(|&(w, g)| (id, w, g))).filter(|x| x.2 > 0).collect();
+    let (w, g) = seen.iter().fold((0, 0), |a, x| (a.0 + x.1, a.1 + x.2));
+    let avg = w as f32 / g.max(1) as f32;
+    // Shrunk toward the upgrades' average: a rare pick needs many games to beat the usual one.
+    let wr = |x: &(ItemId, u32, u32)| (x.1 as f32 + SHRINK_GAMES * avg) / (x.2 as f32 + SHRINK_GAMES);
+    let best = seen.iter().max_by(|a, b| wr(a).total_cmp(&wr(b)))?;
+    let item = ctx.sd.items.get(&best.0)?;
+    let share = 100.0 * best.2 as f32 / g as f32;
+    Some(ItemPick {
+        item: item.id,
+        name: item.name.clone(),
+        cost: 0,
+        score: wr(best),
+        reason: format!(
+            "{:.0}% win over {} games on {} ({share:.0}% of upgrades)",
+            100.0 * best.1 as f32 / best.2 as f32,
+            fmt_games(best.2 as u64),
+            ctx.champ.name
+        ),
+        component_now: None,
+    })
 }
 
 /// Gold still needed for `item` given the components I hold.
@@ -474,5 +508,51 @@ mod tests {
         let archangels = &sd.items[&3003];
         assert_eq!(component_now(&sd, archangels, &[], 1300.0), Some(3070));
         assert_eq!(component_now(&sd, archangels, &[3070], 1300.0), Some(3802));
+    }
+
+    #[test]
+    fn support_upgrade_needs_games_to_beat_the_usual_pick() {
+        let ids = [3876, 3869, 3877];
+        let sd = StaticData {
+            version: String::new(),
+            items: ids.map(|id| (id, item(id, 400, &[]))).into_iter().collect(),
+            champs: Default::default(),
+            item_groups: Default::default(),
+            runes: Default::default(),
+        };
+        let thresh = Champion {
+            key: 412,
+            id: "Thresh".into(),
+            name: "Thresh".into(),
+            slug: "thresh".into(),
+            classes: vec![],
+            traits: Default::default(),
+            base: Default::default(),
+        };
+        let row = |id, games, wins| ItemStat { id, games, wins };
+        let stats = ChampStats {
+            champ: 412,
+            lane: Some(Lane::Support),
+            mode: Mode::Rift,
+            patch: "16.21".into(),
+            win_rate: 52.0,
+            pick_rate: 10.0,
+            games: 30_000,
+            lanes: Default::default(),
+            // Solstice Sleigh 52% (20k), Celestial Opposition 54% (5k), Bloodsong 60% (100).
+            slots: vec![vec![row(3876, 20_000, 10_400), row(3869, 5_000, 2_700), row(3877, 100, 60)]],
+            boots: vec![],
+            early: vec![],
+            counters: vec![],
+            benchmarks: Default::default(),
+            runes: None,
+        };
+        let mut ctx = Ctx::new(&sd, Some(&stats), &thresh, Mode::Rift);
+        assert!(support_upgrade(&ctx, &[]).is_none(), "not a support");
+        ctx.support = true;
+        let up = support_upgrade(&ctx, &[3865]).unwrap();
+        assert_eq!(up.item, 3869, "{}", up.reason);
+        assert_eq!(up.reason, "54% win over 5.0k games on Thresh (20% of upgrades)");
+        assert!(support_upgrade(&ctx, &[3876]).is_none(), "already upgraded");
     }
 }

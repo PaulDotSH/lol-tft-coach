@@ -316,5 +316,22 @@ fn traded_deaths_stay_out_of_the_blame_notes() {
     let r = death_review(&log, &sd);
     assert_eq!(r.deaths.iter().map(|d| d.traded).collect::<Vec<_>>(), vec![true, false]);
     assert!(r.deaths.iter().all(|d| d.killer_top_threat), "both still to the top threat");
-    assert_eq!(r.notes, vec!["1 of 2 deaths were trades: your team got as many kills within 10 s".to_string()]);
+    assert_eq!(r.notes, vec!["1 of 2 deaths were trades: your team won the fight".to_string()]);
+}
+
+#[test]
+fn a_long_teamfight_is_judged_whole() {
+    let sd = sd();
+    let p = lobby(STANDARD);
+    let mut log = GameLog::default();
+    let mut ev = vec![];
+    tick(&mut log, &sd, 1000.0, 300.0, &p, &ev);
+    // We win the opening (three kills 8 s apart), then I die 14 s after the first.
+    ev.extend([kill(1400.0, 1, 7), kill(1408.0, 2, 8), kill(1412.0, 3, 9), kill(1414.0, 7, 0), kill(1416.0, 5, 1)]);
+    tick(&mut log, &sd, 1420.0, 300.0, &p, &ev);
+    // A pick 30 s later is a separate fight.
+    ev.push(kill(1450.0, 6, 0));
+    tick(&mut log, &sd, 1452.0, 300.0, &p, &ev);
+    let r = death_review(&log, &sd);
+    assert_eq!(r.deaths.iter().map(|d| d.traded).collect::<Vec<_>>(), vec![true, false], "3 for 2, then a lone pick");
 }

@@ -17,6 +17,10 @@ import type { Threat } from "./Threat";
 
 export type GameAdvice = { time: number, mode: Mode, my_champ: number, buy_next: ItemPick | null, alternatives: Array<ItemPick>, 
 /**
+ * Supports, until upgraded: the World Atlas upgrade to take when the quest completes.
+ */
+support_upgrade: ItemPick | null, 
+/**
  * Remaining late-game path (excludes owned items).
  */
 path: Array<ItemPick>, owned: Array<number>, threats: Array<Threat>, matchups: Array<MatchupTip>, me: SelfStats, timers: Array<ObjectiveTimer>, augments: AugmentAdvice | null, gold: GoldDiff, 

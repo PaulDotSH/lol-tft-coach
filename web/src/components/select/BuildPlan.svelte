@@ -22,6 +22,13 @@
     <div class="start">
       {#each plan.start as id, i (`${i}-${id}`)}<Icon kind="item" {id} size={40} />{/each}
     </div>
+    {#if plan.upgrade}
+      <div class="upgrade" title={plan.upgrade.reason}>
+        <span class="muted">Upgrade to</span>
+        <Icon kind="item" id={plan.upgrade.item} size={28} />
+        <span class="uname">{plan.upgrade.name}</span>
+      </div>
+    {/if}
   </div>
   <div>
     <h2>Core</h2>
@@ -46,6 +53,16 @@
   .start {
     display: flex;
     gap: 6px;
+  }
+  .upgrade {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .uname {
+    font: 600 16px/1.1 var(--cond);
   }
   ol {
     margin: 0;

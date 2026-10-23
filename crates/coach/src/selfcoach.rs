@@ -16,8 +16,8 @@ const CS_AT: f32 = 600.0;
 const EARLY_AT: f32 = 840.0;
 /// Average item-gold gap to the killer worth a note.
 const GAP_NOTE: i32 = -500;
-/// Kills this close to a death (s, either side) count as the same fight.
-const TRADE_WINDOW: f32 = 10.0;
+/// Kills less than this far apart (s) chain into one fight.
+const FIGHT_GAP: f32 = 10.0;
 
 /// What I had and what the coach said at one tick.
 #[derive(Clone, Default)]
@@ -169,9 +169,20 @@ impl GameLog {
     }
 }
 
-/// My team won the fight: at least as many kills as it lost, this death included.
+/// My team won the fight around this death: at least as many kills as it lost,
+/// this death included. The fight is every kill chained to it less than
+/// FIGHT_GAP apart, so a long teamfight is judged whole.
 fn traded(log: &GameLog, time: f32) -> bool {
-    let fight = log.kills.iter().filter(|k| (k.0 - time).abs() <= TRADE_WINDOW);
+    let (mut lo, mut hi) = (time, time);
+    loop {
+        let near = |t: f32| t >= lo - FIGHT_GAP && t <= hi + FIGHT_GAP;
+        let (l, h) = log.kills.iter().filter(|k| near(k.0)).fold((lo, hi), |(l, h), k| (l.min(k.0), h.max(k.0)));
+        if (l, h) == (lo, hi) {
+            break;
+        }
+        (lo, hi) = (l, h);
+    }
+    let fight = log.kills.iter().filter(|k| (lo..=hi).contains(&k.0));
     let (won, lost) = fight.fold((0, 0), |(w, l), k| if k.1 { (w + 1, l) } else { (w, l + 1) });
     won > 0 && won >= lost
 }
@@ -233,7 +244,7 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
     }
     if trades > 0 {
         let n = all.len();
-        notes.push(format!("{trades} of {n} deaths were trades: your team got as many kills within {TRADE_WINDOW:.0} s"));
+        notes.push(format!("{trades} of {n} deaths were trades: your team won the fight"));
     }
     DeathReview { deaths: all, notes }
 }

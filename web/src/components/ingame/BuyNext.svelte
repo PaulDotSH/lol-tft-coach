@@ -6,7 +6,12 @@
   import Icon from '../Icon.svelte';
   import GoldEta from './GoldEta.svelte';
 
-  let { pick, alternatives, eta = null }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null } = $props();
+  let {
+    pick,
+    alternatives,
+    eta = null,
+    upgrade = null,
+  }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null; upgrade?: ItemPick | null } = $props();
   const component = $derived(pick?.component_now ?? null);
   const componentCost = $derived(component != null ? (store.ui?.items[component]?.cost ?? null) : null);
 </script>
@@ -32,6 +37,14 @@
     {/if}
   {:else}
     <p class="empty">Full build. Nothing left to buy.</p>
+  {/if}
+  {#if upgrade}
+    <div class="now upgrade" title={upgrade.reason}>
+      <span class="muted">Quest upgrade</span>
+      <Icon kind="item" id={upgrade.item} size={28} />
+      <strong class="cname">{upgrade.name}</strong>
+      <span class="alt-reason muted">{upgrade.reason}</span>
+    </div>
   {/if}
 
   {#if alternatives.length}

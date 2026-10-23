@@ -25,6 +25,9 @@ async fn main() -> anyhow::Result<()> {
     for p in a.buy_next.iter().chain(&a.alternatives) {
         println!("  option {:<22} {}", p.name, p.reason);
     }
+    if let Some(u) = &a.support_upgrade {
+        println!("  quest  {:<22} {}", u.name, u.reason);
+    }
     for p in &a.path {
         println!("  path   {:<22} {:.3} {}", p.name, p.score, p.reason);
     }

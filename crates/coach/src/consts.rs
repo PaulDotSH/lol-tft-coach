@@ -103,6 +103,10 @@ pub const BOOTS_WEIGHT: f32 = 0.06;
 /// Boots come after this many completed legendaries.
 pub const BOOTS_AFTER: usize = 1;
 pub const MAX_ITEMS: usize = 6;
+/// SEASON: World Atlas → Runic Compass → Bounty of Worlds, then a free upgrade.
+pub const SUPPORT_QUEST: [model::ItemId; 3] = [3865, 3866, 3867];
+/// SEASON: Celestial Opposition, Dream Maker, Zaz'Zak's Realmspike, Solstice Sleigh, Bloodsong.
+pub const SUPPORT_UPGRADES: [model::ItemId; 5] = [3869, 3870, 3871, 3876, 3877];
 pub const ALTERNATIVES: usize = 2;
 /// Weight of champion traits vs lolalytics builds for the build direction.
 pub const CHAMP_DIR_WEIGHT: f32 = 0.3;

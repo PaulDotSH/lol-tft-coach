@@ -76,6 +76,9 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0)
     });
     ctx.live = snap.my_stats.as_ref();
+    ctx.support = snap.mode == Mode::Rift
+        && (me.is_some_and(|p| p.position == Some(Lane::Support))
+            || owned.iter().any(|i| consts::SUPPORT_QUEST.contains(i) || consts::SUPPORT_UPGRADES.contains(i)));
     ctx.aug = augment_tags::AugEffects::new(my_augments);
     if ctx.aug.find(augment_tags::Tag::Tenacity).is_some() {
         needs.p[modes::TENACITY] *= augment_tags::AUG_TENACITY_NEED;
@@ -86,7 +89,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let b = if me.is_some() { items::build(&ctx, owned, &needs) } else { items::Build { path: vec![], alts: vec![] } };
     let finished = owned.iter().filter(|i| sd.items.get(i).is_some_and(|i| i.completed)).count();
     let gold_sinks = match me {
-        Some(p) if b.path.is_empty() && finished >= consts::MAX_ITEMS.saturating_sub(ctx.aug.keep_slots()) => {
+        Some(p) if b.path.is_empty() && finished + ctx.support as usize >= consts::MAX_ITEMS.saturating_sub(ctx.aug.keep_slots()) => {
             late::gold_sinks(&ctx, owned, &needs, &a.foes, p.level, snap.mode)
         }
         _ => vec![],
@@ -103,6 +106,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         my_champ,
         buy_next: b.path.first().map(|s| pick(s, gold)),
         alternatives: b.alts.iter().map(|s| pick(s, gold)).collect(),
+        support_upgrade: items::support_upgrade(&ctx, owned),
         path: b.path.iter().map(|s| pick(s, None)).collect(),
         owned: owned.to_vec(),
         matchups: matchups::matchups(snap, stats, a.lane_opp),

@@ -63,6 +63,7 @@ const riftGame: GameAdvice = {
     reason: 'Zed is 7/1 and killed you 3×',
     component_now: 2420,
   },
+  support_upgrade: null,
   alternatives: [
     { item: 3102, name: 'Banshee’s Veil', cost: 3000, score: 0.71, reason: 'Blocks Nautilus hook and Vi ult engage', component_now: null },
     { item: 3135, name: 'Void Staff', cost: 3000, score: 0.64, reason: 'Darius has 2 MR items', component_now: 1026 },
@@ -150,6 +151,7 @@ const mayhemGame: GameAdvice = {
     reason: 'Highest win rate 3rd item on ARAM Ahri',
     component_now: 1058,
   },
+  support_upgrade: null,
   alternatives: [
     { item: 3157, name: 'Zhonya’s Hourglass', cost: 3250, score: 0.7, reason: 'Katarina and Master Yi are fed', component_now: 2420 },
     { item: 3165, name: 'Morellonomicon', cost: 2850, score: 0.61, reason: 'Soraka and Dr. Mundo heal a lot', component_now: 3916 },
@@ -241,6 +243,7 @@ const mayhemFull: GameAdvice = {
   ...mayhemGame,
   time: 1386,
   buy_next: null,
+  support_upgrade: null,
   alternatives: [],
   path: [],
   owned: [6655, 3020, 4645, 3089, 3135, 3165],
@@ -277,6 +280,7 @@ export const fixtures = {
       ],
       build: {
         start: [1056, 2003, 2003],
+        upgrade: null,
         core: [
           { item: 6655, name: 'Luden’s Echo', cost: 2750, score: 0.8, reason: 'Most built first item (61%)', component_now: null },
           { item: 4645, name: 'Shadowflame', cost: 3200, score: 0.72, reason: '54.2% as 2nd item', component_now: null },
@@ -378,6 +382,7 @@ export const fixtures = {
       bans: [],
       build: {
         start: [1052, 2003],
+        upgrade: null,
         core: [
           { item: 3078, name: 'Trinity Force', cost: 3333, score: 0.74, reason: 'Most built first item on ARAM', component_now: null },
           { item: 3004, name: 'Manamune', cost: 2900, score: 0.7, reason: '55.0% as 2nd item', component_now: null },

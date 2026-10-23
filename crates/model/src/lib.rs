@@ -517,6 +517,9 @@ data! {
         pub my_champ: ChampKey,
         pub buy_next: Option<ItemPick>,
         pub alternatives: Vec<ItemPick>,
+        /// Supports, until upgraded: the World Atlas upgrade to take when the quest completes.
+        #[serde(default)]
+        pub support_upgrade: Option<ItemPick>,
         /// Remaining late-game path (excludes owned items).
         pub path: Vec<ItemPick>,
         pub owned: Vec<ItemId>,
@@ -548,6 +551,9 @@ data! {
 
     pub struct BuildPlan {
         pub start: Vec<ItemId>,
+        /// Supports: the World Atlas upgrade to take when its quest completes.
+        #[serde(default)]
+        pub upgrade: Option<ItemPick>,
         pub core: Vec<ItemPick>,
         pub boots: Option<ItemPick>,
     }
