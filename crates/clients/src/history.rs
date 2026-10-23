@@ -26,7 +26,7 @@ pub async fn sync(lcu: &Lcu, dir: &Path) -> Result<Vec<PastGame>> {
     tokio::fs::create_dir_all(dir).await?;
     let entries: HashMap<u64, &Value> =
         list_games(&list).filter(|g| wanted(g)).filter_map(|g| Some((g["gameId"].as_u64()?, g))).collect();
-    // file name → (game id, cache version)
+    // (game id, cache version) per cache file
     let mut cached: Vec<(u64, u32)> = Vec::new();
     let mut rd = tokio::fs::read_dir(dir).await?;
     while let Some(e) = rd.next_entry().await? {
