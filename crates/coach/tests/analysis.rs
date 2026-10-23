@@ -247,7 +247,8 @@ fn fights_and_where_i_was_for_objectives() {
         presence: None,
     });
     let a = analyze_match(&d, &sd(), None, None);
-    let fights: Vec<(f32, u32, u32, Presence, bool, Option<&str>)> =
+    type Row<'a> = (f32, u32, u32, Presence, bool, Option<&'a str>);
+    let fights: Vec<Row> =
         a.fights.iter().map(|f| (f.start, f.won, f.lost, f.presence, f.died_first, f.then.as_ref().map(|m| m.kind.as_str()))).collect();
     assert_eq!(
         fights,

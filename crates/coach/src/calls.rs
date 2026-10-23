@@ -151,7 +151,7 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
     let allies_dead = a.deaths.allies.iter().filter(|r| r.in_s >= DEAD_FOR).count() + (me.dead && me.respawn_in >= DEAD_FOR) as usize;
     for t in &a.timers {
         let left = t.next_spawn.map(|s| s - snap.time);
-        let at = t.next_spawn.map_or(snap.time, |s| s) as u32;
+        let at = t.next_spawn.unwrap_or(snap.time) as u32;
         // Back now to be on time for it.
         if let Some(dt) = left.filter(|dt| (BACK_FROM..=BACK_TO).contains(dt))
             && !me.dead
