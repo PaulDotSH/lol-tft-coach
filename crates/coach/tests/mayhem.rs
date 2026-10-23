@@ -230,6 +230,20 @@ fn augment_raises_the_item_it_pairs_with() {
 }
 
 #[test]
+fn eureka_stacks_ap() {
+    let sd = sd_x();
+    let s = mayhem(snap(lobby(STANDARD), vec![]));
+    let cap = |mine: &[MyAugment]| {
+        let a = advise(&sd, &s, None, mine);
+        a.path.iter().chain(&a.buy_next).chain(&a.alternatives).find(|p| p.item == RABADONS).cloned()
+    };
+    let base = cap(&[]).map_or(0.0, |p| p.score);
+    let eureka = cap(&[picked(EUREKA)]).expect("Rabadon's suggested with Eureka");
+    assert!(eureka.score > base, "{} vs {base}", eureka.score);
+    assert!(eureka.reason.contains("best with Eureka"), "{}", eureka.reason);
+}
+
+#[test]
 fn unresolved_pick_shares_its_pairings() {
     let sd = sd_x();
     let s = mayhem(snap(lobby(STANDARD), vec![]));

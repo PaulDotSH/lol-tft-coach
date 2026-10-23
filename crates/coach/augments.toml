@@ -101,6 +101,8 @@ stats = { ah = 70 }
 id = 1030
 name = "Eureka"
 tags = ["haste", "ap"]
+# Haste scales with AP: stack AP. Rabadon's Deathcap, Mejai's Soulstealer, Shadowflame.
+favors = [3089, 3041, 4645]
 
 [[augment]]
 id = 1170

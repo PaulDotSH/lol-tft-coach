@@ -406,7 +406,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         }
         match &mut memo.offer {
             Some(p) if p.ids == seen => p.last_seen = snap.time,
-            _ => memo.offer = Some(PendingOffer { ids: seen, last_seen: snap.time, mine }),
+            _ => memo.offer = Some(PendingOffer { ids: seen.clone(), last_seen: snap.time, mine }),
         }
     }
     if memo.offer.as_ref().is_some_and(|p| mine > p.mine || snap.time - p.last_seen > OFFER_HOLD_S) {
@@ -415,7 +415,10 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
     let offered = memo.offer.as_ref().map_or(vec![], |p| p.ids.clone());
     if snap.mode == Mode::Mayhem {
         let before = memo.augs.picks.len();
-        memo.augs.observe(&offered, snap, sd);
+        // Stats are compared the moment the cards leave the screen, before shopping blurs
+        // them; cards coming back (only the shop was open) undo that close.
+        let on_screen = if seen.len() >= 2 { &seen[..] } else { &[] };
+        memo.augs.observe(on_screen, snap, sd);
         if memo.augs.picks.len() != before {
             tracing::info!("augment picks (stat diff): {:?} (stats {:?})", memo.augs.picks, snap.my_stats);
         }

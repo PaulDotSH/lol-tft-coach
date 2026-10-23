@@ -26,6 +26,11 @@ fn main() -> anyhow::Result<()> {
     let r = g.board();
     let players: Vec<BoardPlayer> =
         (0..10).map(|i| BoardPlayer { team: if i < 5 { Team::Order } else { Team::Chaos }, items: &[] }).collect();
+    if std::env::var("GRID").is_ok() {
+        for (h, row, ncc, amp) in ocr::scoreboard::grid_scores(&frame, (r.x, r.y), &g) {
+            println!("grid {h}/{row}: ncc {ncc:.2} amp {amp:.1}");
+        }
+    }
     let Some(rows) = read_all(&frame, (r.x, r.y), &g, &players, &icons, &HashMap::new()) else {
         println!("board not open");
         return Ok(());

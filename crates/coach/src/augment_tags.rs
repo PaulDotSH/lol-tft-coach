@@ -202,9 +202,10 @@ impl AugEffects {
             } else if s.favors.contains(&it.id) {
                 AUG_FAVOR_BONUS * s.favor_w
             } else {
-                // Strongest tag per augment, not the sum: one augment, one push.
+                // Strongest tag per augment, not the sum: one augment, one push. A tie
+                // (Eureka: haste from AP, AP item with haste) goes to the stat it wants.
                 s.tags.iter().filter(|&&t| item_has(t, it)).map(|t| t.sign() * AUG_ITEM_BONUS).fold(0.0, |a: f32, b| {
-                    if b.abs() > a.abs() { b } else { a }
+                    if b.abs() > a.abs() || (b.abs() == a.abs() && b > a) { b } else { a }
                 })
             };
             total += v;

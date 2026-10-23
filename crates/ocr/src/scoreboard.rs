@@ -33,7 +33,9 @@ const BOARD: [f32; 4] = [37.0, 262.0, 1563.0, 779.0];
 const SEARCH: f32 = 12.0;
 
 /// A row's grid counts as present at this outline correlation and border contrast (luma).
-const GRID_NCC: f32 = 0.35;
+/// Lowered from 0.35: late-game boards with filled cells cover most borders (0.30–0.47);
+/// gameplay frames stay under 0.25.
+const GRID_NCC: f32 = 0.28;
 const GRID_AMP: f32 = 15.0;
 /// Open when this many of the 10 rows show a grid.
 const OPEN_ROWS: usize = 8;
@@ -366,6 +368,29 @@ fn find_grid(img: &Img, g: &Geometry, half: usize, row: usize) -> Option<(f32, f
     let o = (p.0 + dx as f32, p.1 + dy as f32);
     let acc = outline(img, o, s, true, true);
     (acc.value() >= GRID_NCC && acc.amplitude() >= GRID_AMP).then_some(o)
+}
+
+/// Diagnostics: (half, row, outline correlation, border contrast) at the best spot per row.
+pub fn grid_scores(f: &Frame, origin: (i32, i32), g: &Geometry) -> Vec<(usize, usize, f32, f32)> {
+    let img = Img::new(f, origin);
+    let mut out = vec![];
+    for h in 0..2 {
+        for r in 0..5 {
+            let (s, p) = (g.s, g.grid(h, r));
+            let rr = (SEARCH * s).ceil() as i32;
+            let mut best = (f32::MIN, 0.0, 0, 0);
+            for dy in -rr..=rr {
+                for dx in -rr..=rr {
+                    let acc = outline(&img, (p.0 + dx as f32, p.1 + dy as f32), s, true, true);
+                    if acc.value() > best.0 {
+                        best = (acc.value(), acc.amplitude(), dx, dy);
+                    }
+                }
+            }
+            out.push((h, r, best.0, best.1));
+        }
+    }
+    out
 }
 
 type Grids = [[Option<(f32, f32)>; 5]; 2];
