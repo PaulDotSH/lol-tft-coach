@@ -230,6 +230,24 @@ fn augment_raises_the_item_it_pairs_with() {
 }
 
 #[test]
+fn unresolved_pick_shares_its_pairings() {
+    let sd = sd_x();
+    let s = mayhem(snap(lobby(STANDARD), vec![]));
+    let rift = |mine: &[MyAugment]| {
+        let a = advise(&sd, &s, None, mine);
+        a.path.iter().chain(&a.buy_next).chain(&a.alternatives).find(|p| p.item == RIFTMAKER).cloned()
+    };
+    let unsure = MyAugment { id: None, candidates: vec![INFERNAL_CONDUIT, JUICED], time: 300.0 };
+    let (base, half, full) = (
+        rift(&[]).map_or(0.0, |p| p.score),
+        rift(&[unsure]).expect("Riftmaker suggested"),
+        rift(&[picked(INFERNAL_CONDUIT)]).unwrap().score,
+    );
+    assert!(base < half.score && half.score < full, "{base} {} {full}", half.score);
+    assert!(half.reason.contains("Infernal Conduit or Juiced"), "{}", half.reason);
+}
+
+#[test]
 fn unresolved_pick_with_shared_tag_still_counts() {
     let sd = sd_x();
     let mut s = mayhem(snap(lobby(STANDARD), vec![]));

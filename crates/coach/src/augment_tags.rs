@@ -126,7 +126,9 @@ pub struct Source {
     pub name: String,
     pub tags: Vec<Tag>,
     pub requires: &'static [ItemId],
-    pub favors: &'static [ItemId],
+    pub favors: Vec<ItemId>,
+    /// Share of [`AUG_FAVOR_BONUS`]: 1 for a known pick, 1/n for one of n candidates.
+    pub favor_w: f32,
     pub keep_slot: bool,
 }
 
@@ -147,7 +149,8 @@ impl AugEffects {
                         name: a.name.clone(),
                         tags: a.tags.clone(),
                         requires: &a.requires,
-                        favors: &a.favors,
+                        favors: a.favors.clone(),
+                        favor_w: 1.0,
                         keep_slot: a.keep_slot,
                     })
                 }
@@ -156,12 +159,23 @@ impl AugEffects {
                     let first = cands.first()?;
                     let tags: Vec<Tag> =
                         first.tags.iter().copied().filter(|t| cands.iter().all(|a| a.tags.contains(t))).collect();
-                    let t = tags.first()?;
+                    // Each candidate's pairings count at their share of the odds.
+                    let mut favors: Vec<ItemId> = cands.iter().flat_map(|a| a.favors.iter().copied()).collect();
+                    favors.sort_unstable();
+                    favors.dedup();
+                    let name = match tags.first() {
+                        Some(t) => format!("your {} augment", t.label()),
+                        None if !favors.is_empty() => {
+                            cands.iter().map(|a| a.name.as_str()).collect::<Vec<_>>().join(" or ")
+                        }
+                        None => return None,
+                    };
                     Some(Source {
-                        name: format!("your {} augment", t.label()),
+                        name,
                         tags,
                         requires: &[],
-                        favors: &[],
+                        favors,
+                        favor_w: 1.0 / cands.len() as f32,
                         keep_slot: false,
                     })
                 }
@@ -186,7 +200,7 @@ impl AugEffects {
             let v = if s.requires.contains(&it.id) {
                 AUG_QUEST_BONUS
             } else if s.favors.contains(&it.id) {
-                AUG_FAVOR_BONUS
+                AUG_FAVOR_BONUS * s.favor_w
             } else {
                 // Strongest tag per augment, not the sum: one augment, one push.
                 s.tags.iter().filter(|&&t| item_has(t, it)).map(|t| t.sign() * AUG_ITEM_BONUS).fold(0.0, |a: f32, b| {

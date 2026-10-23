@@ -130,12 +130,14 @@ stats = { ms = 50 }
 id = 1013
 name = "Celestial Body"
 tags = ["tank"]
+favors = [3084, 3083, 2501] # Heartsteel, Warmog's Armor, Overlord's Bloodmail (stack health)
 stats = { hp = 1500 }
 
 [[augment]]
 id = 1041
 name = "Goliath"
 tags = ["tank"]
+favors = [3084, 3083, 2501] # Heartsteel, Warmog's Armor, Overlord's Bloodmail (stack health)
 stats = { hp_pct = 0.35 }
 
 [[augment]]
@@ -369,9 +371,21 @@ name = "Titan's Resolve"
 tags = ["tank", "tenacity"]
 
 [[augment]]
+id = 1020
+name = "Dawnbringer's Resolve"
+tags = ["tank"]
+favors = [3084, 3083, 2501] # Heartsteel, Warmog's Armor, Overlord's Bloodmail (stack health)
+
+[[augment]]
+id = 2139
+name = "Porcupine"
+tags = ["tank"]
+
+[[augment]]
 id = 1353
 name = "Tank Engine"
 tags = ["tank"]
+favors = [3084, 3083, 2501] # Heartsteel, Warmog's Armor, Overlord's Bloodmail (stack health)
 
 [[augment]]
 id = 1375
@@ -428,3 +442,4 @@ id = 1152
 name = "Steel Your Heart"
 tags = ["tank"]
 requires = [3084] # Heartsteel
+favors = [3083, 2501] # Warmog's Armor, Overlord's Bloodmail
