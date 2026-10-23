@@ -36,6 +36,7 @@ fn main() {
             commands::get_static,
             commands::set_settings,
             commands::lookup,
+            commands::analyze_game,
             commands::log_frontend
         ])
         .setup(move |app| {

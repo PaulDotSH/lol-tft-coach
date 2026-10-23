@@ -3,6 +3,7 @@ import type { ChampSelectAdvice } from "./ChampSelectAdvice";
 import type { GameAdvice } from "./GameAdvice";
 import type { GoalProgress } from "./GoalProgress";
 import type { MacroReport } from "./MacroReport";
+import type { PastGame } from "./PastGame";
 import type { Phase } from "./Phase";
 import type { Recap } from "./Recap";
 import type { Settings } from "./Settings";
@@ -24,4 +25,8 @@ trends: Trends | null,
 /**
  * Live progress on my goals this game (self-coach row).
  */
-goal_progress: Array<GoalProgress>, };
+goal_progress: Array<GoalProgress>, 
+/**
+ * Recent games, newest first (idle dashboard; click one to analyse it).
+ */
+history: Array<PastGame>, };

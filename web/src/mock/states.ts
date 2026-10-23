@@ -7,6 +7,7 @@ import type { Sources } from '../lib/bindings/Sources';
 import { mayhemGold, riftGold } from './gold';
 import { macroFewGames, macroReport } from './macro';
 import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
+import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals };
@@ -49,7 +50,16 @@ const recap: Recap = {
   goals: recapGoals,
 };
 
-const base = { settings, champ_select: null, game: null, recap: null, macro_report: macroReport, trends, goal_progress: [] } satisfies Partial<AppState>;
+const base = {
+  settings,
+  champ_select: null,
+  game: null,
+  recap: null,
+  macro_report: macroReport,
+  trends,
+  goal_progress: [],
+  history,
+} satisfies Partial<AppState>;
 
 const riftGame: GameAdvice = {
   time: 1112,
@@ -500,7 +510,7 @@ export const fixtures = {
   'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull, goal_progress: liveGoals.slice(1) },
   loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
-  'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, sources: src({}) },
+  'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, history: [], sources: src({}) },
 } satisfies Record<string, AppState>;
 
 export type FixtureName = keyof typeof fixtures;

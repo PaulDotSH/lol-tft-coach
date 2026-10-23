@@ -6,6 +6,7 @@ import type { ChampStats } from '../lib/bindings/ChampStats';
 import type { ItemStat } from '../lib/bindings/ItemStat';
 import type { Respawn } from '../lib/bindings/Respawn';
 import { fixtures, settings as defaultSettings, type FixtureName } from './states';
+import { analysisFor } from './history';
 import { uiStatic } from './static';
 
 // `?mock=idle` (etc.) picks the starting fixture; the dev switcher changes it live.
@@ -99,6 +100,7 @@ export const mockApi: Api = {
     return delay(snapshot());
   },
   lookup: (champ, lane, mode) => delay(lookup(champ, lane, mode), 300),
+  analyzeGame: (id) => delay(analysisFor(id), 400),
   async onState(cb) {
     subs.add(cb);
     return () => subs.delete(cb);

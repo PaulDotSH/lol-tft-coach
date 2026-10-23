@@ -8,6 +8,8 @@
   let { review }: { review: DeathReview } = $props();
   const HOLDING = 1000;
   const name = (c: number) => (store.ui ? champName(store.ui, c) : '');
+  // Match-history reviews of games the app did not watch have no Buy next.
+  const buyCol = $derived(review.deaths.some((d) => d.buy_next != null));
 </script>
 
 <div class="review">
@@ -22,7 +24,7 @@
   {:else}
     <table>
       <thead>
-        <tr><th>Time</th><th>By</th><th>Gold vs killer</th><th>Held</th><th>Buy next</th></tr>
+        <tr><th>Time</th><th>By</th><th>Gold vs killer</th><th>Held</th>{#if buyCol}<th>Buy next</th>{/if}</tr>
       </thead>
       <tbody>
         {#each review.deaths as d, i (i)}
@@ -35,6 +37,7 @@
                 <span class="muted">Executed</span>
               {/if}
               {#each d.assisters as a, j (`${j}-${a}`)}<span class="assist"><Icon kind="champ" id={a} size={18} /></span>{/each}
+              {#if d.place}<span class="tag">{d.place}</span>{/if}
               {#if d.traded}<span class="tag trade" title="Your team won the fight around this death">trade</span>{/if}
               {#if d.killer_top_threat}<span class="tag">top threat</span>{/if}
               {#each d.spikes as [c, lvl], j (`${j}-${c}-${lvl}`)}
@@ -43,13 +46,13 @@
             </td>
             <td class="num" class:bad={!d.traded && d.gold_gap != null && d.gold_gap < 0}>{d.gold_gap != null ? signed(d.gold_gap, gold) : ''}</td>
             <td class="num" class:warn={d.unspent >= HOLDING}>{gold(d.unspent)}</td>
-            <td>
+            {#if buyCol}<td>
               {#if d.buy_next != null}
                 <span class="buy" class:afford={d.could_buy} title={d.could_buy ? 'You could afford it (or its component)' : ''}>
                   <Icon kind="item" id={d.buy_next} size={24} />
                 </span>
               {/if}
-            </td>
+            </td>{/if}
           </tr>
         {/each}
       </tbody>

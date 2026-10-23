@@ -685,6 +685,8 @@ data! {
         pub trends: Option<Trends>,
         /// Live progress on my goals this game (self-coach row).
         pub goal_progress: Vec<GoalProgress>,
+        /// Recent games, newest first (idle dashboard; click one to analyse it).
+        pub history: Vec<PastGame>,
     }
 
     // ---- macro coach (own match history) ----
@@ -1030,6 +1032,9 @@ data! {
         /// (set by the review; absent in recaps saved before it existed).
         #[serde(default)]
         pub traded: bool,
+        /// Where on the map, e.g. "enemy jungle" (match history only).
+        #[serde(default)]
+        pub place: Option<String>,
     }
 
     pub struct DeathReview {
@@ -1162,6 +1167,153 @@ data! {
     pub struct TabHint {
         pub text: String,
         pub reason: String,
+    }
+
+    // ---- one past game, analysed (match history) ----
+
+    /// A player's end-of-game line.
+    pub struct MatchPlayer {
+        pub champ: ChampKey,
+        /// Riot ID game name; empty when hidden.
+        pub name: String,
+        pub ally: bool,
+        pub me: bool,
+        pub lane: Option<Lane>,
+        pub level: u32,
+        pub kills: u32,
+        pub deaths: u32,
+        pub assists: u32,
+        pub cs: u32,
+        pub gold: u32,
+        pub damage: u32,
+        pub taken: u32,
+        pub vision: u32,
+        pub items: Vec<ItemId>,
+    }
+
+    /// An objective or structure taken, for the timeline.
+    pub struct TimelineMark {
+        /// Game time (s).
+        pub time: f32,
+        pub ours: bool,
+        /// "Dragon", "Baron", "Herald", "Grubs", "Atakhan", "Tower", "Inhibitor".
+        pub kind: String,
+        /// e.g. "Infernal", "bot outer".
+        pub detail: Option<String>,
+    }
+
+    pub struct KillMark {
+        pub time: f32,
+        /// My team got the kill.
+        pub ours: bool,
+        /// I killed, assisted or died.
+        pub mine: bool,
+    }
+
+    /// Gold leads at one timeline frame.
+    pub struct GoldPoint {
+        pub time: f32,
+        /// My team's total gold minus theirs.
+        pub team: i32,
+        /// Mine minus my lane opponent's.
+        pub lane: Option<i32>,
+    }
+
+    pub struct Takeaway {
+        pub good: bool,
+        pub text: String,
+    }
+
+    /// One game from my match history, reviewed.
+    pub struct MatchAnalysis {
+        pub game: PastGame,
+        /// My team first, then theirs, each in lane order.
+        pub players: Vec<MatchPlayer>,
+        pub opponent: Option<ChampKey>,
+        pub benchmarks: Option<Benchmarks>,
+        pub gold: Vec<GoldPoint>,
+        pub marks: Vec<TimelineMark>,
+        pub kills: Vec<KillMark>,
+        /// Shares of my team's totals (0–1).
+        pub kill_participation: Option<f32>,
+        pub damage_share: Option<f32>,
+        pub gold_share: Option<f32>,
+        pub taken_share: Option<f32>,
+        pub review: DeathReview,
+        /// What the coach recommended live, else what it would build into this comp.
+        pub recommended: Vec<ItemId>,
+        pub takeaways: Vec<Takeaway>,
+        /// The app watched this game live: deaths carry held gold and Buy next.
+        pub live: bool,
+    }
+}
+
+/// Internal: a parsed match (details + timeline) for the analysis.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchDetail {
+    pub game: PastGame,
+    /// Index of me in `players`.
+    pub me: usize,
+    /// Participant order (participantId - 1).
+    pub players: Vec<MatchPlayer>,
+    pub frames: Vec<Frame>,
+    pub kills: Vec<KillEvent>,
+    pub marks: Vec<TimelineMark>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Frame {
+    pub time: f32,
+    /// Same order as `MatchDetail::players`.
+    pub players: Vec<FrameStat>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct FrameStat {
+    pub total_gold: u32,
+    pub current_gold: u32,
+    pub level: u32,
+    pub xp: u32,
+    pub cs: u32,
+    pub jungle_cs: u32,
+    pub pos: Option<(i32, i32)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct KillEvent {
+    pub time: f32,
+    /// Player indexes; None for executions.
+    pub killer: Option<usize>,
+    pub victim: usize,
+    pub assisters: Vec<usize>,
+    pub pos: Option<(i32, i32)>,
+}
+
+/// Summoner's Rift areas; blue (team 100) is bottom-left.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MapZone { BlueBase, RedBase, Top, Mid, Bot, River, BlueJungle, RedJungle }
+
+impl MapZone {
+    pub fn at(x: i32, y: i32) -> MapZone {
+        const END: i32 = 14800;
+        let near = |a: i32, b: i32| ((a * a + b * b) as f32).sqrt() < 5000.0;
+        if near(x, y) {
+            MapZone::BlueBase
+        } else if near(END - x, END - y) {
+            MapZone::RedBase
+        } else if x < 2200 || y > 12600 {
+            MapZone::Top
+        } else if y < 2200 || x > 12600 {
+            MapZone::Bot
+        } else if (x - y).abs() < 1300 {
+            MapZone::Mid
+        } else if (x + y - END).abs() < 1300 {
+            MapZone::River
+        } else if x + y < END {
+            MapZone::BlueJungle
+        } else {
+            MapZone::RedJungle
+        }
     }
 }
 

@@ -8,6 +8,8 @@ use std::sync::Arc;
 
 /// Recap summaries kept for trends, newest first.
 const KEEP: usize = 100;
+/// A recap is saved this soon (s) after its game's end (creation + duration, loading aside).
+const RECAP_AFTER: u64 = 900;
 
 /// Live goal progress after logging this tick.
 pub fn on_tick(log: &mut coach::GameLog, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, goals: &[Goal]) -> Vec<GoalProgress> {
@@ -52,6 +54,20 @@ impl SelfCoach {
         }
         self.trends.clone()
     }
+}
+
+/// The app's own recap of a history game: same champion and length, saved just after it ended.
+pub fn recap_for(g: &PastGame) -> Option<Recap> {
+    let end = g.created / 1000 + g.duration_s as u64;
+    std::fs::read_dir(settings::local_dir("recaps"))
+        .ok()?
+        .filter_map(|e| {
+            let p = e.ok()?.path();
+            let saved: u64 = p.file_stem()?.to_str()?.parse().ok()?;
+            (saved >= end && saved - end <= RECAP_AFTER).then_some(p)
+        })
+        .filter_map(|p| serde_json::from_str::<Recap>(&std::fs::read_to_string(p).ok()?).ok())
+        .find(|r| r.stats.champ == g.champ && r.stats.duration_s.abs_diff(g.duration_s) <= 2)
 }
 
 fn load_summaries() -> Vec<GameSummary> {

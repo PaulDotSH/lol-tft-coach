@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { AppState } from '../../lib/bindings/AppState';
+  import Analysis from './Analysis.svelte';
+  import History from './History.svelte';
   import Recap from './Recap.svelte';
   import Lookup from './Lookup.svelte';
   import MacroPatterns from './MacroPatterns.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import Trends from './Trends.svelte';
 
-  let { state }: { state: AppState } = $props();
+  let { state: app }: { state: AppState } = $props();
 
   const STATUS: Partial<Record<AppState['phase'], string>> = {
     noclient: 'Waiting for League client…',
@@ -14,26 +16,41 @@
     idle: 'Connected to the League client.',
     postgame: 'Game over. Recap below.',
   };
+
+  /** Game under review, from the match history. */
+  let open = $state<number | null>(null);
+  const connected = $derived(app.sources.client === 'ok');
+  // The recap's game, once it reaches the history list (same champion and length).
+  const recapGame = $derived.by(() => {
+    const s = app.recap?.stats;
+    const g = app.history[0];
+    return s && g && g.champ === s.champ && Math.abs(g.duration_s - s.duration_s) <= 2 ? g.game_id : null;
+  });
 </script>
 
-<div class="idle">
-  <div class="left">
-    <p class="status" class:waiting={state.phase === 'noclient' || state.phase === 'loading'}>
-      {STATUS[state.phase] ?? ''}
-    </p>
-    {#if state.recap}
-      <Recap recap={state.recap} />
-    {:else}
-      <section class="panel"><h2>Last game</h2><p class="empty">Play a game to see a recap here.</p></section>
-    {/if}
-    <SettingsPanel settings={state.settings} />
+{#if open != null}
+  <Analysis gameId={open} onclose={() => (open = null)} />
+{:else}
+  <div class="idle">
+    <div class="left">
+      <p class="status" class:waiting={app.phase === 'noclient' || app.phase === 'loading'}>
+        {STATUS[app.phase] ?? ''}
+      </p>
+      {#if app.recap}
+        <Recap recap={app.recap} onreview={recapGame != null && connected ? () => (open = recapGame) : undefined} />
+      {:else}
+        <section class="panel"><h2>Last game</h2><p class="empty">Play a game to see a recap here.</p></section>
+      {/if}
+      <SettingsPanel settings={app.settings} />
+    </div>
+    <div class="right">
+      <History games={app.history} {connected} onopen={(id) => (open = id)} />
+      <MacroPatterns report={app.macro_report} {connected} />
+      <Trends trends={app.trends} settings={app.settings} />
+      <Lookup />
+    </div>
   </div>
-  <div class="right">
-    <MacroPatterns report={state.macro_report} connected={state.sources.client === 'ok'} />
-    <Trends trends={state.trends} settings={state.settings} />
-    <Lookup />
-  </div>
-</div>
+{/if}
 
 <style>
   .idle {

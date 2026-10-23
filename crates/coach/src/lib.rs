@@ -1,5 +1,6 @@
 //! All decisions. Pure functions over `model` types: no I/O, no clock.
 
+mod analysis;
 mod augment_tags;
 mod augments;
 mod champ_select;
@@ -29,6 +30,7 @@ mod tracker;
 mod trends;
 mod windows;
 
+pub use analysis::analyze_match;
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal_applies, goal_progress, summary};

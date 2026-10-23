@@ -1,5 +1,5 @@
-//! Match-history parser tests over `fixtures/clients/match_*.json`, hand-built
-//! from the documented LCU schema (not recorded responses; see `_fixture`).
+//! Match-history parser tests over `fixtures/clients/match_*.json`: hand-built
+//! from the documented LCU schema, except the recorded `*_flex.json` game (see `_fixture`).
 
 use clients::history;
 use model::{Lane, Mode, PastGame, TeamObjectives};
@@ -126,4 +126,40 @@ async fn live_history() {
     }
     let again = history::sync(&lcu, &dir).await.unwrap();
     assert_eq!(again.len(), games.len());
+}
+
+#[test]
+fn recorded_game_lanes_from_positions_and_full_match() {
+    // Recorded flex game: Riot labels two supports on my team and two junglers on
+    // theirs; where each player stood sorts them out.
+    let (game, tl) = (fixture("match_game_flex.json"), fixture("match_timeline_flex.json"));
+    let d = history::parse_match(&game, Some("me-puuid"), Some(&tl)).unwrap();
+    let lanes: Vec<(u32, Option<Lane>)> = d.players.iter().map(|p| (p.champ, p.lane)).collect();
+    use Lane::*;
+    assert_eq!(
+        lanes,
+        [
+            (799, Some(Top)),
+            (131, Some(Jungle)),
+            (27, Some(Middle)),
+            (22, Some(Bottom)),
+            (111, Some(Support)),
+            (79, Some(Top)),
+            (234, Some(Jungle)),
+            (246, Some(Middle)),
+            (523, Some(Bottom)),
+            (201, Some(Support)),
+        ]
+    );
+    assert_eq!((d.me, d.game.lane, d.game.gold_diff_15), (4, Some(Support), Some(345)));
+    let me = &d.players[4];
+    assert!(me.me && me.ally && me.name == "Me" && !d.players[5].ally);
+    assert_eq!((d.frames.len(), d.kills.len()), (31, 60));
+    // Grubs fold into one mark; a herald with no killer is left out; buildings count for the side that took them.
+    let m = &d.marks[0];
+    assert_eq!((m.kind.as_str(), m.ours, m.detail.as_deref()), ("Grubs", true, Some("×3")));
+    assert!(!d.marks.iter().any(|m| m.kind == "Herald"));
+    let first_tower = d.marks.iter().find(|m| m.kind == "Tower").unwrap();
+    assert_eq!((first_tower.ours, first_tower.detail.as_deref()), (false, Some("top outer")));
+    assert_eq!(d.marks.iter().filter(|m| m.kind == "Dragon" && m.ours).count(), 3);
 }

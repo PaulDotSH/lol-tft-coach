@@ -39,3 +39,24 @@ export const LANE_NAMES: Record<Lane, string> = {
   support: 'Support',
 };
 export const MODE_NAMES: Record<Mode, string> = { rift: "Summoner's Rift", aram: 'ARAM', mayhem: 'ARAM: Mayhem' };
+
+const QUEUES: Record<number, string> = {
+  400: 'Normal Draft',
+  420: 'Ranked Solo/Duo',
+  430: 'Normal Blind',
+  440: 'Ranked Flex',
+  450: 'ARAM',
+  480: 'Swiftplay',
+  490: 'Quickplay',
+  2400: 'ARAM: Mayhem',
+};
+export const queueName = (queue: number, mode: Mode) => QUEUES[queue] ?? MODE_NAMES[mode];
+
+/** Unix ms → "3h ago", "yesterday", "Oct 12". */
+export function ago(ms: number, now = Date.now()) {
+  const h = (now - ms) / 3_600_000;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m ago`;
+  if (h < 24) return `${Math.round(h)}h ago`;
+  if (h < 48) return 'yesterday';
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}

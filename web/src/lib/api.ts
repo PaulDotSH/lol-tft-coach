@@ -2,6 +2,7 @@
 import type { AppState } from './bindings/AppState';
 import type { ChampStats } from './bindings/ChampStats';
 import type { Lane } from './bindings/Lane';
+import type { MatchAnalysis } from './bindings/MatchAnalysis';
 import type { Mode } from './bindings/Mode';
 import type { Settings } from './bindings/Settings';
 import type { UiStatic } from './bindings/UiStatic';
@@ -11,6 +12,8 @@ export interface Api {
   getStatic(): Promise<UiStatic>;
   setSettings(settings: Settings): Promise<AppState>;
   lookup(champ: number, lane: Lane | null, mode: Mode): Promise<ChampStats>;
+  /** Review one game from the match history (needs the League client). */
+  analyzeGame(gameId: number): Promise<MatchAnalysis>;
   /** Subscribe to pushed state; returns an unsubscribe function. */
   onState(cb: (s: AppState) => void): Promise<() => void>;
 }
@@ -24,6 +27,7 @@ async function tauriApi(): Promise<Api> {
     getStatic: () => invoke('get_static'),
     setSettings: (settings) => invoke('set_settings', { settings }),
     lookup: (champ, lane, mode) => invoke('lookup', { champ, lane, mode }),
+    analyzeGame: (gameId) => invoke('analyze_game', { gameId }),
     onState: (cb) => listen<AppState>('state', (e) => cb(e.payload)),
   };
 }

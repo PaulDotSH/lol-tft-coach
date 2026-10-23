@@ -16,6 +16,10 @@ const CS_AT: f32 = 600.0;
 const EARLY_AT: f32 = 840.0;
 /// Average item-gold gap to the killer worth a note.
 const GAP_NOTE: i32 = -500;
+/// Deaths to one enemy worth a note.
+const REPEAT_KILLER: usize = 3;
+/// Death places worth a note from two deaths on (elsewhere from three).
+const RISKY_PLACES: [&str; 3] = ["enemy jungle", "enemy base", "river"];
 /// Kills less than this far apart (s) chain into one fight.
 const FIGHT_GAP: f32 = 10.0;
 
@@ -152,6 +156,7 @@ impl GameLog {
                 owned: m.owned.clone(),
                 spikes,
                 traded: false,
+                place: None,
             });
             self.last_death = self.last_death.max(time);
         }
@@ -172,17 +177,17 @@ impl GameLog {
 /// My team won the fight around this death: at least as many kills as it lost,
 /// this death included. The fight is every kill chained to it less than
 /// FIGHT_GAP apart, so a long teamfight is judged whole.
-fn traded(log: &GameLog, time: f32) -> bool {
+fn traded(kills: &[(f32, bool)], time: f32) -> bool {
     let (mut lo, mut hi) = (time, time);
     loop {
         let near = |t: f32| t >= lo - FIGHT_GAP && t <= hi + FIGHT_GAP;
-        let (l, h) = log.kills.iter().filter(|k| near(k.0)).fold((lo, hi), |(l, h), k| (l.min(k.0), h.max(k.0)));
+        let (l, h) = kills.iter().filter(|k| near(k.0)).fold((lo, hi), |(l, h), k| (l.min(k.0), h.max(k.0)));
         if (l, h) == (lo, hi) {
             break;
         }
         (lo, hi) = (l, h);
     }
-    let fight = log.kills.iter().filter(|k| (lo..=hi).contains(&k.0));
+    let fight = kills.iter().filter(|k| (lo..=hi).contains(&k.0));
     let (won, lost) = fight.fold((0, 0), |(w, l), k| if k.1 { (w + 1, l) } else { (w, l + 1) });
     won > 0 && won >= lost
 }
@@ -190,7 +195,13 @@ fn traded(log: &GameLog, time: f32) -> bool {
 /// In-game patterns from the death notes. Traded deaths (a support peeling,
 /// a tank soaking for a won fight) are listed but kept out of the blame notes.
 pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
-    let all: Vec<DeathNote> = log.deaths.iter().map(|n| DeathNote { traded: traded(log, n.time), ..n.clone() }).collect();
+    review_deaths(&log.deaths, &log.kills, log.shop_on_death, sd)
+}
+
+/// `kills`: every champion kill, (game time, my team got it). `shop_on_death`:
+/// ARAM / Mayhem, where gold held at death is normal.
+pub(crate) fn review_deaths(deaths: &[DeathNote], kills: &[(f32, bool)], shop_on_death: bool, sd: &StaticData) -> DeathReview {
+    let all: Vec<DeathNote> = deaths.iter().map(|n| DeathNote { traded: traded(kills, n.time), ..n.clone() }).collect();
     let d: Vec<&DeathNote> = all.iter().filter(|n| !n.traded).collect();
     let mut notes = Vec::new();
     let trades = all.len() - d.len();
@@ -225,9 +236,38 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
 
     // Gold held is worth fixing whether or not the fight was won.
     let holding = all.iter().filter(|n| n.unspent >= HOLDING_GOLD).count();
-    if holding > 0 && !log.shop_on_death {
+    if holding > 0 && !shop_on_death {
         let times = if holding == 1 { "once".to_string() } else { format!("{holding}×") };
         notes.push(format!("Died {times} with {HOLDING_GOLD}+ g unspent"));
+    }
+
+    // Match history: where on the map, when one place keeps coming up.
+    let mut places: Vec<(&str, usize)> = Vec::new();
+    for p in d.iter().filter_map(|n| n.place.as_deref()) {
+        match places.iter_mut().find(|x| x.0 == p) {
+            Some(x) => x.1 += 1,
+            None => places.push((p, 1)),
+        }
+    }
+    places.sort_by_key(|p| std::cmp::Reverse(p.1));
+    if let Some(&(p, n)) = places.first()
+        && (n >= 3 || (n >= 2 && RISKY_PLACES.contains(&p)))
+    {
+        notes.push(format!("Died {n}× in {}{aside}", the(p)));
+    }
+
+    // One enemy doing most of the killing.
+    let mut killers: Vec<(ChampKey, usize)> = Vec::new();
+    for k in d.iter().filter_map(|n| n.killer) {
+        match killers.iter_mut().find(|x| x.0 == k) {
+            Some(x) => x.1 += 1,
+            None => killers.push((k, 1)),
+        }
+    }
+    if let Some(&(k, n)) = killers.iter().max_by_key(|x| (x.1, std::cmp::Reverse(x.0)))
+        && n >= REPEAT_KILLER
+    {
+        notes.push(format!("{} killed you {n}×{aside}", sd.champ_name(k)));
     }
 
     let top = d.iter().filter(|n| n.killer_top_threat).count();
@@ -247,6 +287,11 @@ pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
         notes.push(format!("{trades} of {n} deaths were trades: your team won the fight"));
     }
     DeathReview { deaths: all, notes }
+}
+
+/// "the enemy jungle", "bot lane".
+fn the(place: &str) -> String {
+    if place.ends_with("lane") { place.to_string() } else { format!("the {place}") }
 }
 
 /// The game's numbers for trends. `ended` is unix seconds.

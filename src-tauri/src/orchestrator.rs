@@ -264,6 +264,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         let recap = memo.recap.clone();
         let macro_report = macro_sync.tick(&sh, &sd, lcu.as_ref(), phase);
         let trends = self_coach.tick(phase, macro_sync.games(), memo.recap.as_ref(), &settings.goals);
+        let history = macro_sync.games().map(|g| g.to_vec()).unwrap_or_default();
         let goal_progress = if game.is_some() { memo.goal_progress.clone() } else { vec![] };
         push(&app, &sh, &mut last_json, move |st| {
             st.phase = phase;
@@ -274,6 +275,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             st.macro_report = macro_report;
             st.trends = trends;
             st.goal_progress = goal_progress;
+            st.history = history;
         });
 
         let tick = match phase {

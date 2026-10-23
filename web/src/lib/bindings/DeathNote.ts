@@ -33,4 +33,8 @@ spikes: Array<[number, number]>,
  * My team got at least as many kills as it lost around this death
  * (set by the review; absent in recaps saved before it existed).
  */
-traded: boolean, };
+traded: boolean, 
+/**
+ * Where on the map, e.g. "enemy jungle" (match history only).
+ */
+place: string | null, };

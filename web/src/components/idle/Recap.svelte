@@ -6,7 +6,7 @@
   import GoalChips from '../GoalChips.svelte';
   import DeathReview from './DeathReview.svelte';
 
-  let { recap }: { recap: Recap } = $props();
+  let { recap, onreview }: { recap: Recap; onreview?: () => void } = $props();
   const s = $derived(recap.stats);
   const b = $derived(recap.benchmarks);
   const min = $derived(Math.max(1, s.duration_s / 60));
@@ -22,7 +22,10 @@
 </script>
 
 <section class="panel">
-  <h2>Last game</h2>
+  <div class="top">
+    <h2>Last game</h2>
+    {#if onreview}<button type="button" class="link" onclick={onreview}>Full review ›</button>{/if}
+  </div>
   <div class="head">
     <Icon kind="champ" id={s.champ} size={48} />
     <div>
@@ -70,6 +73,22 @@
 </section>
 
 <style>
+  .top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--gold);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
   .head {
     display: flex;
     align-items: center;
