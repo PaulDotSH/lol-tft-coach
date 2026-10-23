@@ -158,7 +158,9 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                             memo.mode = Some(cs.mode);
                             memo.my_lane = cs.my_lane;
                             debug::dump("champ-select", Duration::from_secs(2), &cs);
-                            let advice = champ_select_advice(&sh, &sd, &cs);
+                            let mut advice = champ_select_advice(&sh, &sd, &cs);
+                            let games = macro_sync.games();
+                            advice.memory = coach::matchup_memory(games.as_deref().map_or(&[], |g| g.as_slice()), &cs.enemies, cs.mode);
                             debug::dump("champ-select-advice", Duration::from_secs(5), &advice);
                             champ_select = Some(advice);
                         }

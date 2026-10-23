@@ -40,6 +40,9 @@ fn past_game() -> PastGame {
         cs_10: None,
         augments: vec![],
         death_spots: vec![],
+        enemies: vec![],
+        opponent: None,
+        killed_by: vec![],
     }
 }
 

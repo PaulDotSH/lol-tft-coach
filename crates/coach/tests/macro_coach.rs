@@ -42,6 +42,9 @@ fn game(i: usize, mode: Mode, champ: ChampKey, win: bool) -> PastGame {
         cs_10: None,
         augments: vec![],
         death_spots: vec![],
+        enemies: vec![],
+        opponent: None,
+        killed_by: vec![],
     }
 }
 

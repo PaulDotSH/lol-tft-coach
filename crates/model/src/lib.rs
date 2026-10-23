@@ -613,6 +613,9 @@ data! {
         pub draft: Option<DraftReport>,
         /// ARAM / Mayhem: my team's composition (enemies are hidden); Rift has it in `draft`.
         pub team: Option<DraftSide>,
+        /// My history against the enemies revealed so far.
+        #[serde(default)]
+        pub memory: Vec<MatchupMemory>,
     }
 
     pub struct Recap {
@@ -743,6 +746,27 @@ data! {
         /// Rift: where I died, as seen from blue side (my base bottom-left).
         #[serde(default)]
         pub death_spots: Vec<DeathSpot>,
+        /// Enemy champions (game details).
+        #[serde(default)]
+        pub enemies: Vec<ChampKey>,
+        /// My lane opponent, when there was exactly one.
+        #[serde(default)]
+        pub opponent: Option<ChampKey>,
+        /// Who killed me, per death (None: executed).
+        #[serde(default)]
+        pub killed_by: Vec<Option<ChampKey>>,
+    }
+
+    /// My past games against one enemy champion (champ select).
+    pub struct MatchupMemory {
+        pub champ: ChampKey,
+        pub games: u32,
+        pub wins: u32,
+        /// Games they were my lane opponent, and my average gold lead at 15:00 in them.
+        pub lane_games: u32,
+        pub gold_15: Option<i32>,
+        /// Times they killed me, over `games`.
+        pub killed_me: u32,
     }
 
     pub struct DeathSpot {

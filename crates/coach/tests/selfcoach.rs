@@ -231,6 +231,9 @@ fn past(i: usize, mode: Mode, win: bool, cs_10: u32, early: usize) -> PastGame {
         cs_10: Some(cs_10),
         augments: vec![],
         death_spots: vec![],
+        enemies: vec![],
+        opponent: None,
+        killed_by: vec![],
     }
 }
 

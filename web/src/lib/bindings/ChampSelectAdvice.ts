@@ -4,6 +4,7 @@ import type { BuildPlan } from "./BuildPlan";
 import type { DraftReport } from "./DraftReport";
 import type { DraftSide } from "./DraftSide";
 import type { Lane } from "./Lane";
+import type { MatchupMemory } from "./MatchupMemory";
 import type { Mode } from "./Mode";
 import type { PickSuggestion } from "./PickSuggestion";
 import type { RuneAdvice } from "./RuneAdvice";
@@ -24,4 +25,8 @@ draft: DraftReport | null,
 /**
  * ARAM / Mayhem: my team's composition (enemies are hidden); Rift has it in `draft`.
  */
-team: DraftSide | null, };
+team: DraftSide | null, 
+/**
+ * My history against the enemies revealed so far.
+ */
+memory: Array<MatchupMemory>, };

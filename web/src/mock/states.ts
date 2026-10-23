@@ -329,6 +329,10 @@ export const fixtures = {
       },
       bench: [],
       team: null,
+      memory: [
+        { champ: 238, games: 4, wins: 1, lane_games: 3, gold_15: -650, killed_me: 9 },
+        { champ: 145, games: 2, wins: 2, lane_games: 0, gold_15: null, killed_me: 1 },
+      ],
       enemies: [238, 145, 254],
       draft: {
         lanes: [
@@ -431,6 +435,7 @@ export const fixtures = {
       ],
       enemies: [],
       draft: null,
+      memory: [],
       team: {
         champs: [81, 1, 134, 63, 45],
         physical: 0.21,
@@ -488,6 +493,7 @@ export const fixtures = {
       ],
       enemies: [],
       draft: null,
+      memory: [],
       team: {
         champs: [21, 99, 89, 53, 1],
         physical: 0.32,

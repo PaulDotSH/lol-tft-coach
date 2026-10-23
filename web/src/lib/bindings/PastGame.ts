@@ -43,4 +43,16 @@ augments: Array<number>,
 /**
  * Rift: where I died, as seen from blue side (my base bottom-left).
  */
-death_spots: Array<DeathSpot>, };
+death_spots: Array<DeathSpot>, 
+/**
+ * Enemy champions (game details).
+ */
+enemies: Array<number>, 
+/**
+ * My lane opponent, when there was exactly one.
+ */
+opponent: number | null, 
+/**
+ * Who killed me, per death (None: executed).
+ */
+killed_by: Array<number | null>, };

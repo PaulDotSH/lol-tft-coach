@@ -71,6 +71,9 @@ fn detail_and_timeline() {
                 DeathSpot { time: 700, x: 7400, y: 7300 },
                 DeathSpot { time: 1500, x: 9000, y: 9000 },
             ],
+            enemies: vec![122, 254, 145, 238, 111],
+            opponent: Some(238),
+            killed_by: vec![Some(238), Some(238), Some(145)],
         }
     );
 }
