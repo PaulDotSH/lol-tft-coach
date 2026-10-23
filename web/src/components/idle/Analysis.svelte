@@ -6,6 +6,7 @@
   import { store } from '../../lib/store.svelte';
   import { champName, clockText, LANE_NAMES, queueName } from '../../lib/ui';
   import Icon from '../Icon.svelte';
+  import DeathMap from './DeathMap.svelte';
   import DeathReview from './DeathReview.svelte';
   import Fights from './Fights.svelte';
   import GoldChart from './GoldChart.svelte';
@@ -138,6 +139,17 @@
             {/if}
           </div>
           <DeathReview review={a.review} />
+          {#if a.review.deaths.some((d) => d.pos)}
+            <div class="dmap">
+              <DeathMap
+                size={200}
+                spots={a.review.deaths.flatMap((d) =>
+                  d.pos ? [{ x: d.pos[0], y: d.pos[1], tone: d.traded ? 'win' : 'loss', title: `${clockText(d.time)}${d.place ? ` · ${d.place}` : ''}` }] : [],
+                )}
+              />
+              <p class="muted small">Your deaths, red side turned around so your base is bottom-left. Green: trades.</p>
+            </div>
+          {/if}
         </section>
       </div>
 
@@ -280,6 +292,12 @@
     display: inline-flex;
     border-radius: 4px;
     box-shadow: 0 0 0 2px var(--warn);
+  }
+  .dmap {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    margin-top: 10px;
   }
   .objectives {
     display: flex;

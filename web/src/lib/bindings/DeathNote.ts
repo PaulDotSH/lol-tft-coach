@@ -37,4 +37,8 @@ traded: boolean,
 /**
  * Where on the map, e.g. "enemy jungle" (match history only).
  */
-place: string | null, };
+place: string | null, 
+/**
+ * Map position as seen from blue side (match history only).
+ */
+pos: [number, number] | null, };

@@ -8,16 +8,31 @@ const reviewed = recorded as unknown as MatchAnalysis;
 const HOUR = 3_600_000;
 const t0 = Date.now() - 2 * HOUR;
 
+// Deterministic death spots scattered around a few hot zones.
+function spots(i: number, n: number): PastGame['death_spots'] {
+  const hot = [
+    [9800, 6200],
+    [7400, 7400],
+    [12900, 3400],
+    [5200, 9600],
+  ];
+  return Array.from({ length: n }, (_, k) => {
+    const [x, y] = hot[(i + k) % hot.length];
+    return { time: 200 + k * 290 + i * 13, x: x + ((i * 733 + k * 911) % 1800) - 900, y: y + ((i * 397 + k * 577) % 1800) - 900 };
+  });
+}
+
 function game(i: number, p: Partial<PastGame>): PastGame {
   return {
     ...reviewed.game,
     game_id: reviewed.game.game_id - i,
     created: t0 - i * 5 * HOUR,
-    death_times: null,
     gold_diff_10: null,
     gold_diff_15: null,
     xp_diff_15: null,
     cs_10: null,
+    death_times: [],
+    death_spots: p.mode && p.mode !== 'rift' ? [] : spots(i, p.deaths ?? 3),
     ...p,
   };
 }

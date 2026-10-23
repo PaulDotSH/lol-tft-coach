@@ -41,6 +41,7 @@ fn game(i: usize, mode: Mode, champ: ChampKey, win: bool) -> PastGame {
         first_blood: None,
         cs_10: None,
         augments: vec![],
+        death_spots: vec![],
     }
 }
 

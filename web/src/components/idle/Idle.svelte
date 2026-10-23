@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppState } from '../../lib/bindings/AppState';
   import Analysis from './Analysis.svelte';
+  import DeathMapPanel from './DeathMapPanel.svelte';
   import History from './History.svelte';
   import Recap from './Recap.svelte';
   import Lookup from './Lookup.svelte';
@@ -46,6 +47,7 @@
     <div class="right">
       <History games={app.history} {connected} onopen={(id) => (open = id)} />
       <MacroPatterns report={app.macro_report} {connected} />
+      <DeathMapPanel games={app.history} />
       <Trends trends={app.trends} settings={app.settings} />
       <Lookup />
     </div>

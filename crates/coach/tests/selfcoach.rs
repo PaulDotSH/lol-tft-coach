@@ -230,6 +230,7 @@ fn past(i: usize, mode: Mode, win: bool, cs_10: u32, early: usize) -> PastGame {
         first_blood: None,
         cs_10: Some(cs_10),
         augments: vec![],
+        death_spots: vec![],
     }
 }
 

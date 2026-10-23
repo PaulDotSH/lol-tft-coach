@@ -740,6 +740,16 @@ data! {
         pub cs_10: Option<u32>,
         /// Mayhem augments I took.
         pub augments: Vec<AugmentId>,
+        /// Rift: where I died, as seen from blue side (my base bottom-left).
+        #[serde(default)]
+        pub death_spots: Vec<DeathSpot>,
+    }
+
+    pub struct DeathSpot {
+        /// Game time (s).
+        pub time: u32,
+        pub x: i32,
+        pub y: i32,
     }
 
     pub struct ModeRecord {
@@ -1035,6 +1045,9 @@ data! {
         /// Where on the map, e.g. "enemy jungle" (match history only).
         #[serde(default)]
         pub place: Option<String>,
+        /// Map position as seen from blue side (match history only).
+        #[serde(default)]
+        pub pos: Option<(i32, i32)>,
     }
 
     pub struct DeathReview {
@@ -1311,17 +1324,24 @@ pub struct KillEvent {
     pub pos: Option<(i32, i32)>,
 }
 
+/// Summoner's Rift is symmetric around (MAP_END / 2, MAP_END / 2).
+pub const MAP_END: i32 = 14800;
+
 /// Summoner's Rift areas; blue (team 100) is bottom-left.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MapZone { BlueBase, RedBase, Top, Mid, Bot, River, BlueJungle, RedJungle }
 
 impl MapZone {
+    /// A position as seen from blue side: red side's map turned around.
+    pub fn from_blue(x: i32, y: i32, blue: bool) -> (i32, i32) {
+        if blue { (x, y) } else { (MAP_END - x, MAP_END - y) }
+    }
+
     pub fn at(x: i32, y: i32) -> MapZone {
-        const END: i32 = 14800;
         let near = |a: i32, b: i32| ((a * a + b * b) as f32).sqrt() < 5000.0;
         if near(x, y) {
             MapZone::BlueBase
-        } else if near(END - x, END - y) {
+        } else if near(MAP_END - x, MAP_END - y) {
             MapZone::RedBase
         } else if x < 2200 || y > 12600 {
             MapZone::Top
@@ -1329,9 +1349,9 @@ impl MapZone {
             MapZone::Bot
         } else if (x - y).abs() < 1300 {
             MapZone::Mid
-        } else if (x + y - END).abs() < 1300 {
+        } else if (x + y - MAP_END).abs() < 1300 {
             MapZone::River
-        } else if x + y < END {
+        } else if x + y < MAP_END {
             MapZone::BlueJungle
         } else {
             MapZone::RedJungle

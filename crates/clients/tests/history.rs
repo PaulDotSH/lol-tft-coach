@@ -2,7 +2,7 @@
 //! from the documented LCU schema, except the recorded `*_flex.json` game (see `_fixture`).
 
 use clients::history;
-use model::{Lane, Mode, PastGame, TeamObjectives};
+use model::{DeathSpot, Lane, MAP_END, Mode, PastGame, TeamObjectives};
 use serde_json::Value;
 
 const ME: &str = "8f2c1d4e-me00-4a6b-9c1d-000000000000";
@@ -66,6 +66,11 @@ fn detail_and_timeline() {
             first_blood: Some(true),
             cs_10: Some(70),
             augments: vec![],
+            death_spots: vec![
+                DeathSpot { time: 372, x: 6800, y: 7100 },
+                DeathSpot { time: 700, x: 7400, y: 7300 },
+                DeathSpot { time: 1500, x: 9000, y: 9000 },
+            ],
         }
     );
 }
@@ -162,4 +167,22 @@ fn recorded_game_lanes_from_positions_and_full_match() {
     let first_tower = d.marks.iter().find(|m| m.kind == "Tower").unwrap();
     assert_eq!((first_tower.ours, first_tower.detail.as_deref()), (false, Some("top outer")));
     assert_eq!(d.marks.iter().filter(|m| m.kind == "Dragon" && m.ours).count(), 3);
+}
+
+#[test]
+fn death_spots_are_seen_from_blue_side() {
+    let (game, tl) = (fixture("match_game_flex.json"), fixture("match_timeline_flex.json"));
+    let g = history::parse_game(&game, Some("me-puuid"), Some(&tl)).unwrap();
+    let times: Vec<u32> = g.death_spots.iter().map(|d| d.time).collect();
+    assert_eq!(Some(times), g.death_times);
+    // I was blue here: positions as recorded.
+    let first = tl["frames"].as_array().unwrap().iter().flat_map(|f| f["events"].as_array().unwrap()).find(|e| e["victimId"] == 5).unwrap();
+    assert_eq!((g.death_spots[0].x, g.death_spots[0].y), (first["position"]["x"].as_i64().unwrap() as i32, first["position"]["y"].as_i64().unwrap() as i32));
+    // The same game as a red-side player: turned around.
+    let mut j = game.clone();
+    j["participantIdentities"][4]["player"]["puuid"] = "x".into();
+    j["participantIdentities"][9]["player"]["puuid"] = "me-puuid".into();
+    let r = history::parse_game(&j, Some("me-puuid"), Some(&tl)).unwrap();
+    let e = tl["frames"].as_array().unwrap().iter().flat_map(|f| f["events"].as_array().unwrap()).find(|e| e["victimId"] == 10).unwrap();
+    assert_eq!((r.death_spots[0].x, r.death_spots[0].y), (MAP_END - e["position"]["x"].as_i64().unwrap() as i32, MAP_END - e["position"]["y"].as_i64().unwrap() as i32));
 }

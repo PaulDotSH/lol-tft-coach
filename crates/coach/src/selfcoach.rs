@@ -157,6 +157,7 @@ impl GameLog {
                 spikes,
                 traded: false,
                 place: None,
+                pos: None,
             });
             self.last_death = self.last_death.max(time);
         }

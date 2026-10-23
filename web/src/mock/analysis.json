@@ -42,7 +42,24 @@
     "first_tower": false,
     "first_blood": true,
     "cs_10": 17,
-    "augments": []
+    "augments": [],
+    "death_spots": [
+      {
+        "time": 261,
+        "x": 10382,
+        "y": 3208
+      },
+      {
+        "time": 660,
+        "x": 11111,
+        "y": 1340
+      },
+      {
+        "time": 1398,
+        "x": 6314,
+        "y": 8550
+      }
+    ]
   },
   "players": [
     {
@@ -1021,7 +1038,11 @@
         "owned": [],
         "spikes": [],
         "traded": false,
-        "place": "river"
+        "place": "river",
+        "pos": [
+          10382,
+          3208
+        ]
       },
       {
         "time": 660.723,
@@ -1039,7 +1060,11 @@
         "owned": [],
         "spikes": [],
         "traded": false,
-        "place": "bot lane"
+        "place": "bot lane",
+        "pos": [
+          11111,
+          1340
+        ]
       },
       {
         "time": 1398.573,
@@ -1057,7 +1082,11 @@
         "owned": [],
         "spikes": [],
         "traded": true,
-        "place": "river"
+        "place": "river",
+        "pos": [
+          6314,
+          8550
+        ]
       }
     ],
     "notes": [

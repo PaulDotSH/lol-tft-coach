@@ -13,7 +13,7 @@ use std::path::Path;
 /// Games read from the history list, newest first.
 pub const RECENT: u32 = 30;
 /// Bump when parsing changes so cached games are parsed again.
-const CACHE_VERSION: u32 = 3;
+const CACHE_VERSION: u32 = 4;
 
 /// Recent games, newest first. The client lists only the last few games, but
 /// older ones stay fetchable by id, so every game cached in `dir` stays in the
@@ -269,6 +269,19 @@ fn parse<'a>(game: &'a Value, puuid: Option<&str>, timeline: Option<&'a Value>) 
             .filter_map(|e| Some((e["timestamp"].as_u64()? / 1000) as u32))
             .collect()
     });
+    let blue = my_team == Some(100);
+    let death_spots = frames
+        .filter(|_| mode == Mode::Rift)
+        .into_iter()
+        .flatten()
+        .flat_map(|f| arr(&f["events"]))
+        .filter(|e| e["type"] == "CHAMPION_KILL" && e["victimId"].as_i64() == Some(me_id))
+        .filter_map(|e| {
+            let p = &e["position"];
+            let (x, y) = MapZone::from_blue(p["x"].as_i64()? as i32, p["y"].as_i64()? as i32, blue);
+            Some(DeathSpot { time: (e["timestamp"].as_u64()? / 1000) as u32, x, y })
+        })
+        .collect();
 
     let game = PastGame {
         game_id: game["gameId"].as_u64()?,
@@ -298,6 +311,7 @@ fn parse<'a>(game: &'a Value, puuid: Option<&str>, timeline: Option<&'a Value>) 
         first_blood: first(&["firstBlood"]),
         cs_10: at(10, "minionsKilled", me_id).map(|m| (m + at(10, "jungleMinionsKilled", me_id).unwrap_or(0)) as u32),
         augments: (1..=6).filter_map(|i| id(&s[&format!("playerAugment{i}")])).collect(),
+        death_spots,
     };
     Some(Parsed { game, me_id, parts, lanes, frames })
 }

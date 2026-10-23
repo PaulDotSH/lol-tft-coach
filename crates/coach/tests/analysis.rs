@@ -39,6 +39,7 @@ fn past_game() -> PastGame {
         first_blood: None,
         cs_10: None,
         augments: vec![],
+        death_spots: vec![],
     }
 }
 
@@ -181,6 +182,7 @@ fn a_live_recap_fills_in_held_gold_and_buy_next() {
         spikes: vec![(ZED, 6)],
         traded: false,
         place: None,
+        pos: None,
     };
     let recap = Recap {
         stats: EogStats {

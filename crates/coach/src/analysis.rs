@@ -133,9 +133,10 @@ fn review(d: &MatchDetail, sd: &StaticData, recap: Option<&Recap>) -> DeathRevie
                 spikes: vec![],
                 traded: false,
                 place: k.pos.filter(|_| d.game.mode == Mode::Rift).map(|(x, y)| place(MapZone::at(x, y), blue).into()),
+                pos: k.pos.filter(|_| d.game.mode == Mode::Rift).map(|(x, y)| MapZone::from_blue(x, y, blue)),
             };
             match live.and_then(|r| r.deaths.iter().find(|n| (n.time - k.time).abs() <= SAME_DEATH)) {
-                Some(n) => DeathNote { place: note.place, traded: false, ..n.clone() },
+                Some(n) => DeathNote { place: note.place, pos: note.pos, traded: false, ..n.clone() },
                 None => note,
             }
         })

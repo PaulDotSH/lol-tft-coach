@@ -52,6 +52,19 @@ const QUEUES: Record<number, string> = {
 };
 export const queueName = (queue: number, mode: Mode) => QUEUES[queue] ?? MODE_NAMES[mode];
 
+/** Map area of a Rift position seen from blue side (my base bottom-left); mirrors `MapZone::at`. */
+export function zoneOf(x: number, y: number): string {
+  const END = 14800;
+  const near = (a: number, b: number) => Math.hypot(a, b) < 5000;
+  if (near(x, y)) return 'your base';
+  if (near(END - x, END - y)) return 'enemy base';
+  if (x < 2200 || y > 12600) return 'top lane';
+  if (y < 2200 || x > 12600) return 'bot lane';
+  if (Math.abs(x - y) < 1300) return 'mid lane';
+  if (Math.abs(x + y - END) < 1300) return 'river';
+  return x + y < END ? 'your jungle' : 'enemy jungle';
+}
+
 /** Unix ms → "3h ago", "yesterday", "Oct 12". */
 export function ago(ms: number, now = Date.now()) {
   const h = (now - ms) / 3_600_000;
