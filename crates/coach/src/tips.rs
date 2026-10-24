@@ -8,6 +8,8 @@ use model::*;
 const CONTROL_WARD: ItemId = 2055;
 const STEALTH_WARD: ItemId = 3340;
 const LEVEL_SPIKES: [u32; 3] = [6, 11, 16];
+/// A level race is called this long (s) after the level-up; later it is old news.
+const LEVEL_CALL_S: f32 = 60.0;
 /// CS behind the average pace worth a tip, from CS_FROM on.
 const CS_BEHIND: f32 = 10.0;
 const CS_FROM: f32 = 300.0;
@@ -37,23 +39,26 @@ pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData, tracke
         .threats
         .iter()
         .find(|t| t.lane_opp)
-        .and_then(|th| snap.players.iter().find(|p| p.champ == th.champ && p.team != me.team));
+        .and_then(|th| snap.players.iter().enumerate().find(|(_, p)| p.champ == th.champ && p.team != me.team));
     let mut calls = Vec::new();
 
     // Level races with my lane opponent (junglers have none).
     if rift
         && !me.dead
         && me.position != Some(Lane::Jungle)
-        && let Some(o) = opp
+        && let Some((oi, o)) = opp
     {
         let name = sd.champ_name(o.champ);
-        if let Some(&l) = LEVEL_SPIKES.iter().rev().find(|&&l| o.level >= l && me.level < l) {
+        let fresh = |i, l| tracker.reached(i, l).is_some_and(|at| t - at <= LEVEL_CALL_S);
+        if let Some(&l) = LEVEL_SPIKES.iter().rev().find(|&&l| o.level >= l && me.level < l)
+            && fresh(oi, l)
+        {
             calls.push(Call {
                 key: format!("lvl-opp-{l}"),
                 text: format!("{name} hit level {l} before you ({} vs {}): play safe until you do", o.level, me.level),
                 say: format!("{name} hit {l} first. Play safe."),
             });
-        } else if me.level >= 6 && o.level < 6 {
+        } else if me.level >= 6 && o.level < 6 && fresh(snap.me, 6) {
             calls.push(Call {
                 key: "lvl-me-6".into(),
                 text: format!("You hit 6 before {name}: your all-in window until they do"),
@@ -62,12 +67,17 @@ pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData, tracke
         }
     }
 
-    // Items my lane opponent or the top threat just finished.
+    // Damage items my lane opponent or the top threat just finished (a Locket is no spike).
+    let damage = |id| {
+        sd.items
+            .get(&id)
+            .is_some_and(|it| it.stats.ad + it.stats.ap + it.stats.attack_speed + it.stats.crit > 0.0)
+    };
     for (i, th) in a.threats.iter().enumerate() {
         if !(th.lane_opp || i == 0) {
             continue;
         }
-        for &id in &th.new_items {
+        for &id in th.new_items.iter().filter(|&&id| damage(id)) {
             let n = th.legendaries;
             calls.push(Call {
                 key: format!("item-{}-{id}", th.champ),

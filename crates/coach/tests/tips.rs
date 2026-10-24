@@ -23,22 +23,33 @@ fn keys(a: &GameAdvice) -> Vec<&str> {
 
 #[test]
 fn level_races_with_the_lane_opponent() {
-    let mut p = lobby(STANDARD);
-    p[0].level = 5;
-    p[ZED_I].level = 6;
-    let a = advise(&snap(p.clone(), vec![]), None, &Tracker::default());
+    let sd = sd();
+    // Levels as tracked over the game: `before` at 400 s, `after` from 410 s on.
+    let race = |before: (u32, u32), after: (u32, u32), now: f32, dead: bool| {
+        let mut p = lobby(STANDARD);
+        let mut t = Tracker::default();
+        (p[0].level, p[ZED_I].level) = before;
+        t.observe(&GameSnapshot { time: 400.0, ..snap(p.clone(), vec![]) }, &sd);
+        (p[0].level, p[ZED_I].level) = after;
+        t.observe(&GameSnapshot { time: 410.0, ..snap(p.clone(), vec![]) }, &sd);
+        p[0].dead = dead;
+        p[0].respawn_in = if dead { 20.0 } else { 0.0 };
+        let s = GameSnapshot { time: now, ..snap(p, vec![]) };
+        t.observe(&s, &sd);
+        advise(&s, None, &t)
+    };
+    let a = race((5, 5), (5, 6), 420.0, false);
     let c = a.calls.iter().find(|c| c.key == "lvl-opp-6").expect("call");
     assert_eq!(c.text, "Zed hit level 6 before you (6 vs 5): play safe until you do");
+    assert!(keys(&race((5, 5), (6, 5), 420.0, false)).contains(&"lvl-me-6"));
 
-    (p[0].level, p[ZED_I].level) = (6, 5);
-    assert!(keys(&advise(&snap(p.clone(), vec![]), None, &Tracker::default())).contains(&"lvl-me-6"));
+    // Old news a minute on, and nothing for a level-up from before tracking began.
+    assert!(!keys(&race((5, 5), (6, 5), 480.0, false)).contains(&"lvl-me-6"));
+    assert!(!keys(&race((6, 5), (6, 5), 420.0, false)).contains(&"lvl-me-6"));
 
     // Level 11 race; dead, nothing.
-    (p[0].level, p[ZED_I].level) = (10, 11);
-    assert!(keys(&advise(&snap(p.clone(), vec![]), None, &Tracker::default())).contains(&"lvl-opp-11"));
-    p[0].dead = true;
-    p[0].respawn_in = 20.0;
-    assert!(keys(&advise(&snap(p, vec![]), None, &Tracker::default())).iter().all(|k| !k.starts_with("lvl-")));
+    assert!(keys(&race((10, 10), (10, 11), 420.0, false)).contains(&"lvl-opp-11"));
+    assert!(keys(&race((10, 10), (10, 11), 420.0, true)).iter().all(|k| !k.starts_with("lvl-")));
 }
 
 #[test]
@@ -48,12 +59,14 @@ fn a_new_item_on_the_lane_opponent_is_called_once_tracked() {
     let mut p = lobby(STANDARD);
     t.observe(&GameSnapshot { time: 800.0, ..snap(p.clone(), vec![]) }, &sd);
     p[ZED_I].items.push(YOUMUUS);
+    p[ZED_I].items.push(RANDUINS);
     let s = GameSnapshot { time: 850.0, ..snap(p, vec![]) };
     t.observe(&s, &sd);
     let a = advise(&s, None, &t);
     let c = a.calls.iter().find(|c| c.key == format!("item-{ZED}-{YOUMUUS}")).expect("item call");
     assert!(c.text.starts_with("Zed finished "), "{}", c.text);
     assert!(c.text.ends_with("respect the spike"), "{}", c.text);
+    assert!(!a.calls.iter().any(|c| c.key == format!("item-{ZED}-{RANDUINS}")), "a tank item is no spike");
 }
 
 #[test]

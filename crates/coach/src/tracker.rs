@@ -16,6 +16,8 @@ pub struct Tracker {
     last_time: f32,
     /// (game time, my gold) every HOLD_STEP s over the last HOLD_WINDOW s.
     held: VecDeque<(f32, f32)>,
+    /// (player index, level, game time first seen); None = reached before tracking began.
+    levels: Vec<(usize, u32, Option<f32>)>,
 }
 
 const HOLD_STEP: f32 = 5.0;
@@ -49,6 +51,11 @@ impl Tracker {
                     self.seen.push((i, id, self.started.then_some(snap.time)));
                 }
             }
+            for l in 1..=p.level {
+                if !self.levels.iter().any(|s| s.0 == i && s.1 == l) {
+                    self.levels.push((i, l, self.started.then_some(snap.time)));
+                }
+            }
         }
         self.started = true;
         self.last_time = snap.time;
@@ -77,6 +84,11 @@ impl Tracker {
             since = Some(t);
         }
         since.map_or(0.0, |t| now - t)
+    }
+
+    /// When player `i` reached `level` (None: not yet, or before tracking began).
+    pub fn reached(&self, i: usize, level: u32) -> Option<f32> {
+        self.levels.iter().find(|s| s.0 == i && s.1 == level)?.2
     }
 
     /// Legendaries player `i` finished within ITEM_NEW_WINDOW of `now` and still holds.
