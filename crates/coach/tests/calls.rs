@@ -57,6 +57,38 @@ fn objective_calls_from_timers_gold_and_death_timers() {
 }
 
 #[test]
+fn supports_and_junglers_ward_an_objective_before_it_spawns() {
+    // 18:50: Baron in 1:10; Dragon is already up (no ward call for it).
+    let mut p = lobby(STANDARD);
+    p[0].position = Some(Lane::Support);
+    let s = GameSnapshot { time: 1130.0, ..snap(p, vec![]) };
+    let a = advise(&s);
+    let ward: Vec<&Call> = a.calls.iter().filter(|c| c.key.starts_with("ward-")).collect();
+    assert_eq!(ward.len(), 1, "{:?}", a.calls);
+    assert_eq!(ward[0].key, "ward-Baron-1200");
+    assert_eq!(ward[0].text, "Baron in 1:10: ward the pit and the river bushes, bring a Control Ward");
+    assert_eq!(ward[0].say, "Baron in one minute. Ward the river.");
+
+    // Holding a Control Ward and the lens: sweep instead.
+    let mut s2 = s.clone();
+    s2.players[0].items = vec![2055, 3364];
+    let a2 = advise(&s2);
+    let c = a2.calls.iter().find(|c| c.key == "ward-Baron-1200").expect("ward call");
+    assert!(c.text.ends_with(", sweep with Oracle"), "{}", c.text);
+
+    // Mid laners and the dead get none; too early neither.
+    let mut s3 = s.clone();
+    s3.players[0].position = Some(Lane::Middle);
+    assert!(advise(&s3).calls.iter().all(|c| !c.key.starts_with("ward-")));
+    let mut s4 = s.clone();
+    s4.players[0].dead = true;
+    s4.players[0].respawn_in = 10.0;
+    assert!(advise(&s4).calls.iter().all(|c| !c.key.starts_with("ward-")));
+    let s5 = GameSnapshot { time: 1100.0, ..s.clone() };
+    assert!(advise(&s5).calls.iter().all(|c| !c.key.starts_with("ward-")));
+}
+
+#[test]
 fn readiness_turns_on_item_gold_and_waits_for_the_first_minutes() {
     let mut p = lobby(STANDARD);
     for e in &mut p[5..10] {

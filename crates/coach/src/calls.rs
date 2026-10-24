@@ -27,6 +27,11 @@ const DECISIVE: f32 = 1.5;
 const READY_FROM: f32 = 180.0;
 /// My next item counts as a spike to wait for when it is this close (s).
 const SPIKE_SOON: f32 = 60.0;
+/// Supports and junglers: ward an objective this long (s) before it spawns.
+const WARD_FROM: f32 = 30.0;
+const WARD_TO: f32 = 75.0;
+const CONTROL_WARD: ItemId = 2055;
+const ORACLE_LENS: ItemId = 3364;
 
 pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData) {
     a.bounties = bounties(snap, sd);
@@ -197,6 +202,24 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
                     say: format!("{} in {} seconds. Back and buy now.", t.name, (dt / 10.0).round() * 10.0),
                 });
             }
+        }
+        // Supports and junglers set up vision before it spawns.
+        if let Some(dt) = left.filter(|dt| (WARD_FROM..=WARD_TO).contains(dt))
+            && !me.dead
+            && matches!(me.position, Some(Lane::Support | Lane::Jungle))
+        {
+            let bring = if !me.items.contains(&CONTROL_WARD) {
+                ", bring a Control Ward"
+            } else if me.items.contains(&ORACLE_LENS) {
+                ", sweep with Oracle"
+            } else {
+                ""
+            };
+            out.push(Call {
+                key: format!("ward-{}-{at}", t.name),
+                text: format!("{} in {}: ward the pit and the river bushes{bring}", t.name, clock(dt)),
+                say: format!("{} in one minute. Ward the river.", t.name),
+            });
         }
         // Up (or nearly) with enemies dead: take it. Their jungler dead means no smite
         // to contest it: enough on its own for the smaller objectives.
