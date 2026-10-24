@@ -5,6 +5,7 @@ import type { Fight } from "./Fight";
 import type { Focus } from "./Focus";
 import type { GoldPoint } from "./GoldPoint";
 import type { KillMark } from "./KillMark";
+import type { Laning } from "./Laning";
 import type { MatchPlayer } from "./MatchPlayer";
 import type { PastCompare } from "./PastCompare";
 import type { PastGame } from "./PastGame";
@@ -43,4 +44,8 @@ phases: Array<PhaseRow>,
 /**
  * Minute marks (game minutes) where I held 1500+ gold, the closing push aside (Rift).
  */
-rich_marks: Array<number>, vs_past: PastCompare | null, focus: Focus | null, };
+rich_marks: Array<number>, vs_past: PastCompare | null, focus: Focus | null, 
+/**
+ * Rift: my lane (bot lane: both duos) up to 14:00.
+ */
+laning: Laning | null, };

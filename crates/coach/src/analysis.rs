@@ -149,6 +149,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         rich_marks,
         vs_past: None,
         focus: None,
+        laning: crate::laning::laning(d),
     };
     a.takeaways = takeaways(&a, d, sd, team_kills);
     a.focus = focus(&a, d, sd);

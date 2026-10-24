@@ -1357,6 +1357,52 @@ data! {
         pub gold_lead: Option<i32>,
     }
 
+    /// My lane up to 14:00: my duo against theirs in bot lane, else me against my opponent.
+    pub struct Laning {
+        pub allies: Vec<ChampKey>,
+        pub enemies: Vec<ChampKey>,
+        /// "Won lane: +1,150 gold at 14:00, ahead from 6:00".
+        pub verdict: String,
+        /// Minute from which the lane stayed ahead (or behind) to the end.
+        pub turned_at: Option<u32>,
+        /// Minutes 1–14 (fewer in a short game).
+        pub minutes: Vec<LaneMinute>,
+        /// Kills on the lane's players before 14:00.
+        pub events: Vec<LaneEvent>,
+        /// Each player's first back (a shop visit that wasn't a death), estimated from
+        /// one-minute frames.
+        pub backs: Vec<LaneBack>,
+    }
+
+    pub struct LaneMinute {
+        pub minute: u32,
+        /// Ours minus theirs.
+        pub gold_diff: i32,
+        pub xp_diff: i32,
+        pub cs_ours: u32,
+        pub cs_theirs: u32,
+        pub my_level: u32,
+        /// My direct counterpart (support vs support).
+        pub opp_level: Option<u32>,
+    }
+
+    pub struct LaneEvent {
+        pub time: f32,
+        pub killer: Option<ChampKey>,
+        pub victim: ChampKey,
+        pub assists: Vec<ChampKey>,
+        /// My side got the kill.
+        pub ours: bool,
+        pub place: Option<String>,
+    }
+
+    pub struct LaneBack {
+        pub champ: ChampKey,
+        pub ally: bool,
+        pub minute: u32,
+        pub spent: u32,
+    }
+
     /// This game against my recent games on the same champion and mode.
     pub struct PastCompare {
         pub games: u32,
@@ -1471,6 +1517,9 @@ data! {
         pub rich_marks: Vec<u32>,
         pub vs_past: Option<PastCompare>,
         pub focus: Option<Focus>,
+        /// Rift: my lane (bot lane: both duos) up to 14:00.
+        #[serde(default)]
+        pub laning: Option<Laning>,
     }
 }
 

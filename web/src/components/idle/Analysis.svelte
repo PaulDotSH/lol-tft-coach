@@ -11,6 +11,7 @@
   import Fights from './Fights.svelte';
   import FocusCard from './FocusCard.svelte';
   import PastCompare from './PastCompare.svelte';
+  import Laning from './Laning.svelte';
   import Phases from './Phases.svelte';
   import GoldChart from './GoldChart.svelte';
   import Scoreboard from './Scoreboard.svelte';
@@ -190,7 +191,9 @@
             </p>
           {/if}
         </section>
-        {#if a.phases.length}
+        {#if a.laning}
+          <Laning l={a.laning} rich={a.rich_marks} />
+        {:else if a.phases.length}
           <Phases rows={a.phases} opponent={a.opponent != null ? name(a.opponent) : null} rich={a.rich_marks} />
         {/if}
         {#if a.vs_past}<PastCompare c={a.vs_past} champ={name(g.champ)} />{/if}

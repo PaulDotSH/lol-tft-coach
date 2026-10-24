@@ -311,3 +311,61 @@ fn this_game_against_my_earlier_games_on_the_champion() {
     coach::compare_past(&mut b, &past[..2], &sd());
     assert!(b.vs_past.is_none());
 }
+
+/// Me Leona support with Jinx vs Caitlyn + Thresh: even for 5 minutes, then my duo
+/// gains 400 gold a minute; Jinx backs at 6:00; Caitlyn kills me in bot lane at 3:20.
+fn bot_lane() -> MatchDetail {
+    let mut d = detail();
+    d.players.iter_mut().for_each(|p| p.me = false);
+    d.me = 4;
+    d.players[4].me = true;
+    let total = |i: usize, m: u32| 500 + m * 300 + if (i == 3 || i == 4) && m >= 6 { (m - 5) * 200 } else { 0 };
+    d.frames = (0..=25)
+        .map(|m| Frame {
+            time: m as f32 * 60.0,
+            players: (0..10)
+                .map(|i| FrameStat {
+                    total_gold: total(i, m),
+                    current_gold: total(i, m) - if i == 3 && m >= 6 { 2400 } else { 500 },
+                    level: m / 2 + 1,
+                    ..Default::default()
+                })
+                .collect(),
+        })
+        .collect();
+    let kill = |time: f32, killer: usize, victim: usize, pos: (i32, i32)| KillEvent { time, killer: Some(killer), victim, assisters: vec![9], pos: Some(pos) };
+    d.kills = vec![kill(200.0, 8, 4, (13000, 2000)), kill(300.0, 5, 1, (1000, 13000)), kill(900.0, 8, 3, (13000, 2000))];
+    d
+}
+
+#[test]
+fn laning_compares_both_duos_minute_by_minute() {
+    let l = analyze_match(&bot_lane(), &sd(), None, None).laning.expect("laning");
+    assert_eq!((l.allies.as_slice(), l.enemies.as_slice()), ([JINX, LEONA].as_slice(), [CAITLYN, THRESH].as_slice()));
+    assert_eq!(l.minutes.len(), 14);
+    assert_eq!(l.minutes.iter().map(|r| r.gold_diff).take(7).collect::<Vec<_>>(), [0, 0, 0, 0, 0, 400, 800]);
+    assert_eq!((l.minutes[13].my_level, l.minutes[13].opp_level), (8, Some(8)));
+    assert_eq!(l.verdict, "Won lane: +3,600 gold at 14:00, ahead from 6:00");
+    assert_eq!(l.turned_at, Some(6));
+    // Only kills on the lane's players before 14:00.
+    let ev: Vec<(f32, Option<ChampKey>, ChampKey, bool, Option<&str>)> =
+        l.events.iter().map(|e| (e.time, e.killer, e.victim, e.ours, e.place.as_deref())).collect();
+    assert_eq!(ev, [(200.0, Some(CAITLYN), LEONA, false, Some("bot lane"))]);
+    assert_eq!(l.events[0].assists, [THRESH]);
+    // Jinx's shop visit; nobody else spent anything.
+    let backs: Vec<(ChampKey, bool, u32, u32)> = l.backs.iter().map(|b| (b.champ, b.ally, b.minute, b.spent)).collect();
+    assert_eq!(backs, [(JINX, true, 6, 1900)]);
+}
+
+#[test]
+fn laning_is_me_against_my_opponent_outside_bot_lane_and_absent_off_the_rift() {
+    let a = analyze_match(&detail(), &sd(), None, None);
+    let l = a.laning.expect("laning");
+    assert_eq!((l.allies.as_slice(), l.enemies.as_slice()), ([AHRI].as_slice(), [ZED].as_slice()));
+    let mut aram = detail();
+    aram.game.mode = Mode::Aram;
+    assert!(analyze_match(&aram, &sd(), None, None).laning.is_none());
+    let mut short = detail();
+    short.game.duration_s = 540;
+    assert!(analyze_match(&short, &sd(), None, None).laning.is_none());
+}

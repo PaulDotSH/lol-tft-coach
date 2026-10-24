@@ -72,7 +72,8 @@
       523,
       201,
       234
-    ]
+    ],
+    "control_wards": 0
   },
   "players": [
     {
@@ -354,9 +355,9 @@
   ],
   "opponent": 201,
   "benchmarks": {
-    "cs_per_min": 1.0401243,
-    "gold_per_min": 304.1237,
-    "damage_per_min": 339.64618,
+    "cs_per_min": 1.0397812,
+    "gold_per_min": 304.41617,
+    "damage_per_min": 340.69504,
     "vision_per_min": null
   },
   "gold": [
@@ -1369,7 +1370,7 @@
     },
     {
       "good": true,
-      "text": "Damage 407/min vs 340 average on Nautilus"
+      "text": "Damage 407/min vs 341 average on Nautilus"
     },
     {
       "good": true,
@@ -1424,5 +1425,296 @@
       "kind": "earlydeaths",
       "target": 1.0
     }
+  },
+  "laning": {
+    "allies": [
+      22,
+      111
+    ],
+    "enemies": [
+      523,
+      201
+    ],
+    "verdict": "Won lane: +461 gold at 14:00, ahead from 8:00",
+    "turned_at": 8,
+    "minutes": [
+      {
+        "minute": 1,
+        "gold_diff": 0,
+        "xp_diff": 0,
+        "cs_ours": 0,
+        "cs_theirs": 0,
+        "my_level": 1,
+        "opp_level": 1
+      },
+      {
+        "minute": 2,
+        "gold_diff": -12,
+        "xp_diff": -40,
+        "cs_ours": 13,
+        "cs_theirs": 14,
+        "my_level": 2,
+        "opp_level": 2
+      },
+      {
+        "minute": 3,
+        "gold_diff": 0,
+        "xp_diff": -40,
+        "cs_ours": 28,
+        "cs_theirs": 28,
+        "my_level": 3,
+        "opp_level": 3
+      },
+      {
+        "minute": 4,
+        "gold_diff": -146,
+        "xp_diff": 128,
+        "cs_ours": 43,
+        "cs_theirs": 41,
+        "my_level": 4,
+        "opp_level": 3
+      },
+      {
+        "minute": 5,
+        "gold_diff": -646,
+        "xp_diff": -340,
+        "cs_ours": 45,
+        "cs_theirs": 50,
+        "my_level": 4,
+        "opp_level": 4
+      },
+      {
+        "minute": 6,
+        "gold_diff": -430,
+        "xp_diff": 242,
+        "cs_ours": 65,
+        "cs_theirs": 59,
+        "my_level": 5,
+        "opp_level": 4
+      },
+      {
+        "minute": 7,
+        "gold_diff": -476,
+        "xp_diff": 240,
+        "cs_ours": 77,
+        "cs_theirs": 73,
+        "my_level": 5,
+        "opp_level": 5
+      },
+      {
+        "minute": 8,
+        "gold_diff": 446,
+        "xp_diff": 665,
+        "cs_ours": 85,
+        "cs_theirs": 80,
+        "my_level": 6,
+        "opp_level": 5
+      },
+      {
+        "minute": 9,
+        "gold_diff": 735,
+        "xp_diff": 206,
+        "cs_ours": 85,
+        "cs_theirs": 87,
+        "my_level": 6,
+        "opp_level": 5
+      },
+      {
+        "minute": 10,
+        "gold_diff": 899,
+        "xp_diff": 291,
+        "cs_ours": 91,
+        "cs_theirs": 97,
+        "my_level": 6,
+        "opp_level": 6
+      },
+      {
+        "minute": 11,
+        "gold_diff": 900,
+        "xp_diff": 528,
+        "cs_ours": 106,
+        "cs_theirs": 105,
+        "my_level": 7,
+        "opp_level": 6
+      },
+      {
+        "minute": 12,
+        "gold_diff": 504,
+        "xp_diff": 725,
+        "cs_ours": 116,
+        "cs_theirs": 114,
+        "my_level": 7,
+        "opp_level": 6
+      },
+      {
+        "minute": 13,
+        "gold_diff": 378,
+        "xp_diff": 299,
+        "cs_ours": 126,
+        "cs_theirs": 133,
+        "my_level": 7,
+        "opp_level": 7
+      },
+      {
+        "minute": 14,
+        "gold_diff": 461,
+        "xp_diff": 359,
+        "cs_ours": 129,
+        "cs_theirs": 135,
+        "my_level": 8,
+        "opp_level": 7
+      }
+    ],
+    "events": [
+      {
+        "time": 261.198,
+        "killer": 523,
+        "victim": 111,
+        "assists": [
+          246,
+          201
+        ],
+        "ours": false,
+        "place": "river"
+      },
+      {
+        "time": 454.472,
+        "killer": 111,
+        "victim": 523,
+        "assists": [
+          27,
+          22
+        ],
+        "ours": true,
+        "place": "enemy jungle"
+      },
+      {
+        "time": 458.491,
+        "killer": 22,
+        "victim": 201,
+        "assists": [
+          27,
+          111
+        ],
+        "ours": true,
+        "place": "river"
+      },
+      {
+        "time": 458.692,
+        "killer": 246,
+        "victim": 22,
+        "assists": [
+          201
+        ],
+        "ours": false,
+        "place": "river"
+      },
+      {
+        "time": 536.741,
+        "killer": 22,
+        "victim": 523,
+        "assists": [
+          131,
+          27,
+          111
+        ],
+        "ours": true,
+        "place": "river"
+      },
+      {
+        "time": 539.015,
+        "killer": 131,
+        "victim": 201,
+        "assists": [
+          27,
+          22,
+          111
+        ],
+        "ours": true,
+        "place": "river"
+      },
+      {
+        "time": 657.403,
+        "killer": 246,
+        "victim": 22,
+        "assists": [
+          234,
+          523,
+          201
+        ],
+        "ours": false,
+        "place": "bot lane"
+      },
+      {
+        "time": 660.723,
+        "killer": 201,
+        "victim": 111,
+        "assists": [
+          234,
+          246,
+          523
+        ],
+        "ours": false,
+        "place": "bot lane"
+      },
+      {
+        "time": 798.519,
+        "killer": 111,
+        "victim": 523,
+        "assists": [
+          27,
+          22
+        ],
+        "ours": true,
+        "place": "bot lane"
+      },
+      {
+        "time": 801.992,
+        "killer": 27,
+        "victim": 201,
+        "assists": [
+          22,
+          111
+        ],
+        "ours": true,
+        "place": "bot lane"
+      },
+      {
+        "time": 802.093,
+        "killer": 201,
+        "victim": 22,
+        "assists": [
+          523
+        ],
+        "ours": false,
+        "place": "bot lane"
+      }
+    ],
+    "backs": [
+      {
+        "champ": 22,
+        "ally": true,
+        "minute": 5,
+        "spent": 1100
+      },
+      {
+        "champ": 111,
+        "ally": true,
+        "minute": 9,
+        "spent": 1400
+      },
+      {
+        "champ": 523,
+        "ally": false,
+        "minute": 5,
+        "spent": 1550
+      },
+      {
+        "champ": 201,
+        "ally": false,
+        "minute": 6,
+        "spent": 950
+      }
+    ]
   }
 }

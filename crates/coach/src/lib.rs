@@ -12,6 +12,7 @@ mod draft;
 mod enemy_augments;
 mod fights;
 mod items;
+mod laning;
 mod macro_coach;
 mod late;
 mod matchups;
