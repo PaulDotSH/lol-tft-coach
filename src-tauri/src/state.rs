@@ -77,6 +77,7 @@ impl Shared {
                 trends: None,
                 goal_progress: vec![],
                 history: vec![],
+                ranked: vec![],
             }),
             sd: RwLock::new(None),
             mayhem: Mutex::default(),

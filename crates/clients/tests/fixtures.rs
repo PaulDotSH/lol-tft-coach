@@ -250,3 +250,15 @@ fn eog_mayhem_reports_kiwi_without_queue_id() {
     j["gameMode"] = "CLASSIC".into();
     assert_eq!(lcu::parse_eog(&j).unwrap().mode, Mode::Rift);
 }
+
+#[test]
+fn ranked_stats_keep_solo_and_flex_and_skip_unranked() {
+    let v = serde_json::json!({ "queueMap": {
+        "RANKED_SOLO_5x5": { "tier": "GOLD", "division": "II", "leaguePoints": 7, "wins": 11, "losses": 1 },
+        "RANKED_FLEX_SR": { "tier": "", "division": "NA", "leaguePoints": 0, "wins": 0, "losses": 0 },
+        "RANKED_TFT": { "tier": "SILVER", "division": "I", "leaguePoints": 50, "wins": 3, "losses": 2 }
+    }});
+    let s = clients::lcu::parse_ranked(&v, 42);
+    assert_eq!(s.len(), 1);
+    assert_eq!((s[0].time, s[0].queue.as_str(), s[0].tier.as_str(), s[0].division.as_str(), s[0].lp, s[0].wins, s[0].losses), (42, "solo", "GOLD", "II", 7, 11, 1));
+}

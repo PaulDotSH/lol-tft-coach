@@ -3,7 +3,7 @@
 use crate::id;
 use anyhow::{Context, Result, bail};
 use base64::Engine;
-use model::{ChampKey, ChampSelect, EogStats, Lane, Mode};
+use model::{ChampKey, ChampSelect, EogStats, Lane, Mode, RankSnapshot};
 use reqwest::{StatusCode, header::AUTHORIZATION};
 use serde_json::Value;
 use std::time::Duration;
@@ -161,6 +161,11 @@ impl Lcu {
         Ok(parse_champ_select(&session, queue.ok().flatten().unwrap_or(-1)))
     }
 
+    /// My current Solo/Duo and Flex rank, stamped `now` (unix ms); unranked queues left out.
+    pub async fn ranked(&self, now: u64) -> Result<Vec<RankSnapshot>> {
+        Ok(self.get("/lol-ranked/v1/current-ranked-stats").await?.map_or(vec![], |v| parse_ranked(&v, now)))
+    }
+
     pub async fn eog_stats(&self) -> Result<Option<EogStats>> {
         Ok(self.get("/lol-end-of-game/v1/eog-stats-block").await?.as_ref().and_then(parse_eog))
     }
@@ -168,6 +173,26 @@ impl Lcu {
 
 fn arr(v: &Value) -> impl Iterator<Item = &Value> {
     v.as_array().into_iter().flatten()
+}
+
+/// Pure parser for `/lol-ranked/v1/current-ranked-stats`.
+pub fn parse_ranked(json: &Value, now: u64) -> Vec<RankSnapshot> {
+    [("solo", "RANKED_SOLO_5x5"), ("flex", "RANKED_FLEX_SR")]
+        .into_iter()
+        .filter_map(|(queue, key)| {
+            let q = &json["queueMap"][key];
+            let tier = q["tier"].as_str().filter(|t| !t.is_empty() && *t != "NONE")?;
+            Some(RankSnapshot {
+                time: now,
+                queue: queue.into(),
+                tier: tier.into(),
+                division: q["division"].as_str().unwrap_or("NA").into(),
+                lp: q["leaguePoints"].as_i64().unwrap_or(0) as i32,
+                wins: q["wins"].as_u64().unwrap_or(0) as u32,
+                losses: q["losses"].as_u64().unwrap_or(0) as u32,
+            })
+        })
+        .collect()
 }
 
 /// Pure parser for `/lol-champ-select/v1/session` (tests use fixtures).

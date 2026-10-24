@@ -8,6 +8,7 @@
   import MacroPatterns from './MacroPatterns.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import Session from './Session.svelte';
+  import Rank from './Rank.svelte';
   import Trends from './Trends.svelte';
 
   let { state: app }: { state: AppState } = $props();
@@ -47,6 +48,7 @@
     </div>
     <div class="right">
       {#if app.trends?.session}<Session session={app.trends.session} games={app.history} />{/if}
+      {#if app.ranked.length}<Rank ranked={app.ranked} />{/if}
       <History games={app.history} {connected} onopen={(id) => (open = id)} />
       <MacroPatterns report={app.macro_report} {connected} />
       <DeathMapPanel games={app.history} />

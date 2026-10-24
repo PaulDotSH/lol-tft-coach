@@ -5,6 +5,7 @@ import type { GoalProgress } from "./GoalProgress";
 import type { MacroReport } from "./MacroReport";
 import type { PastGame } from "./PastGame";
 import type { Phase } from "./Phase";
+import type { RankTrend } from "./RankTrend";
 import type { Recap } from "./Recap";
 import type { Settings } from "./Settings";
 import type { Sources } from "./Sources";
@@ -29,4 +30,8 @@ goal_progress: Array<GoalProgress>,
 /**
  * Recent games, newest first (idle dashboard; click one to analyse it).
  */
-history: Array<PastGame>, };
+history: Array<PastGame>, 
+/**
+ * LP over my ranked games, Solo/Duo then Flex.
+ */
+ranked: Array<RankTrend>, };

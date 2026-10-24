@@ -702,6 +702,47 @@ data! {
         pub goal_progress: Vec<GoalProgress>,
         /// Recent games, newest first (idle dashboard; click one to analyse it).
         pub history: Vec<PastGame>,
+        /// LP over my ranked games, Solo/Duo then Flex.
+        #[serde(default)]
+        pub ranked: Vec<RankTrend>,
+    }
+
+    /// My rank in one queue at one moment (LCU current-ranked-stats).
+    pub struct RankSnapshot {
+        /// Unix ms.
+        #[ts(type = "number")]
+        pub time: u64,
+        /// "solo" or "flex".
+        pub queue: String,
+        /// "GOLD", "MASTER", …; division "I"–"IV" ("NA" from Master up).
+        pub tier: String,
+        pub division: String,
+        pub lp: i32,
+        pub wins: u32,
+        pub losses: u32,
+    }
+
+    /// LP over my ranked games in one queue, from snapshots taken after each.
+    /// The client keeps no LP history: games before the app started tracking are missing.
+    pub struct RankTrend {
+        pub queue: String,
+        pub tier: String,
+        pub division: String,
+        pub lp: i32,
+        /// Oldest first, at most 20.
+        pub games: Vec<RankPoint>,
+        /// Wins (positive) or losses (negative) in a row, newest games.
+        pub streak: i32,
+    }
+
+    pub struct RankPoint {
+        #[ts(type = "number")]
+        pub time: u64,
+        /// Place on the whole ladder: 400 per tier, 100 per division, plus LP.
+        pub ladder: i32,
+        /// LP won or lost since the snapshot before.
+        pub delta: i32,
+        pub win: bool,
     }
 
     // ---- macro coach (own match history) ----

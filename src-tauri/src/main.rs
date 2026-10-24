@@ -6,6 +6,7 @@ mod draft;
 mod macro_sync;
 mod ingame;
 mod orchestrator;
+mod ranked;
 mod selfcoach;
 mod settings;
 mod state;

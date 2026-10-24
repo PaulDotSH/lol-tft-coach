@@ -68,6 +68,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let mut last_json = String::new();
     let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
     let mut self_coach = crate::selfcoach::SelfCoach::default();
+    let rank_log = Arc::new(crate::ranked::RankLog::default());
     let (mut last_flow, mut last_phase, mut probed): (Option<String>, Option<Phase>, bool) = (None, None, false);
     let mut lcu_misses = 0u32;
 
@@ -269,6 +270,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         let macro_report = macro_sync.tick(&sh, &sd, lcu.as_ref(), phase);
         let trends = self_coach.tick(phase, macro_sync.games(), memo.recap.as_ref(), &settings.goals);
         let history = macro_sync.games().map(|g| g.to_vec()).unwrap_or_default();
+        let ranked = rank_log.tick(lcu.as_ref(), phase);
         let goal_progress = if game.is_some() { memo.goal_progress.clone() } else { vec![] };
         push(&app, &sh, &mut last_json, move |st| {
             st.phase = phase;
@@ -280,6 +282,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             st.trends = trends;
             st.goal_progress = goal_progress;
             st.history = history;
+            st.ranked = ranked;
         });
 
         let tick = match phase {

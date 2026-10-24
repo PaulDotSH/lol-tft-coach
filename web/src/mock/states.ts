@@ -59,6 +59,24 @@ const base = {
   trends,
   goal_progress: [],
   history,
+  ranked: [
+    {
+      queue: 'solo',
+      tier: 'GOLD',
+      division: 'II',
+      lp: 45,
+      streak: 3,
+      games: [
+        { time: 1, ladder: 1379, delta: -18, win: false },
+        { time: 2, ladder: 1400, delta: 21, win: true },
+        { time: 3, ladder: 1382, delta: -18, win: false },
+        { time: 4, ladder: 1404, delta: 22, win: true },
+        { time: 5, ladder: 1424, delta: 20, win: true },
+        { time: 6, ladder: 1445, delta: 21, win: true },
+      ],
+    },
+    { queue: 'flex', tier: 'GOLD', division: 'II', lp: 31, streak: 0, games: [] },
+  ],
 } satisfies Partial<AppState>;
 
 const riftGame: GameAdvice = {
