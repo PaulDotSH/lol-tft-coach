@@ -4,6 +4,7 @@ import type { GameSummary } from '../lib/bindings/GameSummary';
 import type { Goal } from '../lib/bindings/Goal';
 import type { GoalProgress } from '../lib/bindings/GoalProgress';
 import type { Trends } from '../lib/bindings/Trends';
+import { history } from './history';
 
 export const goals: Goal[] = [
   { kind: 'earlydeaths', target: 1 },
@@ -83,4 +84,16 @@ export const trends: Trends = {
     { goal: goals[0], met: 4, of: 10 },
     { goal: goals[1], met: 3, of: 6 },
   ],
+  session: {
+    start: Date.now() - 3 * 3600 * 1000,
+    end: Date.now() - 20 * 60 * 1000,
+    game_ids: history.slice(0, 3).map((g) => g.game_id),
+    wins: history.slice(0, 3).filter((g) => g.win).length,
+    losses: history.slice(0, 3).filter((g) => !g.win).length,
+    repeats: [
+      { text: 'No Control Wards bought', games: 3, of: 3 },
+      { text: 'Died before 10:00', games: 2, of: 3 },
+    ],
+    goals: [{ goal: goals[0], met: 1, of: 3 }],
+  },
 };

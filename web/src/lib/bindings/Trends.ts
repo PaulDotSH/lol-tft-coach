@@ -2,6 +2,11 @@
 import type { AugmentUse } from "./AugmentUse";
 import type { FollowSplit } from "./FollowSplit";
 import type { GoalStatus } from "./GoalStatus";
+import type { Session } from "./Session";
 import type { Trend } from "./Trend";
 
-export type Trends = { trends: Array<Trend>, follow: Array<FollowSplit>, augments: Array<AugmentUse>, goals: Array<GoalStatus>, };
+export type Trends = { trends: Array<Trend>, follow: Array<FollowSplit>, augments: Array<AugmentUse>, goals: Array<GoalStatus>, 
+/**
+ * My latest run of games.
+ */
+session: Session | null, };

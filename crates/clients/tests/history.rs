@@ -74,6 +74,7 @@ fn detail_and_timeline() {
             enemies: vec![122, 254, 145, 238, 111],
             opponent: Some(238),
             killed_by: vec![Some(238), Some(238), Some(145)],
+            control_wards: None,
         }
     );
 }

@@ -55,4 +55,8 @@ opponent: number | null,
 /**
  * Who killed me, per death (None: executed).
  */
-killed_by: Array<number | null>, };
+killed_by: Array<number | null>, 
+/**
+ * Control Wards I bought (game details).
+ */
+control_wards: number | null, };

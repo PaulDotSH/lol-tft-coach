@@ -767,6 +767,9 @@ data! {
         /// Who killed me, per death (None: executed).
         #[serde(default)]
         pub killed_by: Vec<Option<ChampKey>>,
+        /// Control Wards I bought (game details).
+        #[serde(default)]
+        pub control_wards: Option<u32>,
     }
 
     /// My past games against one enemy champion (champ select).
@@ -1150,6 +1153,34 @@ data! {
         pub follow: Vec<FollowSplit>,
         pub augments: Vec<AugmentUse>,
         pub goals: Vec<GoalStatus>,
+        /// My latest run of games.
+        #[serde(default)]
+        pub session: Option<Session>,
+    }
+
+    /// My latest games played with gaps under two hours (remakes left out).
+    pub struct Session {
+        /// Unix ms: the first game's start and the last game's end.
+        #[ts(type = "number")]
+        pub start: u64,
+        #[ts(type = "number")]
+        pub end: u64,
+        /// Newest first.
+        #[ts(type = "number[]")]
+        pub game_ids: Vec<u64>,
+        pub wins: u32,
+        pub losses: u32,
+        /// Mistakes in at least two games and half of them, most frequent first.
+        pub repeats: Vec<SessionRepeat>,
+        /// My goals over these games only.
+        pub goals: Vec<GoalStatus>,
+    }
+
+    pub struct SessionRepeat {
+        pub text: String,
+        /// Games it happened in, of those where it could be measured.
+        pub games: u32,
+        pub of: u32,
     }
 
     // ---- augments / resists / gold sinks ----

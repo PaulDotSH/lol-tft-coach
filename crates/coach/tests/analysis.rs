@@ -43,6 +43,7 @@ fn past_game() -> PastGame {
         enemies: vec![],
         opponent: None,
         killed_by: vec![],
+        control_wards: None,
     }
 }
 

@@ -45,6 +45,7 @@ fn game(i: usize, mode: Mode, champ: ChampKey, win: bool) -> PastGame {
         enemies: vec![],
         opponent: None,
         killed_by: vec![],
+        control_wards: None,
     }
 }
 

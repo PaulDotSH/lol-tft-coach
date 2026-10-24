@@ -234,6 +234,7 @@ fn past(i: usize, mode: Mode, win: bool, cs_10: u32, early: usize) -> PastGame {
         enemies: vec![],
         opponent: None,
         killed_by: vec![],
+        control_wards: None,
     }
 }
 
@@ -338,4 +339,26 @@ fn a_long_teamfight_is_judged_whole() {
     tick(&mut log, &sd, 1452.0, 300.0, &p, &ev);
     let r = death_review(&log, &sd);
     assert_eq!(r.deaths.iter().map(|d| d.traded).collect::<Vec<_>>(), vec![true, false], "3 for 2, then a lone pick");
+}
+
+#[test]
+fn session_is_the_latest_run_of_games_with_their_repeated_mistakes() {
+    const H: u64 = 3600 * 1000;
+    let game = |i: usize, created: u64, early: usize, win: bool| PastGame { created, control_wards: Some(0), ..past(i, Mode::Rift, win, 70, early) };
+    // Newest first, 30 min each: two games tonight half an hour apart, one 8 hours before.
+    let games = vec![game(1, 30 * H, 1, true), game(2, 29 * H, 0, false), game(3, 20 * H, 1, true)];
+    let goals = [Goal { kind: GoalKind::Vision, target: 1.0 }];
+    let s = coach::trends(&games, &[], &goals).session.expect("session");
+    assert_eq!(s.game_ids, [1, 2]);
+    assert_eq!((s.start, s.end, s.wins, s.losses), (29 * H, 30 * H + H / 2, 1, 1));
+    // No Control Wards in both; an early death in only one of two is no pattern.
+    let repeats: Vec<(&str, u32, u32)> = s.repeats.iter().map(|r| (r.text.as_str(), r.games, r.of)).collect();
+    assert_eq!(repeats, [("No Control Wards bought", 2, 2)]);
+    assert_eq!((s.goals[0].met, s.goals[0].of), (2, 2));
+
+    // Remakes don't count; no games, no session.
+    let mut with_remake = games.clone();
+    with_remake.insert(0, PastGame { remake: true, created: 31 * H, ..game(9, 0, 0, false) });
+    assert_eq!(coach::trends(&with_remake, &[], &[]).session.unwrap().game_ids, [1, 2]);
+    assert!(coach::trends(&[], &[], &[]).session.is_none());
 }

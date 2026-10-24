@@ -24,6 +24,7 @@ mod resists;
 mod runes;
 mod self_stats;
 mod selfcoach;
+mod session;
 mod shop;
 mod spikes;
 mod team;

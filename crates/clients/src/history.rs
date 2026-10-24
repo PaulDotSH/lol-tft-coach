@@ -13,7 +13,7 @@ use std::path::Path;
 /// Games read from the history list, newest first.
 pub const RECENT: u32 = 30;
 /// Bump when parsing changes so cached games are parsed again.
-const CACHE_VERSION: u32 = 6;
+const CACHE_VERSION: u32 = 7;
 
 /// Recent games, newest first. The client lists only the last few games, but
 /// older ones stay fetchable by id, so every game cached in `dir` stays in the
@@ -323,6 +323,7 @@ fn parse<'a>(game: &'a Value, puuid: Option<&str>, timeline: Option<&'a Value>) 
         enemies: parts.iter().filter(|p| p["teamId"].as_i64() != my_team).filter_map(|p| id(&p["championId"])).collect(),
         opponent: opp.and_then(champ_of),
         killed_by,
+        control_wards: s["visionWardsBoughtInGame"].as_u64().map(|n| n as u32),
     };
     Some(Parsed { game, me_id, parts, lanes, frames })
 }

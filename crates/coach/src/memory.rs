@@ -63,6 +63,7 @@ mod tests {
             enemies: enemies.to_vec(),
             opponent,
             killed_by: killed_by.iter().map(|&k| Some(k)).collect(),
+            control_wards: None,
         }
     }
 

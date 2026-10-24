@@ -118,26 +118,28 @@ pub fn trends(games: &[PastGame], summaries: &[GameSummary], goals: &[Goal]) -> 
     augments.sort_by(|a, b| b.games.cmp(&a.games).then(b.damage_per_min.total_cmp(&a.damage_per_min)));
     augments.truncate(MAX_AUGMENTS);
 
-    let goals = goals
-        .iter()
-        .map(|goal| {
-            let met = |v: f32| if lower_better(goal.kind) { v <= goal.target } else { v >= goal.target };
-            let checks: Vec<bool> = if from_history(goal.kind) {
-                games.iter().filter(|g| g.mode == Mode::Rift).filter_map(|g| game_value(goal.kind, g)).take(GOAL_GAMES).map(met).collect()
-            } else if goal.kind == GoalKind::Unspent {
-                // Met when no death happened at or above the target.
-                summaries
-                    .iter()
-                    .filter(|s| !s.unspent_at_death.is_empty())
-                    .take(GOAL_GAMES)
-                    .map(|s| s.unspent_at_death.iter().all(|&u| (u as f32) < goal.target))
-                    .collect()
-            } else {
-                summaries.iter().filter_map(|s| summary_value(goal.kind, s)).take(GOAL_GAMES).map(met).collect()
-            };
-            GoalStatus { goal: goal.clone(), met: checks.iter().filter(|&&m| m).count() as u32, of: checks.len() as u32 }
-        })
-        .collect();
+    let session = crate::session::session(&games, summaries, goals);
+    let all: Vec<&GameSummary> = summaries.iter().collect();
+    let goals = goals.iter().map(|g| goal_status(g, &games, &all, GOAL_GAMES)).collect();
 
-    Trends { trends, follow, augments, goals }
+    Trends { trends, follow, augments, goals, session }
+}
+
+/// How many of the newest `limit` measurable games met `goal`.
+pub(crate) fn goal_status(goal: &Goal, games: &[&PastGame], summaries: &[&GameSummary], limit: usize) -> GoalStatus {
+    let met = |v: f32| if lower_better(goal.kind) { v <= goal.target } else { v >= goal.target };
+    let checks: Vec<bool> = if from_history(goal.kind) {
+        games.iter().filter(|g| g.mode == Mode::Rift).filter_map(|g| game_value(goal.kind, g)).take(limit).map(met).collect()
+    } else if goal.kind == GoalKind::Unspent {
+        // Met when no death happened at or above the target.
+        summaries
+            .iter()
+            .filter(|s| !s.unspent_at_death.is_empty())
+            .take(limit)
+            .map(|s| s.unspent_at_death.iter().all(|&u| (u as f32) < goal.target))
+            .collect()
+    } else {
+        summaries.iter().filter_map(|s| summary_value(goal.kind, s)).take(limit).map(met).collect()
+    };
+    GoalStatus { goal: goal.clone(), met: checks.iter().filter(|&&m| m).count() as u32, of: checks.len() as u32 }
 }
