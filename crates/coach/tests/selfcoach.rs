@@ -9,7 +9,7 @@ use model::*;
 /// One in-game tick through the real coach into the log.
 fn tick(log: &mut GameLog, sd: &StaticData, time: f32, gold: f32, players: &[Player], events: &[GameEvent]) {
     let snap = GameSnapshot { time, my_gold: gold, players: players.to_vec(), events: events.to_vec(), ..snap(vec![], vec![]) };
-    let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     log.observe(&snap, &advice, sd);
 }
 
@@ -113,7 +113,7 @@ fn cs_at_10_early_deaths_and_buys() {
     tick(&mut log, &sd, 598.0, 3000.0, &p, &ev);
     let suggested = {
         let snap = GameSnapshot { time: 598.0, my_gold: 3000.0, players: p.clone(), ..snap(vec![], vec![]) };
-        game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() }).buy_next.unwrap().item
+        game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None }).buy_next.unwrap().item
     };
     p[0] = p[0].clone().cs(66).items(&[RUBY, suggested, LONG_SWORD]);
     tick(&mut log, &sd, 600.5, 100.0, &p, &ev);

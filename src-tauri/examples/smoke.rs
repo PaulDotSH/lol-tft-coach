@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         data::lolalytics::champ_stats(&http, &sd.champs[&me.champ], me.position, snap.mode, "emerald_plus", "all", &patch).await?;
     println!("\nlolalytics {} {:?}: patch {} games {} ({:?})", sd.champ_name(me.champ), me.position, stats.patch, stats.games, t.elapsed());
     let t = Instant::now();
-    let a = coach::game_advice(&coach::GameInput { snap: &snap, sd: &sd, stats: Some(&stats), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let a = coach::game_advice(&coach::GameInput { snap: &snap, sd: &sd, stats: Some(&stats), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     println!("coach tick: {:?}", t.elapsed());
     print_game(&sd, &a);
 
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     let aram = data::lolalytics::champ_stats(&http, &sd.champs[&me.champ], None, Mode::Mayhem, "all", "all", &patch).await?;
     // Pretend the first offer's top card (if curated) was taken.
     let took = [MyAugment { id: Some(aug.gold[0]), candidates: vec![aug.gold[0]], time: 300.0 }];
-    let a = coach::game_advice(&coach::GameInput { snap: &ms, sd: &sd, stats: Some(&aram), augments: Some((&aug, &m)), offered: &offered, gold_history: &[], my_augments: &took, enemy_augments: Default::default() });
+    let a = coach::game_advice(&coach::GameInput { snap: &ms, sd: &sd, stats: Some(&aram), augments: Some((&aug, &m)), offered: &offered, gold_history: &[], my_augments: &took, enemy_augments: Default::default(), keep: None });
     println!("\n== Mayhem (u.gg {}) ==", m.patch);
     print_game(&sd, &a);
 

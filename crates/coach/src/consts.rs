@@ -101,6 +101,9 @@ pub const HEAL_AMP_ITEMS: [model::ItemId; 1] = [3065];
 pub const MAGIC_SHIELDS: [model::ItemId; 2] = [2504, 3156];
 /// Score for upgrading a component I already hold.
 pub const HELD_COMPONENT_BONUS: f32 = 0.02;
+/// Last tick's Buy next stays first unless another item beats it by this much
+/// (near-equal boots otherwise swap every few ticks).
+pub const KEEP_MARGIN: f32 = 0.02;
 /// Below this `heals` trait, a heal-amp item loses SELF_HEAL_PENALTY (win-rate units).
 pub const SELF_HEAL_MIN: f32 = 0.3;
 pub const SELF_HEAL_PENALTY: f32 = 0.03;

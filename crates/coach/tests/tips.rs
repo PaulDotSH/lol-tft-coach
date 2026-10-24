@@ -12,7 +12,7 @@ const ZED_I: usize = 7;
 
 fn advise(s: &GameSnapshot, stats: Option<&ChampStats>, tracker: &Tracker) -> GameAdvice {
     let sd = sd();
-    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker, ults: &HashMap::new() });
     a
 }

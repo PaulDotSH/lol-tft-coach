@@ -34,6 +34,8 @@ struct Memo {
     /// The running game is not League (TFT): no live coaching.
     not_lol: bool,
     recommended: Vec<ItemId>,
+    /// Last tick's Buy next, kept while still about as good.
+    last_buy: Option<ItemId>,
     last_champ: Option<ChampKey>,
     last_lane: Option<Lane>,
     recap_done: bool,
@@ -442,12 +444,14 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
             ranks: &enemy_ranks,
             stale_since: memo.tab.stale_since,
         },
+        keep: memo.last_buy,
     });
     let ults = crate::ingame::ults(sh, sd, snap);
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults });
     if let Some(s) = advice.gold.history.last() {
         memo.gold.push(s.clone());
     }
+    memo.last_buy = advice.buy_next.as_ref().map(|p| p.item);
     if let Some(p) = &advice.buy_next
         && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);

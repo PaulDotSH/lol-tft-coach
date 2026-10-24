@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
         offered: &[],
         gold_history: &[],
         my_augments: &[],
-        enemy_augments: Default::default(),
+        enemy_augments: Default::default(), keep: None,
     });
     println!("{} at {:.0}s", sd.champ_name(me.champ), snap.time);
     if let Some(d) = &a.defense {

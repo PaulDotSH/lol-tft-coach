@@ -87,6 +87,8 @@ pub struct Ctx<'a> {
     pub aug: AugEffects,
     /// Enemy resists: penetration answers become the real damage gain.
     pub pen: Option<Targets>,
+    /// Last tick's Buy next, kept first while it is within KEEP_MARGIN of the best.
+    pub keep: Option<ItemId>,
 }
 
 impl<'a> Ctx<'a> {
@@ -113,7 +115,7 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None }
+        Ctx { sd, stats, champ, pool, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None, keep: None }
     }
 }
 
@@ -334,6 +336,11 @@ pub fn build(ctx: &Ctx, owned: &[ItemId], needs: &Needs) -> Build {
         }) else {
             break;
         };
+        if path.is_empty()
+            && let Some(i) = buf.iter().position(|s| Some(s.id) == ctx.keep && s.score >= buf[0].score - KEEP_MARGIN)
+        {
+            buf[..=i].rotate_right(1);
+        }
         let best = buf[0];
         if path.is_empty() {
             alts.extend(buf.iter().skip(1).take(ALTERNATIVES));

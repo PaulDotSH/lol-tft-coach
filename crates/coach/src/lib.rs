@@ -64,10 +64,12 @@ pub struct GameInput<'a> {
     pub my_augments: &'a [MyAugment],
     /// Mayhem: enemy augments read off the Tab scoreboard.
     pub enemy_augments: EnemyAugmentInput<'a>,
+    /// Last tick's Buy next: kept unless something clearly beats it.
+    pub keep: Option<ItemId>,
 }
 
 pub fn game_advice(input: &GameInput) -> GameAdvice {
-    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments } = *input;
+    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments, keep } = *input;
     let me = snap.players.get(snap.me);
     let my_champ = me.map_or(0, |p| p.champ);
     let owned = me.map_or(&[][..], |p| &p.items);
@@ -79,6 +81,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     rules.scale_needs(&mut needs.p);
     resists::tilt_needs(&mut needs.p, snap.my_stats.as_ref());
     let mut ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
+    ctx.keep = keep;
     ctx.ahead = me.is_some_and(|p| {
         p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0)
     });

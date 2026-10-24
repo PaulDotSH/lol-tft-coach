@@ -8,7 +8,7 @@ use model::*;
 
 fn advise(snap: &GameSnapshot, stats: Option<&ChampStats>) -> GameAdvice {
     let sd = sd();
-    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() })
+    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None })
 }
 
 /// Zed (index 7) mid, 12/1/3, two lethality items, killed me 3×.
@@ -385,7 +385,7 @@ fn mayhem_offer_picks_highest_ranked_augment() {
     let mut s = fed_zed(&[]);
     s.mode = Mode::Mayhem;
     let offered = [1005, 1001, 1030, 9999];
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &offered, gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &offered, gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     let aug = a.augments.unwrap();
     assert_eq!(aug.best, Some(1001));
     assert_eq!(aug.reason, "#2 of 52 Prismatic for Ahri");
@@ -395,10 +395,10 @@ fn mayhem_offer_picks_highest_ranked_augment() {
     assert_eq!((aug.offered[3].rarity, aug.offered[3].rank), (None, None));
 
     // Normalised rank across rarities: #3 of 30 silver (0.067) beats #5 of 40 gold (0.1).
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[2004, 3002], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[2004, 3002], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     assert_eq!(a.augments.unwrap().best, Some(3002));
 
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: Some((&ranks, &md)), offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     assert!(a.augments.is_none());
 }
 
@@ -422,7 +422,36 @@ fn game_item_groups_block_items_that_cannot_be_owned_together() {
     let s = fed_zed(&[LUDENS, RABADONS, SORCS]);
     let mut sd = sd();
     sd.item_groups = [(ZHONYAS, vec![0]), (RABADONS, vec![0])].into();
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&ahri_stats()), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default() });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&ahri_stats()), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
     assert!(!all_ids(&a).contains(&ZHONYAS), "{:?}", all_ids(&a));
     assert!(a.buy_next.is_some());
+}
+
+#[test]
+fn last_buy_next_stays_first_unless_clearly_beaten() {
+    let sd = sd();
+    let stats = ahri_stats();
+    let fed = fed_zed(&[LUDENS, RABADONS, SORCS]);
+    let mut calm = fed_zed(&[LUDENS]);
+    calm.players[7] = player(ZED, Team::Chaos, Some(Lane::Middle));
+    calm.events.clear();
+    let (mut kept, mut beaten) = (0, 0);
+    for s in [&fed, &calm] {
+        let run = |keep| {
+            game_advice(&GameInput { snap: s, sd: &sd, stats: Some(&stats), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep })
+        };
+        let a = run(None);
+        let best = a.buy_next.clone().expect("buy next");
+        for alt in &a.alternatives {
+            let b = run(Some(alt.item)).buy_next.expect("buy next");
+            if best.score - alt.score <= 0.02 {
+                assert_eq!(b.item, alt.item, "{} within the margin of {}", alt.name, best.name);
+                kept += 1;
+            } else {
+                assert_eq!(b.item, best.item, "{} clearly beats {}", best.name, alt.name);
+                beaten += 1;
+            }
+        }
+    }
+    assert!(kept > 0 && beaten > 0, "both cases covered: kept {kept}, beaten {beaten}");
 }
