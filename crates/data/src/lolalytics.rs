@@ -24,7 +24,8 @@
 
 use crate::num;
 use model::{
-    Benchmarks, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, Mode, RuneData, RunePage, RuneStat, TierEntry,
+    Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, MatchupBuild, Mode, RuneData, RunePage,
+    RuneStat, TierEntry,
 };
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -99,6 +100,38 @@ pub async fn champ_stats(
         benchmarks: page.benchmarks,
         runes: page.runes,
     })
+}
+
+/// My win rate against every champion in another lane: `vslane` (support vs bot laners).
+pub async fn counters_vs(
+    http: &crate::Http,
+    champ: &Champion,
+    lane: Lane,
+    vs_lane: Lane,
+    tier: &str,
+    region: &str,
+    patch: &str,
+) -> anyhow::Result<Vec<Matchup>> {
+    let q = Query { slug: &champ.slug, lane: Some(lane), mode: Mode::Rift, tier, region, patch: patch.to_owned() };
+    let url = format!("{}&vslane={}", q.mega("counter"), vs_lane.as_str());
+    Ok(http.get_parsed(&url, TTL, parse_counters).await?.counters)
+}
+
+/// The matchup page (`/lol/<me>/vs/<them>/build/`): win rate, starting and first items.
+#[allow(clippy::too_many_arguments)]
+pub async fn matchup(
+    http: &crate::Http,
+    me: &Champion,
+    vs: &Champion,
+    lane: Lane,
+    vs_lane: Lane,
+    tier: &str,
+    region: &str,
+    patch: &str,
+) -> anyhow::Result<MatchupBuild> {
+    let (l, vl) = (lane.as_str(), vs_lane.as_str());
+    let url = format!("{SITE}/{}/vs/{}/build/?lane={l}&vslane={vl}&tier={tier}&patch={patch}&region={region}", me.slug, vs.slug);
+    http.get_parsed(&url, TTL, |h| parse_matchup_page(h, vs.key)).await
 }
 
 /// Tier list for one lane (meta bans, pick candidates).
@@ -318,6 +351,33 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
     })
 }
 
+/// Matchup page: the header (`vs`, `vsLane`, `n`, `wr`) and the most played
+/// `summary.pick.items` (`start` set, then `item1`..`item3` with `id`).
+pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBuild> {
+    let q = crate::qwik::parse(html).ok_or_else(|| anyhow::anyhow!("no qwik/json state"))?;
+    let (games, win_rate) = q
+        .find_map(2, &["vs", "vsLane", "n", "wr"], |h| Some((num(&h["n"])? as u32, num(&h["wr"])? as f32)))
+        .ok_or_else(|| anyhow::anyhow!("no matchup header"))?;
+    let items = q.find_map(6, &["pick", "win"], |v| {
+        let it = &v["pick"]["items"];
+        it["start"].is_object().then(|| it.clone())
+    });
+    let ids = |v: &Value| -> Vec<ItemId> { v.as_array().into_iter().flatten().filter_map(|x| num(x).map(|n| n as ItemId)).collect() };
+    // item1..3 are single rows; later slots are lists of rows.
+    let first_id = |v: &Value| num(if v.is_array() { &v[0]["id"] } else { &v["id"] }).map(|n| n as ItemId);
+    let it = items.unwrap_or_default();
+    let s = &it["start"];
+    Ok(MatchupBuild {
+        vs,
+        games,
+        win_rate,
+        start: ids(&s["set"]),
+        start_games: num(&s["n"]).unwrap_or(0.0) as u32,
+        start_wr: num(&s["wr"]).unwrap_or(0.0) as f32,
+        core: ["item1", "item2", "item3"].iter().filter_map(|k| first_id(&it[*k])).collect(),
+    })
+}
+
 fn parse_runes(q: &crate::qwik::Qwik) -> Option<RuneData> {
     let ids = |v: &Value| -> Option<Vec<u32>> { v.as_array()?.iter().map(|x| num(x).map(|n| n as u32)).collect() };
     let page = |r: &Value| {
@@ -426,6 +486,23 @@ mod tests {
         assert_eq!(e[0].items, vec![1056, 3802, 1001, 1026]);
         assert_eq!((e[0].win_rate, e[0].pick_rate, e[0].games), (51.46, 0.62, 103));
         assert!(e.windows(2).all(|w| w[0].games >= w[1].games));
+    }
+
+    #[test]
+    fn counters_against_another_lane() {
+        let c = parse_counters(&fixture("lolalytics-counter-braum-support-vs-bottom.json")).unwrap();
+        let ezreal = c.counters.iter().find(|m| m.champ == 81).unwrap();
+        assert_eq!(ezreal.default_lane, Some(Lane::Bottom));
+        assert!(ezreal.games > 1000, "{ezreal:?}");
+        assert!(c.counters.len() > 30);
+    }
+
+    #[test]
+    fn matchup_page() {
+        let m = parse_matchup_page(&fixture("lolalytics-vs-braum-ezreal.html"), 81).unwrap();
+        assert_eq!((m.vs, m.games, m.win_rate), (81, 1807, 57.78));
+        assert_eq!((m.start.as_slice(), m.start_games, m.start_wr), ([3865, 2003, 2003].as_slice(), 1776, 57.83));
+        assert_eq!(m.core, [3876, 3047, 3190]);
     }
 
     #[test]

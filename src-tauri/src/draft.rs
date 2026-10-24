@@ -3,7 +3,8 @@
 
 use crate::state::{Shared, ensure};
 use model::*;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, OnceLock};
 
 fn lane_stats(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<Lane>) -> Option<Arc<ChampStats>> {
     let c = sd.champs.get(&champ)?.clone();
@@ -27,6 +28,63 @@ fn team(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane) -> Optio
         (champ, lane),
         move || async move { data::lolalytics_team::team(&http, &c, lane, &s.tier, &s.region, &patch).await },
     )
+}
+
+fn counters_vs(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<Vec<Matchup>>> {
+    let c = sd.champs.get(&champ)?.clone();
+    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    ensure(
+        sh,
+        |s| &s.vs_counters,
+        |s| &s.lola_ok,
+        (champ, lane, vs_lane),
+        move || async move { data::lolalytics::counters_vs(&http, &c, lane, vs_lane, &s.tier, &s.region, &patch).await },
+    )
+}
+
+fn matchup(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<MatchupBuild>> {
+    let (a, b) = (sd.champs.get(&me)?.clone(), sd.champs.get(&vs)?.clone());
+    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    ensure(
+        sh,
+        |s| &s.matchups,
+        |s| &s.lola_ok,
+        (me, vs, lane, vs_lane),
+        move || async move { data::lolalytics::matchup(&http, &a, &b, lane, vs_lane, &s.tier, &s.region, &patch).await },
+    )
+}
+
+fn lane_notes() -> &'static HashMap<String, LaneNote> {
+    static NOTES: OnceLock<HashMap<String, LaneNote>> = OnceLock::new();
+    NOTES.get_or_init(|| data::lane_notes::lane_notes().unwrap_or_else(|e| {
+        tracing::warn!("lane notes: {e:#}");
+        HashMap::new()
+    }))
+}
+
+/// Bot lane 2v2 plan when I play support or ADC; lolalytics parts join once fetched.
+pub fn bot_lane(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice) -> Option<BotLanePlan> {
+    let lane = cs.my_lane.filter(|l| matches!(l, Lane::Bottom | Lane::Support) && cs.mode == Mode::Rift)?;
+    let me = cs.my_pick.or(cs.my_hover)?;
+    let draft = advice.draft.as_ref();
+    let lanes = draft.map_or(&[][..], |d| d.lanes.as_slice());
+    let enemy = |l: Lane| lanes.iter().find(|x| x.lane == l).and_then(|x| x.enemy);
+    let vs: Vec<(Lane, Vec<Matchup>)> = [Lane::Bottom, Lane::Support]
+        .into_iter()
+        .filter(|&l| enemy(l).is_some())
+        .filter_map(|l| Some((l, (*counters_vs(sh, sd, me, lane, l)?).clone())))
+        .collect();
+    let start = enemy(Lane::Bottom).and_then(|e| matchup(sh, sd, me, e, lane, Lane::Bottom));
+    coach::bot_lane_plan(&coach::BotLaneInput {
+        cs,
+        sd,
+        lanes,
+        duos: draft.map_or(&[][..], |d| d.allies.duos.as_slice()),
+        memory: &advice.memory,
+        vs: &vs,
+        start: start.as_deref(),
+        notes: lane_notes(),
+    })
 }
 
 /// ARAM win rates and tiers for the ARAM / Mayhem bench.

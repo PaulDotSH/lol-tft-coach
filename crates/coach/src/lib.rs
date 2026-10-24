@@ -3,6 +3,7 @@
 mod analysis;
 mod augment_tags;
 mod augments;
+mod bot_lane;
 mod calls;
 mod champ_select;
 mod common;
@@ -38,6 +39,7 @@ mod trends;
 mod windows;
 
 pub use analysis::{analyze_match, compare_past};
+pub use bot_lane::{BotLaneInput, plan as bot_lane_plan};
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use memory::matchup_memory;

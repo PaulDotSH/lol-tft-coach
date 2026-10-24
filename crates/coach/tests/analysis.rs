@@ -348,7 +348,7 @@ fn laning_compares_both_duos_minute_by_minute() {
     assert_eq!(l.verdict, "Won lane: +3,600 gold at 14:00, ahead from 6:00");
     assert_eq!(l.turned_at, Some(6));
     // Only kills on the lane's players before 14:00.
-    let ev: Vec<(f32, Option<ChampKey>, ChampKey, bool, Option<&str>)> =
+    let ev: Vec<_> =
         l.events.iter().map(|e| (e.time, e.killer, e.victim, e.ours, e.place.as_deref())).collect();
     assert_eq!(ev, [(200.0, Some(CAITLYN), LEONA, false, Some("bot lane"))]);
     assert_eq!(l.events[0].assists, [THRESH]);

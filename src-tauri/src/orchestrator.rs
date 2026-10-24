@@ -164,6 +164,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                             let mut advice = champ_select_advice(&sh, &sd, &cs);
                             let games = macro_sync.games();
                             advice.memory = coach::matchup_memory(games.as_deref().map_or(&[], |g| g.as_slice()), &cs.enemies, cs.mode);
+                            advice.bot_lane = crate::draft::bot_lane(&sh, &sd, &cs, &advice);
                             debug::dump("champ-select-advice", Duration::from_secs(5), &advice);
                             champ_select = Some(advice);
                         }

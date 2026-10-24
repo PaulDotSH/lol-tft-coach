@@ -4,6 +4,7 @@
 pub mod ddragon;
 pub mod icons;
 pub mod item_groups;
+pub mod lane_notes;
 pub mod lolalytics;
 pub mod lolalytics_aram;
 pub mod lolalytics_team;

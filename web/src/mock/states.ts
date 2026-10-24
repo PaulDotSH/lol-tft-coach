@@ -373,6 +373,7 @@ export const fixtures = {
         { champ: 238, games: 4, wins: 1, lane_games: 3, gold_15: -650, killed_me: 9 },
         { champ: 145, games: 2, wins: 2, lane_games: 0, gold_15: null, killed_me: 1 },
       ],
+      bot_lane: null,
       enemies: [238, 145, 254],
       draft: {
         lanes: [
@@ -421,6 +422,40 @@ export const fixtures = {
           total: -4.3,
           peel: 0,
         },
+      },
+    },
+  },
+  'champselect support': {
+    ...base,
+    phase: 'champselect',
+    sources: src({}),
+    champ_select: {
+      mode: 'rift',
+      my_lane: 'support',
+      my_champ: 201,
+      picks: [],
+      bans: [],
+      build: null,
+      runes: null,
+      bench: [],
+      team: null,
+      memory: [{ champ: 111, games: 3, wins: 2, lane_games: 3, gold_15: 350, killed_me: 4 }],
+      enemies: [81, 111],
+      draft: null,
+      bot_lane: {
+        allies: [201, 222],
+        enemies: [81, 111],
+        numbers: [
+          { champ: 81, with: false, value: 57.97, games: 1908 },
+          { champ: 111, with: false, value: 48.6, games: 74 },
+          { champ: 222, with: true, value: 1.8, games: 2412 },
+        ],
+        windows: [
+          { champ: 81, tags: ['poke'], note: 'Q poke all lane; all-in when his E dash is down' },
+          { champ: 111, tags: ['strong level 2', 'all-in at 6', 'hard engage'], note: 'Hook + passive root at 2, point-and-click R at 6: stay behind minions' },
+        ],
+        memory: [{ champ: 111, games: 3, wins: 2, lane_games: 3, gold_15: 350, killed_me: 4 }],
+        start: { vs: 81, games: 1807, win_rate: 57.78, start: [3865, 2003, 2003], start_games: 1776, start_wr: 57.83, core: [3876, 3047, 3190] },
       },
     },
   },
@@ -476,6 +511,7 @@ export const fixtures = {
       enemies: [],
       draft: null,
       memory: [],
+      bot_lane: null,
       team: {
         champs: [81, 1, 134, 63, 45],
         physical: 0.21,
@@ -534,6 +570,7 @@ export const fixtures = {
       enemies: [],
       draft: null,
       memory: [],
+      bot_lane: null,
       team: {
         champs: [21, 99, 89, 53, 1],
         physical: 0.32,

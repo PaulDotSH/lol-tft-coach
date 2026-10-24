@@ -625,6 +625,69 @@ data! {
         /// My history against the enemies revealed so far.
         #[serde(default)]
         pub memory: Vec<MatchupMemory>,
+        /// Rift, me support or ADC: the bot lane 2v2.
+        #[serde(default)]
+        pub bot_lane: Option<BotLanePlan>,
+    }
+
+    /// Champ select plan for the bot lane 2v2 when I play support or ADC.
+    pub struct BotLanePlan {
+        /// My duo, me first.
+        pub allies: Vec<ChampKey>,
+        /// Their bot laner then their support, as revealed (empty: none yet).
+        pub enemies: Vec<ChampKey>,
+        pub numbers: Vec<LaneNumber>,
+        /// From the hand-written lane notes, one per enemy that has one.
+        pub windows: Vec<LaneWindow>,
+        /// My past games against their bot laners.
+        pub memory: Vec<MatchupMemory>,
+        /// Starting and first items against their bot laner (lolalytics matchup page).
+        pub start: Option<MatchupBuild>,
+    }
+
+    pub struct LaneNumber {
+        pub champ: ChampKey,
+        /// true: synergy with my lane partner (win-rate points); false: my win rate
+        /// against them (percent).
+        pub with: bool,
+        pub value: f32,
+        pub games: u32,
+    }
+
+    pub struct LaneWindow {
+        pub champ: ChampKey,
+        /// "strong level 2", "all-in at 6", "hard engage", "poke", "sustain".
+        pub tags: Vec<String>,
+        pub note: String,
+    }
+
+    /// Hand-written bot lane note (`crates/data/lane_notes.toml`).
+    pub struct LaneNote {
+        #[serde(default)]
+        pub level2: bool,
+        #[serde(default)]
+        pub level6: bool,
+        #[serde(default)]
+        pub engage: bool,
+        #[serde(default)]
+        pub poke: bool,
+        #[serde(default)]
+        pub sustain: bool,
+        pub note: String,
+    }
+
+    /// lolalytics matchup page: me against one champion, lane against lane.
+    pub struct MatchupBuild {
+        pub vs: ChampKey,
+        pub games: u32,
+        /// My win rate in this matchup, percent.
+        pub win_rate: f32,
+        /// Most played starting items (two potions are two ids).
+        pub start: Vec<ItemId>,
+        pub start_games: u32,
+        pub start_wr: f32,
+        /// Most played first, second and third completed items.
+        pub core: Vec<ItemId>,
     }
 
     pub struct Recap {

@@ -25,6 +25,7 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
         draft: if rift { draft::report(inp) } else { None },
         team: if rift { None } else { team::side(inp, mine) },
         memory: vec![],
+        bot_lane: None,
     }
 }
 

@@ -1,0 +1,62 @@
+# Hand-written bot lane notes, keyed by Data Dragon id (static knowledge, no live data).
+# Tags (all optional, default false):
+#   level2  strong level-2 all-in       level6  the ult turns the lane at 6
+#   engage  hard engage                 poke    wins by poking
+#   sustain heals or shields through poke
+# note: one short line on how to play against them (at most 80 characters).
+
+# ---- supports ----
+Alistar = { level2 = true, engage = true, note = "W-Q combo at 2: stay out of W range when he walks up" }
+Bard = { note = "Roams often; Q stuns you against a wall or a minion behind you" }
+Blitzcrank = { engage = true, note = "Grab is the whole threat: stay behind minions, he's weak after a miss" }
+Brand = { poke = true, level6 = true, note = "Burns stack fast: dodge W, all-in him before he hits 6" }
+Braum = { engage = true, note = "Passive stuns after 4 hits; his E blocks your poke and engage" }
+Janna = { note = "Disengage: Q and R stop all-ins; poke her when Q is down" }
+Karma = { poke = true, note = "Strong R-Q poke early: all-in her rather than trade spells" }
+Leona = { level2 = true, level6 = true, engage = true, note = "E-Q stun all-in at 2, R adds a stun at 6: fight when E is down" }
+Lulu = { poke = true, note = "Wins short trades; W polymorph stops your all-in, R saves her carry" }
+Lux = { poke = true, note = "Q binds through one minion: stand behind two; E slows and pokes" }
+Milio = { sustain = true, note = "R cleanses and heals: bait it before your big engage" }
+Morgana = { note = "Q binds for a long time; E blocks your CC, so wait for it" }
+Nami = { poke = true, note = "Bubble (Q) into ADC trades; she wins short trades early" }
+Nautilus = { level2 = true, level6 = true, engage = true, note = "Hook + passive root at 2, point-and-click R at 6: stay behind minions" }
+Pyke = { level2 = true, level6 = true, engage = true, note = "Hook and dash stun; R executes low targets: don't stay low" }
+Rakan = { engage = true, level6 = true, note = "W knock-up engage; R charms the whole team at 6" }
+Rell = { level2 = true, engage = true, level6 = true, note = "Dives with W; R pulls everyone in: spread out" }
+Renata = { level6 = true, note = "R makes your team fight each other: spread out after 6" }
+Senna = { poke = true, sustain = true, note = "Long-range autos and Q heals; weak when caught: engage her" }
+Seraphine = { poke = true, level6 = true, note = "Long-range poke; R charm goes through allies at 6" }
+Sona = { poke = true, level6 = true, note = "Weak early, strong at 6 (R stun): punish her levels 1-5" }
+Soraka = { sustain = true, note = "Heals undo poke: all-in instead, and buy Grievous Wounds" }
+Taric = { sustain = true, level6 = true, note = "E stun is delayed; R makes them invulnerable at 6: wait it out" }
+Thresh = { level2 = true, engage = true, note = "Hook from fog; stand behind minions and punish a missed hook" }
+Velkoz = { poke = true, note = "Long-range poke: dodge the Q split and the E knock-up" }
+Xerath = { poke = true, note = "Long-range poke, no dash: all-in him when his E is down" }
+Yuumi = { sustain = true, note = "Weak lane: engage the ADC she sits on early" }
+Zilean = { poke = true, level6 = true, note = "Double bomb stuns; R revives his carry at 6" }
+Zyra = { poke = true, note = "Plants zone: don't fight in them; strong poke levels 1-3" }
+
+# ---- bot laners ----
+Aphelios = { note = "Strong 2v2 with the right guns; weak if caught early" }
+Ashe = { poke = true, level6 = true, note = "Every auto slows; R stun is a long-range engage at 6" }
+Caitlyn = { poke = true, note = "Longest range: she wins farm trades; engage when her traps are down" }
+Draven = { level2 = true, note = "Strongest levels 1-3: don't trade into his spinning axes" }
+Ezreal = { poke = true, note = "Q poke all lane; all-in when his E dash is down" }
+Jhin = { poke = true, note = "4th shot hits hard; W roots after his team hits you" }
+Jinx = { note = "Weak early, scales hard: win lane before her items" }
+Kaisa = { level6 = true, note = "R dash all-in at 6; Q spikes once it evolves (2 items)" }
+Kalista = { level2 = true, engage = true, note = "Strong at 2-3 with her support; E rend kills fast" }
+KogMaw = { note = "Weak early, scales hard; very long range W in mid game" }
+Lucian = { level2 = true, note = "Strong early E-Q-W burst: fight him late, not early" }
+MissFortune = { poke = true, level6 = true, note = "Q bounces through minions; stand out of the R cone at 6" }
+Nilah = { level2 = true, sustain = true, note = "Strong melee early with her support; W dodges auto attacks" }
+Samira = { level2 = true, level6 = true, engage = true, note = "Dashes in after her support's CC; save your CC for her" }
+Sivir = { note = "E blocks one CC: bait it before engaging; she pushes fast" }
+Smolder = { poke = true, note = "Q stacks over time and scales hard: punish him early" }
+Tristana = { level2 = true, note = "E bomb burst at 2-3; W jump resets on kills" }
+Twitch = { note = "Invisible ganks with Q; weak early lane" }
+Varus = { poke = true, level6 = true, note = "Q poke all lane; R root spreads to nearby allies at 6" }
+Vayne = { note = "Short range early; E stuns you against walls: stay away from them" }
+Xayah = { note = "Feathers root (E); R dodges your engage" }
+Zeri = { note = "Weak early, scales with items: trade into her before her spike" }
+Ziggs = { poke = true, note = "Long-range poke and fast pushes: all-in him, he has no escape but W" }

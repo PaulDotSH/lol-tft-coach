@@ -46,6 +46,9 @@ pub struct Shared {
     /// Draft: counter-only stats per (champ, lane) and build-team synergy.
     pub lane_stats: Cache<(ChampKey, Option<Lane>), ChampStats>,
     pub team: Cache<(ChampKey, Lane), TeamSynergy>,
+    /// Bot lane plan: my counters against another lane, and matchup pages.
+    pub vs_counters: Cache<(ChampKey, Lane, Lane), Vec<Matchup>>,
+    pub matchups: Cache<(ChampKey, ChampKey, Lane, Lane), MatchupBuild>,
     /// ARAM tier list (all champions) for the ARAM / Mayhem bench.
     pub aram_tiers: Cache<(), Vec<TierEntry>>,
     /// Data Dragon R cooldowns per champion, and the last fetch outcome.
@@ -91,6 +94,8 @@ impl Shared {
             ugg_ok: Mutex::new(None),
             lane_stats: Mutex::default(),
             team: Mutex::default(),
+            vs_counters: Mutex::default(),
+            matchups: Mutex::default(),
             aram_tiers: Mutex::default(),
             ults: Mutex::default(),
             ddragon_ok: Mutex::new(None),
@@ -119,6 +124,8 @@ impl Shared {
         self.lane_stats.lock().unwrap().clear();
         self.aram_tiers.lock().unwrap().clear();
         self.team.lock().unwrap().clear();
+        self.vs_counters.lock().unwrap().clear();
+        self.matchups.lock().unwrap().clear();
     }
 }
 
