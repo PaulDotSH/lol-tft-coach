@@ -183,3 +183,12 @@ fn a_free_slot_is_called_with_the_bench_unit_to_field() {
     let a = tick(&mut t, &s, &m, &TftSnapshot { team_size: None, ..now((1, 2)) });
     assert_eq!((a.team_size, a.calls.iter().any(|c| c.key.starts_with("free-slot"))), (Some((2, 2)), false));
 }
+
+#[test]
+fn a_lone_purchase_teaches_its_looks_without_the_panel() {
+    let s = set();
+    let mut t = Tracker::default();
+    start(&mut t, &s);
+    // Vi was the only buy and the only new bench piece: learnt while still on the bench.
+    assert!(t.library().classify(&look(VI)).first().is_some_and(|c| c.0 == VI), "{:?}", t.library().classify(&look(VI)));
+}

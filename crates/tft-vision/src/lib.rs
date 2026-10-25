@@ -130,6 +130,8 @@ const MASK: (u32, i32, u32, u32) = (146, -4, 34, 42);
 const DIGITS: &str = include_str!("digits.txt");
 /// Overlap (lit pixels in both / lit in either) a template match needs.
 const DIGIT_MATCH: f32 = 0.6;
+/// "N+" badge templates (cream glyphs in the MORE box), averaged over captures: "digit w h bits".
+const BADGE: &str = include_str!("badge.txt");
 
 /// The count box of the trait row whose name starts at `top` (client pixels), scaled to base size.
 pub fn count_mask(f: &Frame, scale: f32, top: u32) -> Mask {
@@ -146,22 +148,52 @@ pub fn count_mask(f: &Frame, scale: f32, top: u32) -> Mask {
     Mask { w, h, bits }
 }
 
+fn parse_templates(s: &str) -> Vec<(u32, Mask)> {
+    s.lines()
+        .filter_map(|l| {
+            let mut p = l.split_whitespace();
+            let (d, w, h, b) = (p.next()?.parse().ok()?, p.next()?.parse().ok()?, p.next()?.parse().ok()?, p.next()?);
+            Some((d, Mask { w, h, bits: b.bytes().map(|c| c == b'1').collect() }))
+        })
+        .collect()
+}
+
 fn templates() -> &'static [(u32, Mask)] {
     static T: std::sync::OnceLock<Vec<(u32, Mask)>> = std::sync::OnceLock::new();
-    T.get_or_init(|| {
-        DIGITS
-            .lines()
-            .filter_map(|l| {
-                let mut p = l.split_whitespace();
-                let (d, w, h, b) = (p.next()?.parse().ok()?, p.next()?.parse().ok()?, p.next()?.parse().ok()?, p.next()?);
-                Some((d, Mask { w, h, bits: b.bytes().map(|c| c == b'1').collect() }))
-            })
-            .collect()
-    })
+    T.get_or_init(|| parse_templates(DIGITS))
+}
+
+fn badges() -> &'static [(u32, Mask)] {
+    static T: std::sync::OnceLock<Vec<(u32, Mask)>> = std::sync::OnceLock::new();
+    T.get_or_init(|| parse_templates(BADGE))
+}
+
+/// Cream glyph pixels of the "N+" badge.
+fn cream(p: &[u8]) -> bool {
+    p[2] > 200 && p[1] > 185 && p[0] > 140
+}
+
+/// The "N+" badge box at `(x, y)` (client pixels), cream glyphs, scaled to base size.
+fn badge_mask(f: &Frame, scale: f32, x: u32, y: u32) -> Mask {
+    let (w, h) = (MORE.2 as u32, MORE.3 as u32);
+    let mut bits = Vec::with_capacity((w * h) as usize);
+    for by in 0..h {
+        for bx in 0..w {
+            let sx = (x + (bx as f32 * scale) as u32).min(f.width - 1);
+            let sy = (y + (by as f32 * scale) as u32).min(f.height - 1);
+            let i = ((sy * f.width + sx) * 4) as usize;
+            bits.push(cream(&f.bgra[i..i + 4]));
+        }
+    }
+    Mask { w, h, bits }
 }
 
 /// The digit whose template agrees best with `m` (shifted up to 2 px), if close enough.
 fn match_digit(m: &Mask) -> Option<u32> {
+    match_mask(m, templates())
+}
+
+fn match_mask(m: &Mask, templates: &[(u32, Mask)]) -> Option<u32> {
     let agree = |t: &Mask, dx: i32, dy: i32| {
         let (mut both, mut either) = (0u32, 0u32);
         for y in 0..m.h as i32 {
@@ -174,7 +206,7 @@ fn match_digit(m: &Mask) -> Option<u32> {
         }
         both as f32 / either.max(1) as f32
     };
-    templates()
+    templates
         .iter()
         .filter(|(_, t)| (t.w, t.h) == (m.w, m.h))
         .map(|(d, t)| (*d, (-2..=2).flat_map(|dx| (-2..=2).map(move |dy| (dx, dy))).map(|(dx, dy)| agree(t, dx, dy)).fold(0.0, f32::max)))
@@ -355,23 +387,24 @@ fn panel(f: &Frame, g: &Geo, names: &Names) -> (Vec<(Api, u32)>, u32) {
         let n = match_digit(&count_mask(f, g.0, top)).or_else(|| lone_digit(f, (cx, top, cw, ch))).unwrap_or(1);
         traits.push((api.clone(), n));
     }
-    // "N+" sits where a tenth row would start, only when the panel is full.
+    // "N+" sits where a tenth row would start, only when the panel is full. Templates first.
     let hidden = if text.last().is_some_and(|t| !t.trim().is_empty()) {
         let top = g.v(ROW0 + ROWS as f32 * ROW_PITCH);
         let (x, w, h) = (g.v(MORE.0) as u32, g.v(MORE.2) as u32, g.v(MORE.3) as u32);
+        let badge = match_mask(&badge_mask(f, g.0, x, (top + g.v(MORE.1)) as u32), badges());
         let mut c = crop(f, x, (top + g.v(MORE.1)) as u32, w, h, 3);
         threshold(&mut c, PANEL_THRESHOLD);
-        ocr::recognize_boxes(&tile(&c, 3))
+        badge.or_else(|| ocr::recognize_boxes(&tile(&c, 3))
             .unwrap_or_default()
             .iter()
             .find_map(|b| {
                 let (n, _) = b.text.split_once('+')?;
                 n.chars().rev().find_map(|c| c.to_digit(10))
-            })
+            }))
             // OCR rarely reads the badge ("1+", "6+" come back empty): its cream glyphs say there
             // are some, and an unknown count only loosens what the panel says.
             .unwrap_or_else(|| {
-                let lit = crop(f, x, (top + g.v(MORE.1)) as u32, w, h, 1).bgra.chunks(4).filter(|p| p[2] > 200 && p[1] > 185 && p[0] > 140).count();
+                let lit = crop(f, x, (top + g.v(MORE.1)) as u32, w, h, 1).bgra.chunks(4).filter(|p| cream(p)).count();
                 if lit as f32 >= MORE_LIT * g.0 * g.0 { MORE_UNREAD } else { 0 }
             })
     } else {

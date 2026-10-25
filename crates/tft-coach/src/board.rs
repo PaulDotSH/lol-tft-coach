@@ -327,6 +327,8 @@ impl Board {
         // New pieces: purchases land on the bench left to right; the rest by looks.
         let mut fresh: Vec<usize> = (0..units.len()).filter(|i| now[*i].is_none()).collect();
         fresh.sort_by_key(|&i| (units[i].bench.is_none(), units[i].bench, (units[i].x * 10.0) as i64));
+        // One purchase and one new bench piece: that's it, no panel needed to learn its looks.
+        let lone = bought.len() == 1 && fresh.len() == 1 && fresh.iter().all(|&i| units[i].bench.is_some());
         for i in fresh {
             let u = &units[i];
             self.next_id += 1;
@@ -336,6 +338,7 @@ impl Board {
                 // Bought and already moved to the board: the panel has to confirm it.
                 let api = bought.remove(0);
                 p.name(&api, if u.bench.is_some() { Named::Bought } else { Named::Looks });
+                p.confirmed = lone;
             } else if let Some(api) = by_looks(lib, &u.emb, set, self.seed) {
                 p.name(&api, Named::Looks);
             }
