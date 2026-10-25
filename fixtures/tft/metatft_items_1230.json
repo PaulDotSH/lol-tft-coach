@@ -1,0 +1,1860 @@
+{
+ "results": [
+  {
+   "itemName": "DA_18_EmblemBlackthorn",
+   "places": [
+    9953,
+    10945,
+    9866,
+    9562,
+    9029,
+    8448,
+    7530,
+    6050
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemBlossom",
+   "places": [
+    42923,
+    27415,
+    24608,
+    24976,
+    23931,
+    21837,
+    18789,
+    12330
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemBrawler",
+   "places": [
+    18426,
+    19452,
+    17362,
+    15652,
+    13129,
+    10509,
+    8264,
+    6412
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemCoven",
+   "places": [
+    3959,
+    3485,
+    4194,
+    4653,
+    5538,
+    6790,
+    7275,
+    6293
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemDefender",
+   "places": [
+    7781,
+    8846,
+    9222,
+    9085,
+    8361,
+    7483,
+    6732,
+    5642
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemElderwood",
+   "places": [
+    28109,
+    28697,
+    25886,
+    24310,
+    22412,
+    19048,
+    15897,
+    10857
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemExecutioner",
+   "places": [
+    26985,
+    26399,
+    23887,
+    20578,
+    17331,
+    13646,
+    10796,
+    8177
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemFae",
+   "places": [
+    13487,
+    12276,
+    11396,
+    10507,
+    9458,
+    8332,
+    7241,
+    5930
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemFloraFatalis",
+   "places": [
+    7691,
+    8493,
+    9053,
+    8955,
+    8410,
+    7817,
+    6767,
+    5470
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemFloraFatalisAugment",
+   "places": [
+    2449,
+    3233,
+    3552,
+    3726,
+    3758,
+    3709,
+    3305,
+    2778
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemHunter",
+   "places": [
+    15547,
+    15361,
+    14170,
+    12918,
+    11300,
+    9303,
+    7694,
+    6068
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemInferno",
+   "places": [
+    27740,
+    23928,
+    22541,
+    21043,
+    18465,
+    15441,
+    12782,
+    8782
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemInvoker",
+   "places": [
+    25638,
+    25643,
+    23189,
+    21098,
+    18635,
+    16391,
+    13660,
+    9657
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemJuggernaut",
+   "places": [
+    11500,
+    11809,
+    11755,
+    11086,
+    9975,
+    8673,
+    7353,
+    5594
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemLunar",
+   "places": [
+    19976,
+    23417,
+    21305,
+    19113,
+    16203,
+    13010,
+    10544,
+    7340
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemPrimal",
+   "places": [
+    10446,
+    11522,
+    11829,
+    11382,
+    10196,
+    8772,
+    7428,
+    5543
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemRapidfire",
+   "places": [
+    13715,
+    16039,
+    14517,
+    13021,
+    10970,
+    8787,
+    7238,
+    5654
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemSlayer",
+   "places": [
+    10319,
+    11990,
+    11073,
+    10288,
+    8970,
+    7668,
+    6422,
+    5390
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemSpellweaver",
+   "places": [
+    14760,
+    15306,
+    14135,
+    12931,
+    11448,
+    9590,
+    8026,
+    6359
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemSprykin",
+   "places": [
+    6806,
+    8038,
+    8395,
+    8385,
+    7769,
+    6920,
+    5777,
+    4987
+   ]
+  },
+  {
+   "itemName": "DA_18_EmblemVanguard",
+   "places": [
+    19572,
+    20378,
+    18018,
+    15827,
+    13139,
+    10763,
+    8450,
+    6376
+   ]
+  },
+  {
+   "itemName": "DA_AdaptiveHelm",
+   "places": [
+    115115,
+    107257,
+    102393,
+    93279,
+    81619,
+    70405,
+    58102,
+    39107
+   ]
+  },
+  {
+   "itemName": "DA_AdaptiveHelm_Radiant",
+   "places": [
+    11734,
+    10420,
+    10292,
+    9973,
+    9654,
+    9439,
+    8109,
+    5033
+   ]
+  },
+  {
+   "itemName": "DA_ArchangelsStaff",
+   "places": [
+    89717,
+    95773,
+    98396,
+    97493,
+    91552,
+    82931,
+    69655,
+    47089
+   ]
+  },
+  {
+   "itemName": "DA_ArchangelsStaffRadiant",
+   "places": [
+    9312,
+    9072,
+    9408,
+    10044,
+    10146,
+    9849,
+    8565,
+    5352
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_AegisOfDawn",
+   "places": [
+    19813,
+    21147,
+    22432,
+    22913,
+    22839,
+    21829,
+    19413,
+    13498
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_AegisOfDusk",
+   "places": [
+    18206,
+    18750,
+    20282,
+    21011,
+    21050,
+    20546,
+    18485,
+    13326
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_BlightingJewel",
+   "places": [
+    13357,
+    14465,
+    15537,
+    16081,
+    16288,
+    16157,
+    14926,
+    11117
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_Dawncore",
+   "places": [
+    22638,
+    23272,
+    24244,
+    24426,
+    24529,
+    23471,
+    21112,
+    14856
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_EternalPact",
+   "places": [
+    13809,
+    13951,
+    14523,
+    14599,
+    14634,
+    14024,
+    12622,
+    9284
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_Fishbones",
+   "places": [
+    13435,
+    13700,
+    14496,
+    14715,
+    14580,
+    13948,
+    12839,
+    9477
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_ForbiddenIdol",
+   "places": [
+    11983,
+    12699,
+    14209,
+    14841,
+    15462,
+    15708,
+    14995,
+    10953
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_GamblersBlade",
+   "places": [
+    15394,
+    13815,
+    15008,
+    15673,
+    16311,
+    16654,
+    15676,
+    11724
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_GoldCollector",
+   "places": [
+    23053,
+    19381,
+    19231,
+    19193,
+    18784,
+    18416,
+    16586,
+    12065
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_HellfireHatchet",
+   "places": [
+    11845,
+    13268,
+    14198,
+    14857,
+    14010,
+    13518,
+    12031,
+    8693
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_HorizonFocus",
+   "places": [
+    10519,
+    10876,
+    11254,
+    11083,
+    11149,
+    11101,
+    10220,
+    7788
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_Hullcrusher",
+   "places": [
+    12529,
+    12405,
+    13337,
+    13679,
+    13790,
+    14029,
+    12882,
+    9743
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_InfinityForce",
+   "places": [
+    15379,
+    15781,
+    16794,
+    17073,
+    16642,
+    15279,
+    13625,
+    9586
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_LichBane",
+   "places": [
+    10372,
+    11438,
+    12610,
+    13319,
+    13811,
+    13538,
+    12280,
+    9216
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_LightshieldCrest",
+   "places": [
+    21116,
+    21469,
+    21920,
+    21789,
+    20218,
+    18998,
+    16219,
+    11236
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_LudensTempest",
+   "places": [
+    15775,
+    15802,
+    17232,
+    17755,
+    18003,
+    17471,
+    15715,
+    11597
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_Manazane",
+   "places": [
+    23249,
+    23211,
+    23832,
+    23725,
+    22939,
+    22251,
+    19418,
+    14012
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_Mittens",
+   "places": [
+    15245,
+    15114,
+    15579,
+    15622,
+    15071,
+    14504,
+    12979,
+    9528
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_MogulsMail",
+   "places": [
+    21394,
+    19352,
+    20224,
+    20712,
+    20891,
+    20857,
+    19171,
+    13952
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_NavoriFlickerblade",
+   "places": [
+    21673,
+    22554,
+    24117,
+    25028,
+    25161,
+    24383,
+    21623,
+    15356
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_RapidFireCannon",
+   "places": [
+    13239,
+    13875,
+    14978,
+    15536,
+    15947,
+    15750,
+    14603,
+    10704
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_SeekersArmguard",
+   "places": [
+    17840,
+    17663,
+    18555,
+    19202,
+    18894,
+    18539,
+    17023,
+    12566
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_SilvermereDawn",
+   "places": [
+    11128,
+    11101,
+    10892,
+    10354,
+    10283,
+    9969,
+    9330,
+    7070
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_StatikkShiv",
+   "places": [
+    11233,
+    12672,
+    14067,
+    14565,
+    14911,
+    14485,
+    13113,
+    9547
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_TheIndomitable",
+   "places": [
+    21395,
+    21230,
+    21780,
+    22016,
+    21615,
+    20585,
+    18087,
+    12951
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_TitanicHydra",
+   "places": [
+    10789,
+    11742,
+    12593,
+    12865,
+    12749,
+    12315,
+    11246,
+    8295
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_VoidGauntlet",
+   "places": [
+    15250,
+    15579,
+    16350,
+    16853,
+    16773,
+    15776,
+    14227,
+    10557
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_WitsEnd",
+   "places": [
+    11579,
+    12769,
+    13573,
+    13995,
+    13893,
+    13745,
+    12139,
+    9032
+   ]
+  },
+  {
+   "itemName": "DA_Artifact_ZhonyasParadox",
+   "places": [
+    14947,
+    13061,
+    12988,
+    13596,
+    13591,
+    13441,
+    12814,
+    9895
+   ]
+  },
+  {
+   "itemName": "DA_BlastPotion18",
+   "places": [
+    1031,
+    1335,
+    1564,
+    1320,
+    1103,
+    1039,
+    1010,
+    801
+   ]
+  },
+  {
+   "itemName": "DA_BlastPotion18_Radiant",
+   "places": [
+    435,
+    468,
+    512,
+    412,
+    324,
+    275,
+    201,
+    138
+   ]
+  },
+  {
+   "itemName": "DA_Bloodthirster",
+   "places": [
+    90084,
+    97477,
+    102875,
+    103166,
+    97975,
+    88701,
+    72982,
+    47349
+   ]
+  },
+  {
+   "itemName": "DA_BloodthirsterRadiant",
+   "places": [
+    8699,
+    8501,
+    8998,
+    9307,
+    9287,
+    8930,
+    7558,
+    4842
+   ]
+  },
+  {
+   "itemName": "DA_BlueBuff",
+   "places": [
+    137766,
+    136804,
+    137243,
+    133643,
+    126287,
+    114478,
+    95565,
+    63571
+   ]
+  },
+  {
+   "itemName": "DA_BlueBuffRadiant",
+   "places": [
+    14986,
+    13945,
+    13978,
+    13689,
+    13276,
+    12814,
+    10988,
+    6892
+   ]
+  },
+  {
+   "itemName": "DA_BrambleVest",
+   "places": [
+    82678,
+    84971,
+    87750,
+    85591,
+    78687,
+    69691,
+    58464,
+    38118
+   ]
+  },
+  {
+   "itemName": "DA_BrambleVestRadiant",
+   "places": [
+    7118,
+    7074,
+    7710,
+    7717,
+    7682,
+    7669,
+    6619,
+    4170
+   ]
+  },
+  {
+   "itemName": "DA_Component_BFSword",
+   "places": [
+    7953,
+    9210,
+    10828,
+    12818,
+    14531,
+    16511,
+    18596,
+    20255
+   ]
+  },
+  {
+   "itemName": "DA_Component_ChainVest",
+   "places": [
+    9929,
+    10952,
+    13132,
+    15040,
+    16888,
+    18793,
+    20140,
+    21545
+   ]
+  },
+  {
+   "itemName": "DA_Component_FryingPan",
+   "places": [
+    5399,
+    5653,
+    5465,
+    4627,
+    3182,
+    1898,
+    1490,
+    1700
+   ]
+  },
+  {
+   "itemName": "DA_Component_GiantsBelt",
+   "places": [
+    14008,
+    15475,
+    18774,
+    21312,
+    24360,
+    27653,
+    31868,
+    36640
+   ]
+  },
+  {
+   "itemName": "DA_Component_NeedlesslyLargeRod",
+   "places": [
+    9696,
+    10447,
+    12544,
+    14566,
+    16787,
+    19018,
+    20616,
+    21993
+   ]
+  },
+  {
+   "itemName": "DA_Component_NegatronCloak",
+   "places": [
+    7756,
+    8866,
+    10531,
+    11797,
+    13201,
+    14589,
+    16150,
+    17684
+   ]
+  },
+  {
+   "itemName": "DA_Component_RecurveBow",
+   "places": [
+    8377,
+    8996,
+    11049,
+    12858,
+    14464,
+    16605,
+    18980,
+    21226
+   ]
+  },
+  {
+   "itemName": "DA_Component_SparringGloves",
+   "places": [
+    6430,
+    7284,
+    9076,
+    10465,
+    12158,
+    13997,
+    15612,
+    16608
+   ]
+  },
+  {
+   "itemName": "DA_Component_Spatula",
+   "places": [
+    6991,
+    7588,
+    7856,
+    6968,
+    5182,
+    3412,
+    2870,
+    2748
+   ]
+  },
+  {
+   "itemName": "DA_Component_TearOfTheGoddess",
+   "places": [
+    8301,
+    9205,
+    11110,
+    12917,
+    14629,
+    16651,
+    18772,
+    20248
+   ]
+  },
+  {
+   "itemName": "DA_Crownguard",
+   "places": [
+    72361,
+    70139,
+    67984,
+    61321,
+    52688,
+    43901,
+    35280,
+    23933
+   ]
+  },
+  {
+   "itemName": "DA_CrownguardRadiant",
+   "places": [
+    6405,
+    6001,
+    6039,
+    6106,
+    6357,
+    6303,
+    5932,
+    3791
+   ]
+  },
+  {
+   "itemName": "DA_Deathblade",
+   "places": [
+    99646,
+    98765,
+    100766,
+    96963,
+    88943,
+    78878,
+    65004,
+    43766
+   ]
+  },
+  {
+   "itemName": "DA_DeathbladeRadiant",
+   "places": [
+    11399,
+    11188,
+    11495,
+    11597,
+    11209,
+    10422,
+    8829,
+    5489
+   ]
+  },
+  {
+   "itemName": "DA_DragonsClaw",
+   "places": [
+    102261,
+    105730,
+    110564,
+    108937,
+    101533,
+    91851,
+    76664,
+    51686
+   ]
+  },
+  {
+   "itemName": "DA_DragonsClawRadiant",
+   "places": [
+    8951,
+    8872,
+    9332,
+    9643,
+    9697,
+    9377,
+    8542,
+    5494
+   ]
+  },
+  {
+   "itemName": "DA_EdgeOfNight",
+   "places": [
+    106011,
+    97115,
+    86970,
+    79138,
+    69958,
+    59305,
+    47617,
+    31636
+   ]
+  },
+  {
+   "itemName": "DA_EdgeOfNightRadiant",
+   "places": [
+    10462,
+    9168,
+    8852,
+    8443,
+    8120,
+    7610,
+    6351,
+    3978
+   ]
+  },
+  {
+   "itemName": "DA_Evenshroud",
+   "places": [
+    70333,
+    72017,
+    71865,
+    67520,
+    60133,
+    50530,
+    40616,
+    26975
+   ]
+  },
+  {
+   "itemName": "DA_EvenshroudRadiant",
+   "places": [
+    5279,
+    5098,
+    5317,
+    5372,
+    5408,
+    5188,
+    4612,
+    3138
+   ]
+  },
+  {
+   "itemName": "DA_GargoyleStoneplate",
+   "places": [
+    296191,
+    297595,
+    308113,
+    302036,
+    286512,
+    263970,
+    224820,
+    155356
+   ]
+  },
+  {
+   "itemName": "DA_GargoyleStoneplate_Radiant",
+   "places": [
+    13260,
+    13194,
+    13443,
+    13947,
+    13969,
+    13252,
+    11340,
+    7403
+   ]
+  },
+  {
+   "itemName": "DA_GiantSlayer",
+   "places": [
+    98510,
+    101909,
+    105880,
+    103094,
+    95047,
+    84140,
+    68596,
+    44014
+   ]
+  },
+  {
+   "itemName": "DA_GiantSlayer_Radiant",
+   "places": [
+    11760,
+    11479,
+    11924,
+    11673,
+    11162,
+    10579,
+    8705,
+    5343
+   ]
+  },
+  {
+   "itemName": "DA_GuinsoosRageblade",
+   "places": [
+    228351,
+    234576,
+    251815,
+    257090,
+    254749,
+    241963,
+    208726,
+    143152
+   ]
+  },
+  {
+   "itemName": "DA_GuinsoosRagebladeRadiant",
+   "places": [
+    13448,
+    13314,
+    14008,
+    14615,
+    14631,
+    13978,
+    12168,
+    7535
+   ]
+  },
+  {
+   "itemName": "DA_HandOfJustice",
+   "places": [
+    99191,
+    104354,
+    108665,
+    105476,
+    98752,
+    87532,
+    73792,
+    48900
+   ]
+  },
+  {
+   "itemName": "DA_HandOfJusticeRadiant",
+   "places": [
+    10952,
+    10516,
+    11095,
+    10961,
+    10699,
+    10275,
+    8759,
+    5623
+   ]
+  },
+  {
+   "itemName": "DA_HealthPotion18",
+   "places": [
+    981,
+    669,
+    570,
+    382,
+    244,
+    133,
+    113,
+    120
+   ]
+  },
+  {
+   "itemName": "DA_HealthPotion18_Radiant",
+   "places": [
+    319,
+    229,
+    187,
+    121,
+    53,
+    47,
+    35,
+    45
+   ]
+  },
+  {
+   "itemName": "DA_HextechGunblade",
+   "places": [
+    82497,
+    85240,
+    85512,
+    81566,
+    74005,
+    65288,
+    53655,
+    35243
+   ]
+  },
+  {
+   "itemName": "DA_HextechGunbladeRadiant",
+   "places": [
+    8886,
+    8538,
+    8717,
+    9032,
+    8987,
+    8615,
+    7554,
+    4970
+   ]
+  },
+  {
+   "itemName": "DA_InfinityEdge",
+   "places": [
+    162779,
+    158214,
+    161426,
+    156698,
+    146898,
+    132030,
+    110277,
+    74473
+   ]
+  },
+  {
+   "itemName": "DA_InfinityEdgeRadiant",
+   "places": [
+    12404,
+    12007,
+    12372,
+    11967,
+    11435,
+    10637,
+    8995,
+    5437
+   ]
+  },
+  {
+   "itemName": "DA_IonicSpark",
+   "places": [
+    70135,
+    70831,
+    70817,
+    66981,
+    59913,
+    50657,
+    40230,
+    26075
+   ]
+  },
+  {
+   "itemName": "DA_IonicSparkRadiant",
+   "places": [
+    6509,
+    6146,
+    6461,
+    6690,
+    6799,
+    6622,
+    5758,
+    3592
+   ]
+  },
+  {
+   "itemName": "DA_Item_Artifact_TalismanOfAscension",
+   "places": [
+    15175,
+    16498,
+    17970,
+    18690,
+    19445,
+    18788,
+    16816,
+    11687
+   ]
+  },
+  {
+   "itemName": "DA_JeweledGauntlet",
+   "places": [
+    176391,
+    175554,
+    184215,
+    184058,
+    176883,
+    163252,
+    138593,
+    94613
+   ]
+  },
+  {
+   "itemName": "DA_JeweledGauntletRadiant",
+   "places": [
+    14758,
+    13327,
+    14131,
+    14359,
+    14224,
+    13594,
+    11726,
+    7354
+   ]
+  },
+  {
+   "itemName": "DA_KrakensFury",
+   "places": [
+    76509,
+    72361,
+    73869,
+    72847,
+    68154,
+    61085,
+    51772,
+    35987
+   ]
+  },
+  {
+   "itemName": "DA_KrakensFury_Radiant",
+   "places": [
+    8487,
+    7875,
+    8425,
+    8763,
+    8777,
+    8479,
+    7342,
+    4629
+   ]
+  },
+  {
+   "itemName": "DA_LastWhisper",
+   "places": [
+    97965,
+    92348,
+    91584,
+    85460,
+    76728,
+    66147,
+    53747,
+    36694
+   ]
+  },
+  {
+   "itemName": "DA_LastWhisperRadiant",
+   "places": [
+    8682,
+    8495,
+    8586,
+    8594,
+    8277,
+    7582,
+    6639,
+    4033
+   ]
+  },
+  {
+   "itemName": "DA_ManaPotion18",
+   "places": [
+    687,
+    870,
+    799,
+    549,
+    388,
+    255,
+    176,
+    140
+   ]
+  },
+  {
+   "itemName": "DA_ManaPotion18_Radiant",
+   "places": [
+    204,
+    312,
+    264,
+    171,
+    94,
+    74,
+    50,
+    46
+   ]
+  },
+  {
+   "itemName": "DA_Morellonomicon",
+   "places": [
+    68979,
+    66814,
+    65596,
+    62301,
+    55684,
+    48292,
+    39989,
+    27127
+   ]
+  },
+  {
+   "itemName": "DA_MorellonomiconRadiant",
+   "places": [
+    7093,
+    6716,
+    6617,
+    6758,
+    6663,
+    6348,
+    5607,
+    3527
+   ]
+  },
+  {
+   "itemName": "DA_NashorsTooth",
+   "places": [
+    73266,
+    71185,
+    72535,
+    71344,
+    66437,
+    59156,
+    49595,
+    34809
+   ]
+  },
+  {
+   "itemName": "DA_NashorsToothRadiant",
+   "places": [
+    9286,
+    8670,
+    8809,
+    9037,
+    9319,
+    9003,
+    8103,
+    5160
+   ]
+  },
+  {
+   "itemName": "DA_ProtectorsVow",
+   "places": [
+    126799,
+    122829,
+    117352,
+    107346,
+    95137,
+    81391,
+    66562,
+    44162
+   ]
+  },
+  {
+   "itemName": "DA_ProtectorsVowRadiant",
+   "places": [
+    9335,
+    8626,
+    8651,
+    8460,
+    8419,
+    8417,
+    7413,
+    4753
+   ]
+  },
+  {
+   "itemName": "DA_Quicksilver",
+   "places": [
+    54051,
+    51101,
+    48478,
+    45505,
+    40764,
+    34696,
+    28245,
+    19891
+   ]
+  },
+  {
+   "itemName": "DA_QuicksilverRadiant",
+   "places": [
+    6562,
+    6074,
+    5983,
+    6033,
+    6120,
+    5962,
+    5302,
+    3499
+   ]
+  },
+  {
+   "itemName": "DA_RabadonsDeathcap",
+   "places": [
+    107806,
+    110494,
+    112090,
+    107795,
+    99498,
+    89304,
+    74793,
+    49836
+   ]
+  },
+  {
+   "itemName": "DA_RabadonsDeathcap_Radiant",
+   "places": [
+    13989,
+    13268,
+    13490,
+    13826,
+    13440,
+    12910,
+    11094,
+    6969
+   ]
+  },
+  {
+   "itemName": "DA_RedBuff",
+   "places": [
+    95413,
+    88861,
+    87153,
+    82459,
+    72052,
+    61443,
+    48980,
+    31970
+   ]
+  },
+  {
+   "itemName": "DA_RedBuffRadiant",
+   "places": [
+    9458,
+    8877,
+    8965,
+    8695,
+    8350,
+    7638,
+    6459,
+    3850
+   ]
+  },
+  {
+   "itemName": "DA_SpearOfShojin",
+   "places": [
+    244474,
+    217599,
+    213289,
+    203513,
+    188234,
+    170028,
+    142122,
+    96801
+   ]
+  },
+  {
+   "itemName": "DA_SpearOfShojinRadiant",
+   "places": [
+    13885,
+    13190,
+    13163,
+    12939,
+    12707,
+    11840,
+    10086,
+    6290
+   ]
+  },
+  {
+   "itemName": "DA_SpiritVisage",
+   "places": [
+    165638,
+    169767,
+    175024,
+    168704,
+    157247,
+    142038,
+    117158,
+    78552
+   ]
+  },
+  {
+   "itemName": "DA_SpiritVisage_Radiant",
+   "places": [
+    11606,
+    11725,
+    12213,
+    12464,
+    12242,
+    12034,
+    10587,
+    6801
+   ]
+  },
+  {
+   "itemName": "DA_SteadfastHeart",
+   "places": [
+    81442,
+    83344,
+    85068,
+    81039,
+    72693,
+    62817,
+    51966,
+    34563
+   ]
+  },
+  {
+   "itemName": "DA_SteadfastHeartRadiant",
+   "places": [
+    7955,
+    7778,
+    8161,
+    8556,
+    8607,
+    8399,
+    7625,
+    4964
+   ]
+  },
+  {
+   "itemName": "DA_SteraksGage",
+   "places": [
+    75794,
+    78620,
+    77970,
+    73576,
+    66026,
+    56094,
+    44506,
+    28855
+   ]
+  },
+  {
+   "itemName": "DA_SteraksGageRadiant",
+   "places": [
+    7706,
+    7845,
+    8207,
+    8188,
+    7829,
+    7513,
+    6279,
+    4027
+   ]
+  },
+  {
+   "itemName": "DA_StrikersFlail",
+   "places": [
+    81680,
+    77578,
+    75547,
+    70257,
+    61551,
+    52638,
+    42683,
+    29087
+   ]
+  },
+  {
+   "itemName": "DA_StrikersFlailRadiant",
+   "places": [
+    10347,
+    10032,
+    9837,
+    9605,
+    9110,
+    8618,
+    7348,
+    4557
+   ]
+  },
+  {
+   "itemName": "DA_SunfireCape",
+   "places": [
+    105794,
+    112974,
+    119493,
+    116031,
+    109025,
+    97441,
+    80619,
+    53179
+   ]
+  },
+  {
+   "itemName": "DA_SunfireCape_Radiant",
+   "places": [
+    6479,
+    6674,
+    7132,
+    7251,
+    7497,
+    7101,
+    6065,
+    3744
+   ]
+  },
+  {
+   "itemName": "DA_TacticiansCape",
+   "places": [
+    26712,
+    22997,
+    8318,
+    5454,
+    4562,
+    3775,
+    3245,
+    2217
+   ]
+  },
+  {
+   "itemName": "DA_TacticiansCrown",
+   "places": [
+    95319,
+    92461,
+    82681,
+    78781,
+    74994,
+    71382,
+    65601,
+    56010
+   ]
+  },
+  {
+   "itemName": "DA_TacticiansShield",
+   "places": [
+    24074,
+    18807,
+    4865,
+    2178,
+    1604,
+    1185,
+    814,
+    446
+   ]
+  },
+  {
+   "itemName": "DA_ThiefsGloves",
+   "places": [
+    114595,
+    117440,
+    121304,
+    117983,
+    107699,
+    93585,
+    75928,
+    47154
+   ]
+  },
+  {
+   "itemName": "DA_ThiefsGlovesRadiant",
+   "places": [
+    17076,
+    16923,
+    18064,
+    18210,
+    17869,
+    16703,
+    14390,
+    8712
+   ]
+  },
+  {
+   "itemName": "DA_TitansResolve",
+   "places": [
+    71857,
+    79608,
+    84918,
+    84500,
+    80320,
+    72167,
+    59589,
+    40021
+   ]
+  },
+  {
+   "itemName": "DA_TitansResolve_Radiant",
+   "places": [
+    7555,
+    7556,
+    8335,
+    8481,
+    8654,
+    8355,
+    7489,
+    4683
+   ]
+  },
+  {
+   "itemName": "DA_VoidStaff",
+   "places": [
+    86869,
+    85384,
+    83969,
+    79389,
+    71833,
+    63137,
+    52241,
+    35493
+   ]
+  },
+  {
+   "itemName": "DA_VoidStaffRadiant",
+   "places": [
+    8608,
+    7942,
+    8282,
+    8379,
+    8280,
+    8000,
+    7082,
+    4298
+   ]
+  },
+  {
+   "itemName": "DA_WarmogsArmor",
+   "places": [
+    233940,
+    235836,
+    243469,
+    237337,
+    224351,
+    204210,
+    172388,
+    113080
+   ]
+  },
+  {
+   "itemName": "DA_WarmogsArmorRadiant",
+   "places": [
+    14236,
+    13894,
+    14550,
+    14559,
+    14287,
+    14049,
+    12341,
+    7645
+   ]
+  }
+ ],
+ "games": [
+  {
+   "patch": "18.5",
+   "b_patch_version": "b",
+   "count": 994312
+  }
+ ],
+ "updated": 1792888891454,
+ "tft_set": "TFTSet18",
+ "queue_id": 1230
+}

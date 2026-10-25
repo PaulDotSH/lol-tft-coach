@@ -1,0 +1,1091 @@
+{
+ "tags": {},
+ "content": {
+  "author": {},
+  "content": {
+   "tierList": [
+    {
+     "content": [
+      {
+       "id": "DA_PandorasBench",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CalculatedLoss",
+       "type": "augment"
+      },
+      {
+       "id": "DA_EpicRolldown",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SpreadingRoots",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SpreadingRootsPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BaronsLair",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TacticiansKitchen",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TheTraitTree",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TheTraitTreePlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_FloraFatalisAugmentPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_BranchingOut",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_BranchingOutPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LatentForge",
+       "type": "augment"
+      },
+      {
+       "id": "DA_RollingForDays",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ExplosiveGrowth",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MagicRoll",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BlackthornTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BoosterPackPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BoosterPackPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_StarringUp",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BoosterPack",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PrismaticTicket",
+       "type": "augment"
+      },
+      {
+       "id": "DA_URF",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_RiftbeastTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BronzeForLifeII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_VerticalityII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_VerticalityI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_VerticalityIII",
+       "type": "augment"
+      }
+     ],
+     "label": "S",
+     "color": "#ff7e83"
+    },
+    {
+     "content": [
+      {
+       "id": "DA_BandOfThieves",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ChampDeliveryPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_CaretakersAlly",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ChampDeliveryPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ChampDelivery",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ComponentBuffet",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PartialAscension",
+       "type": "augment"
+      },
+      {
+       "id": "DA_IronAssets",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ItemGrabBag",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SilverDestinyPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PatienceIsAVirtue",
+       "type": "augment"
+      },
+      {
+       "id": "DA_KickStart",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MissedConnections",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PandorasItemsI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SliceOfLife",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SmallGrabBag",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_BigGrabBag",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BodyguardTraining",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoldDestiny",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ClutteredMind",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CyberneticImplants_Gold",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CyberneticUplink_Gold",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_DuoQueue",
+       "type": "augment"
+      },
+      {
+       "id": "DA_EarlyLearnings",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ExplosiveGrowthPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GildedSteel",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoldDestinyPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HeroicGrabBag",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HeroicGrabBagPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HeroicGrabBagPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Swordsmith",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MaxBuild",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MoneyHungry_NotBroken",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PatientStudy",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Replication",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SalvageBin",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TradeSector",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SlamminPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_PrimalAugment_Nidalee",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Staffsmith",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CommerceCore",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LevelUp",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoldenGamblePlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoldenGamblePlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_InvestedPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_NestingAnvilsPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SilverDestiny",
+       "type": "augment"
+      },
+      {
+       "id": "DA_NestingAnvils",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SlightlyMagicRoll",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Expedition",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TimeSkip",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ExclusiveCustomization",
+       "type": "augment"
+      },
+      {
+       "id": "DA_WorththeWait",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CapitalGainsI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BacklineBlueprint",
+       "type": "augment"
+      },
+      {
+       "id": "DA_QuickStreaks",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LateGameScaling",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Kingslayer",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SilverDestinyPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LoadedDice",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CarveAPath",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LateGameSpecialist",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BonusGift",
+       "type": "augment"
+      },
+      {
+       "id": "DA_InvestmentStrategyI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SoloPlate",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BirthdayReunion",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LegionOfThrees",
+       "type": "augment"
+      },
+      {
+       "id": "DA_WorththeWaitII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ExpectedUnexpectedness",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_PrimalAugmentPlus_Sivir",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_PrimalAugment_Sivir",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BronzeForLifeI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ComponentQuest",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BuriedTreasuresIII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SwordOverflow",
+       "type": "augment"
+      },
+      {
+       "id": "DA_WandOverflow",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PrismaticDestinyPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_PrimalAugmentPlus_Nidalee",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PortableForge",
+       "type": "augment"
+      },
+      {
+       "id": "DA_FrontlineFoundation",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_LuxAugmentII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PromisedProtection",
+       "type": "augment"
+      },
+      {
+       "id": "DA_InvestmentStrategy",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_FloraFatalisAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_FOURcing",
+       "type": "augment"
+      }
+     ],
+     "label": "A",
+     "color": "#ffbf7f"
+    },
+    {
+     "content": [
+      {
+       "id": "DA_CelestialBlessingI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TwinGuardians",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CognitiveTax",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CognitiveTaxPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_WispRebatePlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Corrosion",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SilverSpoon",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CraftedCrafting",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TeamBuilding",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Dummify",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BoxingLessons",
+       "type": "augment"
+      },
+      {
+       "id": "DA_YoungAndWildAndFree",
+       "type": "augment"
+      },
+      {
+       "id": "DA_FeelingLucky",
+       "type": "augment"
+      },
+      {
+       "id": "DA_FindYourCenter",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MakeshiftArmorI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Recombobulator",
+       "type": "augment"
+      },
+      {
+       "id": "DA_FocusedFire",
+       "type": "augment"
+      },
+      {
+       "id": "DA_FutureFocused",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_ResidualMagicPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_ResidualMagicPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_FlowingTears",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ElectrochargeI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GlassCannon_Silver",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GroupHugI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HealingOrbsI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_OneTwoFive",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Lineup",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TheTower",
+       "type": "augment"
+      },
+      {
+       "id": "DA_AdvancedLoan",
+       "type": "augment"
+      },
+      {
+       "id": "DA_AdvancedLoanPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ArcaneViktory",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_RivalsAugmentPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_RivalsAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TradeSectorPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TheGoldenDragon",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_CovenTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Ascension",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HardBargain",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PandorasItemsII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CapitalGainsII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CelestialBlessingII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ChallengersGrace",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MaliciousMonetization",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ClockworkAccelerator",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CognitiveOverload",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GlassCannon_Gold",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GroupHugII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ConstructACompanion",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Epoch",
+       "type": "augment"
+      },
+      {
+       "id": "DA_EpochPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GainGold",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CookingPot",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HeartOfSteel",
+       "type": "augment"
+      },
+      {
+       "id": "DA_JeweledLotus_I",
+       "type": "augment"
+      },
+      {
+       "id": "DA_DoubleTrouble",
+       "type": "augment"
+      },
+      {
+       "id": "DA_NoScoutNoPivot",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CaretakersFavor",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SeraphimsStaff",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Hustler",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SpiritOfRedemption",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MoneyHungryPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PlotArmor",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SalvageBinPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Slammin",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SoloLeveling",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Pilfer",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SpeedyDoubleKill",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BeltOverflow",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CallToChaos",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GiantAndMighty",
+       "type": "augment"
+      },
+      {
+       "id": "DA_InvestedPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_JeweledLotus_II",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LuckyGloves",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LuckyGlovesPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MoneyMonsoon",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PrismaticDestiny",
+       "type": "augment"
+      },
+      {
+       "id": "DA_OneBuffTwoBuff",
+       "type": "augment"
+      },
+      {
+       "id": "DA_PandorasItemsIII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Flexible",
+       "type": "augment"
+      },
+      {
+       "id": "DA_RadiantRelic",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Retribution",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SoulAwakening",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SweetTreats",
+       "type": "augment"
+      },
+      {
+       "id": "DA_UrfsGrabBag",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BirthdayPresent",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BandOfThievesIIPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_DeadlierBlades",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LivingForge",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BonusGiftPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_ElderwoodTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_WeightTheWorth",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Warpath",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CryMeARiver",
+       "type": "augment"
+      },
+      {
+       "id": "DA_WovenMagic",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TraitLadder",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TonsOfStatsII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ShoppingSpree",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HoldTheLine",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_ResidualMagic",
+       "type": "augment"
+      },
+      {
+       "id": "DA_LuxurySubscription",
+       "type": "augment"
+      },
+      {
+       "id": "DA_TonsOfStatsI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HedgeFund",
+       "type": "augment"
+      },
+      {
+       "id": "DA_DeadlierCaps",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ForgedInStrength",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ComebackStory",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_GoodForSomethingI",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ClearMind",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HealingOrbsII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_AugmentedPower",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_WispRebatePlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_StandUnited",
+       "type": "augment"
+      },
+      {
+       "id": "DA_InfinityProtection",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BackupBows",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_FaeTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ShimmerscaleEssence",
+       "type": "augment"
+      },
+      {
+       "id": "DA_WeStickTogether",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ItsMeBaby",
+       "type": "augment"
+      },
+      {
+       "id": "DA_UpwardMobility",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BandOfThievesIIPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoldenGamble",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Coronation",
+       "type": "augment"
+      },
+      {
+       "id": "DA_MakeshiftArmorII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_CovenTraitAugment_LootToAP",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_SolarTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CelestialBlessingIII",
+       "type": "augment"
+      }
+     ],
+     "label": "B",
+     "color": "#ffdf80"
+    },
+    {
+     "content": [
+      {
+       "id": "DA_CalledShot",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ExtraBuckles",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ForgeAFriend",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_OnesTwosThree",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BandOfThievesII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_BuildABud",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoingLong",
+       "type": "augment"
+      },
+      {
+       "id": "DA_Min_Max",
+       "type": "augment"
+      },
+      {
+       "id": "DA_HardCommit",
+       "type": "augment"
+      },
+      {
+       "id": "DA_NestingDolls",
+       "type": "augment"
+      },
+      {
+       "id": "DA_SubscriptionService",
+       "type": "augment"
+      },
+      {
+       "id": "DA_GoldenEgg",
+       "type": "augment"
+      },
+      {
+       "id": "DA_CursedCrown",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_LunarTraitAugmentPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_LunarTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_BlossomTraitAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_ElectrochargeII",
+       "type": "augment"
+      },
+      {
+       "id": "DA_18_SprykinAugment",
+       "type": "augment"
+      },
+      {
+       "id": "DA_NestingDollsPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_NestingDollsPlusPlus",
+       "type": "augment"
+      },
+      {
+       "id": "DA_RadiantRascal",
+       "type": "augment"
+      }
+     ],
+     "label": "C",
+     "color": "#feff7f"
+    },
+    {
+     "content": [],
+     "label": "D",
+     "color": "#bffe7f"
+    }
+   ],
+   "tierListType": "Augments",
+   "notes": {},
+   "tags": {
+    "TFT6_Augment_PortableForge": "items",
+    "TFT9_Augment_PandorasItems2": "items,scaling",
+    "TFT9_Augment_BigGrabBag": "items",
+    "TFT7_Augment_PandorasBench": "econ",
+    "TFT_Augment_DuoQueue": "items,econ"
+   }
+  },
+  "created_at": "2026-08-07T19:49:57.225Z",
+  "updated_at": "2026-10-24T00:09:49.962Z",
+  "content_id": "1b860280"
+ },
+ "updated": 1792888528717,
+ "tft_set": "TFTSet18",
+ "tier_list_set": "TFTSet18",
+ "queue_id": 1100
+}
