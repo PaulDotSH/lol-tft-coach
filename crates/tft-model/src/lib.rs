@@ -70,6 +70,7 @@ data_default! {
 
     /// Meta for one queue. Stats are placement histograms collapsed to averages.
     pub struct TftMeta {
+        #[ts(type = "number")]
         pub queue: i64,
         /// MetaTFT `updated` (unix ms).
         #[ts(type = "number")]
@@ -292,6 +293,7 @@ data! {
         /// Unix ms.
         #[ts(type = "number")]
         pub created: u64,
+        #[ts(type = "number")]
         pub queue: i64,
         pub mode: TftMode,
         pub placement: u32,
@@ -331,6 +333,7 @@ data! {
     /// Everything the TFT screens show; sent on the `tft` event.
     pub struct TftState {
         pub phase: TftPhase,
+        #[ts(type = "number | null")]
         pub queue: Option<i64>,
         pub mode: TftMode,
         pub advice: Option<TftAdvice>,

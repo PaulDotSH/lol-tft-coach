@@ -9,7 +9,7 @@ export type TftPastGame = { game_id: number,
 /**
  * Unix ms.
  */
-created: number, queue: bigint, mode: TftMode, placement: number, level: number, last_round: number, duration_s: number, units: Array<TftPastUnit>, 
+created: number, queue: number, mode: TftMode, placement: number, level: number, last_round: number, duration_s: number, units: Array<TftPastUnit>, 
 /**
  * Active traits as (trait, units, tier reached).
  */

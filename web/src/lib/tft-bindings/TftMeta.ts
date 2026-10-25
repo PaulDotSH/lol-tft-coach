@@ -5,7 +5,7 @@ import type { PlaceStat } from "./PlaceStat";
 /**
  * Meta for one queue. Stats are placement histograms collapsed to averages.
  */
-export type TftMeta = { queue: bigint, 
+export type TftMeta = { queue: number, 
 /**
  * MetaTFT `updated` (unix ms).
  */

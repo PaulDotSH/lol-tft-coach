@@ -146,7 +146,7 @@ const augments = Object.fromEntries(
 export const tftSet: TftSetData = { version: '16.21.1', set: 18, units, traits, items, augments };
 
 // Queue ids are bigint in the generated bindings (tft-model `queue: i64`); the backend sends numbers.
-const q = (n: number) => BigInt(n);
+const q = (n: number) => n;
 
 const COMPS: Record<string, { name: string; units: string[]; avg: number; levelling: string }> = {
   '426003': {

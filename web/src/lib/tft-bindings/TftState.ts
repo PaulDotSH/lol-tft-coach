@@ -10,7 +10,7 @@ import type { TftTrends } from "./TftTrends";
 /**
  * Everything the TFT screens show; sent on the `tft` event.
  */
-export type TftState = { phase: TftPhase, queue: bigint | null, mode: TftMode, advice: TftAdvice | null, 
+export type TftState = { phase: TftPhase, queue: number | null, mode: TftMode, advice: TftAdvice | null, 
 /**
  * Lobby: top comps for the queue (Choncc: by starting carry when known).
  */
