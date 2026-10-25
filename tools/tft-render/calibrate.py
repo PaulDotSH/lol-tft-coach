@@ -63,7 +63,8 @@ def score(real, embs, meta, keep):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    out = sys.argv[sys.argv.index('--json') + 1] if '--json' in sys.argv else None
+    args = [a for a in sys.argv[1:] if not a.startswith('--') and a != out]
     real = real_crops()
     print(f'{len(real)} labelled crops')
     rows = []
@@ -77,8 +78,8 @@ def main():
         rows.append((os.path.basename(d.rstrip('/\\')), 'all', s))
     for d, k, s in sorted(rows, key=lambda r: -sum(v[1] * v[0] for v in r[2].values())):
         print(d, k, '  '.join(f'{g}: n={n} top1={t1:.2f} top3={t3:.2f}' for g, (n, t1, t3) in sorted(s.items())))
-    if '--json' in sys.argv:
-        json.dump([[d, str(k), s] for d, k, s in rows], open(sys.argv[sys.argv.index('--json') + 1], 'w'), indent=1)
+    if out:
+        json.dump([[d, str(k), s] for d, k, s in rows], open(out, 'w'), indent=1)
 
 
 if __name__ == '__main__':
