@@ -4,10 +4,12 @@
 //! captures (HUD at default scale) and scaled to the client size.
 //!
 //! My units come from their HP bars (`units`) and, with the embedder loaded, an image
-//! embedding of each one for telling them apart (tft-coach names them).
+//! embedding of each one for telling them apart (tft-coach names them). Team size from the "N/M"
+//! on my board in planning (`team`).
 //!
 //! Not read yet: item bench icons, items on units.
 
+pub mod team;
 mod units;
 
 use ocr::{Frame, TextBox};
@@ -475,6 +477,7 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         .collect();
 
     let (units, enemies) = units::read(f, g.0);
+    let viewing_other = viewing_other(&boxes, &g, me);
     Some(TftSnapshot {
         at,
         stage,
@@ -483,13 +486,14 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         xp,
         hp,
         streak,
-        team_size: None,
+        // A scouted board shows its owner's count.
+        team_size: if viewing_other { None } else { team::read(f, g.0, units.iter().filter(|u| u.bench.is_none()).count() as u32) },
         shop,
         augment_offer,
         traits,
         traits_hidden,
         items: vec![],
-        viewing_other: viewing_other(&boxes, &g, me),
+        viewing_other,
         units,
         enemies,
     })
