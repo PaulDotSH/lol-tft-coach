@@ -1,6 +1,6 @@
 //! Hand-written bot lane notes (`lane_notes.toml`), keyed by Data Dragon id.
 
-use model::LaneNote;
+use model_static::LaneNote;
 use std::collections::HashMap;
 
 const NOTES: &str = include_str!("../lane_notes.toml");

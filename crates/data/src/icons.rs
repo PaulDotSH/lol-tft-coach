@@ -3,7 +3,7 @@
 //! item icons. Binary bodies are disk-cached next to the JSON cache.
 
 use crate::Http;
-use model::{AugmentId, ItemId, Rarity};
+use model_static::{AugmentId, ItemId, Rarity};
 use std::collections::HashMap;
 use std::time::Duration;
 

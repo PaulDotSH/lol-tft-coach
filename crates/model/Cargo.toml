@@ -3,6 +3,25 @@ name = "model"
 edition.workspace = true
 version.workspace = true
 
+[features]
+# TypeScript bindings (ts-rs derive); on for this crate's own tests regardless.
+ts = ["dep:ts-rs", "model-core/ts", "model-static/ts", "model-game/ts", "model-live/ts", "model-draft/ts", "model-review/ts"]
+
 [dependencies]
+model-core.workspace = true
+model-static.workspace = true
+model-game.workspace = true
+model-live.workspace = true
+model-draft.workspace = true
+model-review.workspace = true
 serde.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+model-core = { workspace = true, features = ["ts"] }
+model-static = { workspace = true, features = ["ts"] }
+model-game = { workspace = true, features = ["ts"] }
+model-live = { workspace = true, features = ["ts"] }
+model-draft = { workspace = true, features = ["ts"] }
+model-review = { workspace = true, features = ["ts"] }
 ts-rs.workspace = true

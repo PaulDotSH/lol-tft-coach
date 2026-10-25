@@ -2,7 +2,7 @@
 //! (borderless) game window → Windows.Media.Ocr → fuzzy match to augment names.
 //! Blocking; call from a blocking thread. Never sends input or takes focus.
 
-use model::AugmentId;
+use model_core::AugmentId;
 use std::collections::HashMap;
 
 mod matching;

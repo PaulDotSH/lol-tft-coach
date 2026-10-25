@@ -3,7 +3,7 @@
 
 use super::capture::Dib;
 use crate::{Frame, match_augments, recognize};
-use model::AugmentId;
+use model_core::AugmentId;
 use std::collections::HashMap;
 use std::time::Instant;
 use windows::Win32::Foundation::COLORREF;

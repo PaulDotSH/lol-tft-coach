@@ -1,0 +1,17 @@
+[package]
+name = "model-live"
+edition.workspace = true
+version.workspace = true
+
+[features]
+# TypeScript bindings (ts-rs derive); on for this crate's own tests regardless.
+ts = ["dep:ts-rs", "model-core/ts"]
+
+[dependencies]
+model-core.workspace = true
+serde.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+model-core = { workspace = true, features = ["ts"] }
+ts-rs.workspace = true

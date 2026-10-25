@@ -3,7 +3,7 @@
 //! The icon dir holds the CommunityDragon small icons by file name plus `kiwi.json`
 //! ({id: [icon path, rarity]}). Rows come out in API order (5 Order, 5 Chaos), no item matching.
 
-use model::Team;
+use model_core::Team;
 use ocr::scoreboard::{AugIcons, BoardPlayer, Geometry, decode_png, read_all};
 use std::collections::HashMap;
 

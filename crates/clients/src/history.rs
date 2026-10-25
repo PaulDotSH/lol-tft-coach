@@ -5,7 +5,7 @@
 use crate::lcu::Lcu;
 use crate::id;
 use anyhow::{Context, Result};
-use model::*;
+use model_game::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;

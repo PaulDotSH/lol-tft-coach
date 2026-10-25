@@ -4,7 +4,8 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-model.workspace = true
+model-game.workspace = true
+model-static.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true

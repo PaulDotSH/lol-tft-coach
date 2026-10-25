@@ -23,7 +23,7 @@
 //!   1..15 = S+ … D-, rank/tier 0 = not ranked in that lane.
 
 use crate::num;
-use model::{
+use model_static::{
     Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, MatchupBuild, Mode, RuneData, RunePage,
     RuneStat, TierEntry,
 };

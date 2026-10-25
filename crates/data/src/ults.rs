@@ -1,7 +1,7 @@
 //! Static R cooldowns from Data Dragon `champion/<Id>.json` (`spells[3]`).
 
 use anyhow::Context;
-use model::UltCooldowns;
+use model_static::UltCooldowns;
 use std::time::Duration;
 
 const BASE: &str = "https://ddragon.leagueoflegends.com";

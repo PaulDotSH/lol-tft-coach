@@ -44,7 +44,11 @@ web\node_modules\.bin\tauri dev                    # hot-reload dev
 
 | Crate | Job |
 |---|---|
-| `crates/model` | Shared types; `cargo test -p model` regenerates `web/src/lib/bindings/*.ts` |
+| `crates/model` | Shared types: re-exports the `model-*` crates below and holds the app state. `cargo test -p model*` regenerates `web/src/lib/bindings/*.ts` (the ts-rs derive is compiled only for tests and the `ts` feature, not in app builds) |
+| `crates/model-core` | Ids, `Lane` / `Mode` / `Team` / …, `ItemPick`, the `data!` / `enums!` type macros |
+| `crates/model-static` | Data Dragon items, champions, runes; lolalytics and u.gg stats (what `data` produces) |
+| `crates/model-game` | Live snapshot, champ select, end of game, rank, match history (what `clients` produces) |
+| `crates/model-live` / `model-draft` / `model-review` | `coach` output: in-game advice / champ select advice / recap, self-coaching, game review |
 | `crates/data` | Data Dragon (+ `traits.toml`), lolalytics `mega` API + build-page benchmarks, u.gg Mayhem JSON; disk cache |
 | `crates/clients` | League client (lockfile, champ select, end-of-game) and Live Client Data API |
 | `crates/coach` | Pure decisions: threats, needs, item scoring, matchups, self stats, timers, augments, champ select, recap. Tuning in `consts.rs` |

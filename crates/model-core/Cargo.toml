@@ -1,0 +1,15 @@
+[package]
+name = "model-core"
+edition.workspace = true
+version.workspace = true
+
+[features]
+# TypeScript bindings (ts-rs derive); on for this crate's own tests regardless.
+ts = ["dep:ts-rs"]
+
+[dependencies]
+serde.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+ts-rs.workspace = true

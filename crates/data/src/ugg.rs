@@ -1,6 +1,6 @@
 //! u.gg ARAM: Mayhem data from static.bigbrain.gg.
 
-use model::{AugmentId, ChampAugments, ChampKey, MayhemData};
+use model_static::{AugmentId, ChampAugments, ChampKey, MayhemData};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Duration;
