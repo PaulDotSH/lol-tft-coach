@@ -8,3 +8,6 @@ tft-model.workspace = true
 ocr.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+png = "0.18"

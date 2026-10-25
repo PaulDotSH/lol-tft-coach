@@ -4180,6 +4180,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ocr",
+ "png",
  "tft-model",
  "tracing",
 ]
