@@ -177,8 +177,9 @@ fn contested_units_from_scouting_decay() {
     let mut t = tracker((4, 1), &RENGAR_UNITS);
     scout(&mut t, &s, (4, 1));
     let a = tick(&mut t, &s, &m, &snap((4, 1), 30));
-    assert_eq!(a.contested[0], (RENGAR.to_string(), 2));
-    assert!(a.contested.contains(&(TARIC.to_string(), 1))); // its unique trait shows
+    // Trait panels only (no units read): who plays it, no copies; the pool less my copy.
+    assert_eq!(a.contested[0], Contest { unit: RENGAR.into(), boards: 2, held: 0, left: Some(9) });
+    assert!(a.contested.contains(&Contest { unit: TARIC.into(), boards: 1, held: 0, left: Some(8) })); // its unique trait shows
     assert!(keys(&a).contains(&"contested-DA_18_Rengar"));
     // Not seen for more than two rounds: forgotten.
     let a = tick(&mut t, &s, &m, &snap((4, 4), 30));

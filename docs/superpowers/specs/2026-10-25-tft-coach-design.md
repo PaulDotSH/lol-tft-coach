@@ -18,7 +18,7 @@ and normal games, and the limited-time mode **Choncc or Treat** (queue 1230,
 | App shape | Same app. In a TFT queue the window switches to TFT screens; the LoL coach already goes quiet (`not_lol`). |
 | Parts | Live advice first; then pre-game meta, post-game review, trends + TFT LP. |
 | Live reading | Screen text (stage, gold, level, XP, HP, streak, team size, shop names, offered augments, trait panel), owned units from shop-purchase tracking checked against the trait panel, item components by icon matching. |
-| Scouting | Yes: when I view another board, read its trait panel; flag units in my target comp that others hold. |
+| Scouting | Yes: when I view another board, name its units (looks, then the trait panel's set search) and, in my fights, my opponent's red-bar units (looks); kept per player by name plate. Flag units in my target comp that others hold: copies held and left in the pool; the trait-panel guess where units go unnamed. |
 | Advice | Shop buy/skip (+ contested), level/roll timing, pivots + item builds + holder, augment ranking. |
 | Target comp | Fully automatic: best fit from MetaTFT comps given owned units, components, augments. |
 | Voice | Key moments only, each once: level / roll-down timing, a contested key unit, augment pick. |

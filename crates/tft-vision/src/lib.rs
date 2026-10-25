@@ -4,7 +4,9 @@
 //! captures (HUD at default scale) and scaled to the client size.
 //!
 //! My units come from their HP bars (`units`) and, with the embedder loaded, an image
-//! embedding of each one for telling them apart (tft-coach names them). Team size from the "N/M"
+//! embedding of each one for telling them apart (tft-coach names them). The other player on
+//! screen (a scouted board's owner, my combat opponent) by their name plate; in fights, the
+//! red-bar units too (embedded while their bars are full). Team size from the "N/M"
 //! on my board in planning (`team`).
 //!
 //! Items on the bench and under my units' bars, with item icons loaded (`items`).
@@ -55,6 +57,13 @@ const LIST_Y: (f32, f32) = (150.0, 1100.0);
 /// Tacticians' name plates over the board.
 const PLATE_X: (f32, f32) = (450.0, 2100.0);
 const PLATE_Y: (f32, f32) = (100.0, 1150.0);
+/// Name plates of the other player on screen: the board area and, in combat, the opponent's
+/// plate behind the far bench (cut by the screen's top edge when they stand in the far corner).
+const VIEWED_Y: (f32, f32) = (0.0, 1150.0);
+/// The far half of the board, read again in a fight when the full-frame pass found no plate there.
+const FAR_PLATES: (u32, u32, u32, u32) = (450, 0, 1650, 400);
+/// A plate matches a player list name within this share of edits (plates sit on busy backgrounds).
+const PLATE_EDITS: f64 = 0.3;
 /// A unit at the same place with the same ★ keeps its embedding this many reads.
 const REEMBED: u32 = 10;
 /// Same place: within this many base px.
@@ -387,18 +396,69 @@ fn same_name(a: &str, b: &str) -> bool {
     a.len() >= 3 && (a == b || (a.len() >= 6 && strsim::levenshtein(&a, &b) <= 1))
 }
 
+/// The player list name a plate's text reads as: the closest within PLATE_EDITS, and closer than any other.
+fn plate_name<'a>(text: &str, list: &[&'a str]) -> Option<&'a str> {
+    let t = norm(text);
+    if t.len() < 3 {
+        return None;
+    }
+    let mut d: Vec<(usize, &str)> = list.iter().map(|o| (strsim::levenshtein(&t, &norm(o)), *o)).collect();
+    d.sort();
+    let (best, name) = *d.first()?;
+    let ok = best as f64 <= (norm(name).len() as f64 * PLATE_EDITS).max(1.0);
+    (ok && d.get(1).is_none_or(|n| n.0 > best)).then_some(name)
+}
+
+/// Player list names (not mine; at least 3 characters, not one repeated like the "•••" under my HP).
+fn list_names<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>) -> Vec<&'a str> {
+    let name = |t: &str| {
+        let n = norm(t);
+        n.chars().count() >= 3 && n.chars().any(|c| !n.starts_with(c)) && t.chars().any(char::is_alphabetic)
+    };
+    boxes
+        .iter()
+        .filter(|b| g.within(b, LIST_X, LIST_Y) && name(&b.text))
+        .map(|b| b.text.trim())
+        .filter(|t| me.is_none_or(|m| !same_name(t, m)))
+        .collect()
+}
+
+/// Player list entries (not mine) whose tactician's plate shows in rows `y` of the board area.
+fn plates_shown<'a>(boxes: &[TextBox], list: &[&'a str], g: &Geo, y: (f32, f32)) -> Vec<&'a str> {
+    let mut shown: Vec<&str> = vec![];
+    for p in boxes.iter().filter(|b| g.within(b, PLATE_X, y)) {
+        if let Some(o) = plate_name(&p.text, list)
+            && !shown.contains(&o)
+        {
+            shown.push(o);
+        }
+    }
+    shown
+}
+
 /// Another player's board is on screen when their tactician's plate shows and mine doesn't
-/// (in combat both stand on one board). Unknown without my name: false.
+/// (in combat both stand on one board; the carousel shows every plate). Unknown without my name: false.
 fn viewing_other(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> bool {
     let Some(me) = me else { return false };
-    let others: Vec<&str> = boxes
-        .iter()
-        .filter(|b| g.within(b, LIST_X, LIST_Y) && b.text.chars().any(char::is_alphabetic))
-        .map(|b| b.text.as_str())
-        .collect();
-    let plates: Vec<&str> = boxes.iter().filter(|b| g.within(b, PLATE_X, PLATE_Y)).map(|b| b.text.as_str()).collect();
-    let mine = plates.iter().any(|p| same_name(p, me));
-    !mine && plates.iter().any(|p| !same_name(p, me) && others.iter().any(|o| same_name(p, o)))
+    let mine = boxes.iter().any(|b| g.within(b, PLATE_X, PLATE_Y) && same_name(&b.text, me));
+    !mine && plates_shown(boxes, &list_names(boxes, g, Some(me)), g, PLATE_Y).len() == 1
+}
+
+/// The one other player whose plate shows (scouting: the board's owner; combat: my opponent),
+/// as their player list entry reads. None with no plate or several (the carousel, a fight I'm not
+/// in). In a fight with none found, the far half of the board is read again on its own.
+fn viewed(f: &Frame, boxes: &[TextBox], g: &Geo, me: Option<&str>, fight: bool) -> Option<String> {
+    let list = list_names(boxes, g, me);
+    let mut shown = plates_shown(boxes, &list, g, VIEWED_Y);
+    if shown.is_empty() && fight {
+        let r = g.r(FAR_PLATES);
+        let far: Vec<TextBox> = ocr_crop(f, r, 1).into_iter().map(|b| TextBox { x: b.x + r.0 as f32, y: b.y + r.1 as f32, ..b }).collect();
+        shown = plates_shown(&far, &list, g, VIEWED_Y);
+    }
+    match shown.as_slice() {
+        [one] => Some(one.to_string()),
+        _ => None,
+    }
 }
 
 fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftSnapshot> {
@@ -482,6 +542,8 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
 
     let (units, enemies) = units::read(f, g.0);
     let viewing_other = viewing_other(&boxes, &g, me);
+    let viewing = viewed(f, &boxes, &g, me, enemies > 0);
+    let foes = if enemies > 0 { units::foes(f, g.0) } else { vec![] };
     Some(TftSnapshot {
         at,
         stage,
@@ -500,6 +562,8 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         viewing_other,
         units,
         enemies,
+        viewing,
+        foes,
     })
 }
 
@@ -516,11 +580,13 @@ pub struct Reader {
     seen: Vec<(SeenUnit, u32)>,
     /// Item icon templates; items aren't read without them.
     items: Option<Arc<ItemIcons>>,
+    /// The same for red-bar units.
+    seen_foes: Vec<(SeenUnit, u32)>,
 }
 
 impl Reader {
     pub fn new(set: &TftSetData) -> Reader {
-        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![], items: None }
+        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![], seen_foes: vec![], items: None }
     }
 
     /// Item icons for reading the item bench and units' items (they may arrive after the reader starts).
@@ -550,29 +616,15 @@ impl Reader {
         self
     }
 
-    /// Fill in `emb` for every unit; one that stayed put keeps its embedding a while.
+    /// Fill in `emb` for every unit (green and red bars); one that stayed put keeps its embedding a while.
     fn embed(&mut self, f: &Frame, snap: &mut TftSnapshot) {
         let Some(e) = &mut self.embedder else { return };
         let scale = f.width as f32 / BASE_W;
-        let mut ages = vec![0u32; snap.units.len()];
-        let mut todo = vec![];
-        for (i, u) in snap.units.iter_mut().enumerate() {
-            let near = |p: &SeenUnit| (p.x - u.x).abs() <= SAME_PLACE && (p.y - u.y).abs() <= SAME_PLACE && p.star == u.star;
-            match self.seen.iter().find(|(p, age)| near(p) && *age < REEMBED && !p.emb.is_empty()) {
-                Some((p, age)) => (u.emb, ages[i]) = (p.emb.clone(), age + 1),
-                None => todo.push(i),
-            }
+        self.seen = embed_units(e, f, scale, &mut snap.units, &self.seen);
+        // Red bars only before the fight touches them (units still in place, crops clean).
+        if snap.foes.iter().all(|u| u.full) {
+            self.seen_foes = embed_units(e, f, scale, &mut snap.foes, &self.seen_foes);
         }
-        let crops: Vec<tft_embed::Rgb> = todo.iter().map(|&i| units::crop(f, scale, &snap.units[i])).collect();
-        match e.embed(&crops) {
-            Ok(embs) => {
-                for (i, v) in todo.into_iter().zip(embs) {
-                    snap.units[i].emb = v;
-                }
-            }
-            Err(err) => tracing::warn!("tft embed: {err:#}"),
-        }
-        self.seen = snap.units.iter().cloned().zip(ages).collect();
     }
 
     /// One read of the screen; None when the TFT window or its HUD isn't up.
@@ -614,6 +666,31 @@ impl Reader {
     }
 }
 
+/// Embed `units`, reusing `seen`'s embedding for a unit at the same place and ★; the new `seen`.
+fn embed_units(e: &mut tft_embed::Embedder, f: &Frame, scale: f32, units: &mut [SeenUnit], seen: &[(SeenUnit, u32)]) -> Vec<(SeenUnit, u32)> {
+    let mut ages = vec![0u32; units.len()];
+    let mut todo = vec![];
+    for (i, u) in units.iter_mut().enumerate() {
+        let near = |p: &SeenUnit| (p.x - u.x).abs() <= SAME_PLACE && (p.y - u.y).abs() <= SAME_PLACE && p.star == u.star;
+        match seen.iter().find(|(p, age)| near(p) && *age < REEMBED && !p.emb.is_empty()) {
+            Some((p, age)) => (u.emb, ages[i]) = (p.emb.clone(), age + 1),
+            None => todo.push(i),
+        }
+    }
+    if !todo.is_empty() {
+        let crops: Vec<tft_embed::Rgb> = todo.iter().map(|&i| units::crop(f, scale, &units[i])).collect();
+        match e.embed(&crops) {
+            Ok(embs) => {
+                for (i, v) in todo.into_iter().zip(embs) {
+                    units[i].emb = v;
+                }
+            }
+            Err(err) => tracing::warn!("tft embed: {err:#}"),
+        }
+    }
+    units.iter().cloned().zip(ages).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -624,6 +701,16 @@ mod tests {
         assert_eq!(stage("3-1"), Some((3, 1)));
         assert_eq!(stage("24"), None);
         assert_eq!(digits("Lvl. 4"), Some(4));
+    }
+
+    #[test]
+    fn plates_match_list_names_through_ocr_slips() {
+        let list = ["LittleED92", "LeoDp", "Kabéas"];
+        assert_eq!(plate_name("Lit 1 ED92'", &list), Some("LittleED92"));
+        assert_eq!(plate_name("Littl ED92J", &list), Some("LittleED92"));
+        assert_eq!(plate_name("LeoDp", &list), Some("LeoDp"));
+        assert_eq!(plate_name("@ 27", &list), None);
+        assert_eq!(plate_name("Inferno", &list), None);
     }
 
     #[test]

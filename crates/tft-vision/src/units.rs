@@ -1,6 +1,7 @@
 //! My units by their HP bars. Every unit on my board and bench draws a green bar over
 //! its head, with a cap on the left whose colour is its ★ (bronze, silver, gold); enemies
-//! and PvE monsters draw red ones. A bar's left end is fixed while HP drains from the right.
+//! and PvE monsters draw red ones (read too: my combat opponent's units get named). A bar's
+//! left end is fixed while HP drains from the right.
 //! Positions are measured on 2560×1440 captures and scaled to the client size.
 
 use ocr::Frame;
@@ -25,6 +26,9 @@ const CAP: (f32, f32, f32, f32) = (-15.0, -1.0, 0.0, 11.0);
 const CAP_MIN: u32 = 6;
 /// The unit under its bar, relative to the bar's left end (base px): x0, y0, x1, y1.
 pub const CROP: (f32, f32, f32, f32) = (-18.0, 30.0, 82.0, 150.0);
+
+/// Red bars higher than this are on the far bench (my combat opponent's, behind the board).
+const FOE_BENCH_Y: f32 = 200.0;
 
 /// Points along the bar's top edge checked for the bar's dark frame; how many must hit.
 const FRAME_POINTS: u32 = 6;
@@ -168,6 +172,18 @@ pub fn read(f: &Frame, scale: f32) -> (Vec<SeenUnit>, u32) {
         })
         .collect();
     (units, bars(f, scale, red).len() as u32)
+}
+
+/// Units with red bars (my combat opponent's, or PvE monsters): the far bench (above
+/// FOE_BENCH_Y) as slot 0, its slots unmeasured; ★ caps and crops as on green bars.
+pub fn foes(f: &Frame, scale: f32) -> Vec<SeenUnit> {
+    bars(f, scale, red)
+        .iter()
+        .map(|b| {
+            let (x, y) = (b.x as f32 / scale, b.y as f32 / scale);
+            SeenUnit { x, y, star: star(f, scale, b), bench: (y < FOE_BENCH_Y).then_some(0), full: b.w as f32 / scale >= FULL_W, items: vec![], emb: vec![] }
+        })
+        .collect()
 }
 
 /// The crop under a unit's bar, for the embedder.

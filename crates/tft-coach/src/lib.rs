@@ -10,6 +10,7 @@ pub mod fit;
 mod history;
 mod items;
 pub mod library;
+pub mod scout;
 mod shop;
 pub mod tracker;
 
@@ -79,12 +80,9 @@ pub fn advise(input: &CoachInput) -> TftAdvice {
     let ranked = fit::rank(input);
     let comps: Vec<&MetaComp> = ranked.iter().take(fit::TOP_COMPS).map(|c| c.0).collect();
     let target = comps.first().copied();
-    let mut contested: Vec<(Api, u32)> = target
-        .map(|c| {
-            c.units.iter().map(|u| (u.clone(), fit::contested(u, c, set, tracker.boards()))).filter(|u| u.1 > 0).collect()
-        })
-        .unwrap_or_default();
-    contested.sort_by_key(|c| std::cmp::Reverse(c.1));
+    let mut contested: Vec<Contest> =
+        target.map(|c| c.units.iter().map(|u| fit::contested(u, c, set, tracker)).filter(|u| u.boards > 0).collect()).unwrap_or_default();
+    contested.sort_by_key(|c| std::cmp::Reverse((c.held, c.boards)));
     let (econ, econ_call) = econ::advise(snap, tracker, target);
     let mut advice = TftAdvice {
         mode: hooks.mode(),

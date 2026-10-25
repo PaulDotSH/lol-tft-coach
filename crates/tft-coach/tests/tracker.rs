@@ -113,14 +113,14 @@ fn scouted_boards_merge_and_decay() {
     t.observe(&other((3, 1), &[(DEFENDER, 4), (DUELIST, 2), (GREENFATHER, 1)]), &s);
     t.observe(&other((3, 1), &[(DEFENDER, 4), (DUELIST, 2)]), &s); // the same board, read again
     t.observe(&other((3, 3), &[(SORCERER, 4), (COVEN, 2)]), &s);
-    assert_eq!(t.boards().len(), 2);
+    assert_eq!(t.scout().players().len(), 2);
     // Scouting never touches my own units or panel.
     assert!(t.panel().is_empty() && t.units().is_empty());
     t.observe(&snap((3, 4), 30), &s);
-    assert_eq!(t.boards().len(), 1);
-    assert_eq!(t.boards()[0].traits[0].0, SORCERER);
+    assert_eq!(t.scout().players().len(), 1);
+    assert_eq!(t.scout().players()[0].traits[0].0, SORCERER);
     t.observe(&snap((3, 6), 30), &s);
-    assert!(t.boards().is_empty());
+    assert!(t.scout().players().is_empty());
 }
 
 #[test]

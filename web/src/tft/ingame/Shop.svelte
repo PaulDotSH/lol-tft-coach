@@ -1,6 +1,7 @@
 <script lang="ts">
   // The shop as five slots in game order: buy (lit) or skip (dimmed), why, and how many
-  // other boards hold the unit. Empty or unread slots stay as blank frames.
+  // copies other players hold (or boards, from their traits) and how many are left in the pool.
+  // Empty or unread slots stay as blank frames.
   import type { ShopAdvice } from '../../lib/tft-bindings/ShopAdvice';
   import { tft } from '../../lib/tft-store.svelte';
   import { costColor, tftName, unitCost } from '../../lib/tft';
@@ -26,7 +27,7 @@
             <span class="verdict">{s.buy ? 'Buy' : 'Skip'}</span>
             {#if s.contested}
               <span class="contested" title="Held on {s.contested} other board{s.contested > 1 ? 's' : ''}">
-                ×{s.contested} board{s.contested > 1 ? 's' : ''}
+                {#if s.held}{s.held} held{s.left !== null ? ` · ${s.left} left` : ''}{:else}×{s.contested} board{s.contested > 1 ? 's' : ''}{/if}
               </span>
             {/if}
             {#if s.reason}<p class="reason">{s.reason}</p>{/if}

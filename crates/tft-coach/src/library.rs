@@ -55,6 +55,32 @@ impl Library {
         best
     }
 
+    /// Like `classify`, with the background each side shares taken out: the library's looks less
+    /// their mean (my board's floor), `emb` less `center` (the mean of its own read: another
+    /// arena's floor). For units seen away from my board.
+    pub fn classify_centered(&self, emb: &[f32], center: &[f32]) -> Vec<(Api, f32)> {
+        let Some(d) = self.looks.first().map(|l| l.2.len()).filter(|&d| d == emb.len() && d == center.len()) else { return vec![] };
+        let mut mean = vec![0.0f32; d];
+        for (_, _, e) in self.looks.iter().filter(|l| l.2.len() == d) {
+            mean.iter_mut().zip(e).for_each(|(m, v)| *m += v / self.looks.len() as f32);
+        }
+        let unit = |v: Vec<f32>| {
+            let n = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
+            v.into_iter().map(|x| x / n).collect::<Vec<f32>>()
+        };
+        let q = unit(emb.iter().zip(center).map(|(a, b)| a - b).collect());
+        let mut best: Vec<(Api, f32)> = vec![];
+        for (api, _, e) in self.looks.iter().filter(|l| l.2.len() == d) {
+            let s = similarity(&q, &unit(e.iter().zip(&mean).map(|(a, b)| a - b).collect()));
+            match best.iter_mut().find(|b| &b.0 == api) {
+                Some(b) => b.1 = b.1.max(s),
+                None => best.push((api.clone(), s)),
+            }
+        }
+        best.sort_by(|a, b| b.1.total_cmp(&a.1));
+        best
+    }
+
     /// Keep a look of `api` at ★`star`; false when it's a near copy of one already kept.
     pub fn learn(&mut self, api: &str, star: u32, emb: &[f32]) -> bool {
         if emb.is_empty() || self.looks.iter().any(|(a, _, e)| a == api && similarity(e, emb) >= DUPLICATE) {
@@ -125,5 +151,19 @@ mod tests {
         assert_eq!(back.len(), 2);
         assert_eq!(back.classify(&unit(&[0.0, 1.0, 0.1]))[0].0, "B");
         assert!(Library::from_bytes(b"nope").is_none());
+    }
+
+    #[test]
+    fn centred_looks_ignore_a_shared_background() {
+        let mut l = Library::default();
+        // My board's floor (axis 3) under every look; another arena's floor (axis 4) under the query.
+        l.learn("A", 1, &unit(&[1.0, 0.0, 0.0, 2.0, 0.0]));
+        l.learn("B", 1, &unit(&[0.0, 1.0, 0.0, 2.0, 0.0]));
+        l.learn("C", 1, &unit(&[0.0, 0.0, 1.0, 2.0, 0.0]));
+        let away = |v: &[f32]| unit(v);
+        let read = [away(&[1.0, 0.0, 0.0, 0.0, 2.0]), away(&[0.0, 0.0, 1.0, 0.0, 2.0])];
+        let center: Vec<f32> = (0..5).map(|i| (read[0][i] + read[1][i]) / 2.0).collect();
+        assert_eq!(l.classify_centered(&read[0], &center)[0].0, "A");
+        assert_eq!(l.classify_centered(&read[1], &center)[0].0, "C");
     }
 }
