@@ -42,6 +42,7 @@ fn objective_calls_from_timers_gold_and_death_timers() {
     let a = advise(&s);
     let texts: Vec<&str> = a.calls.iter().map(|c| c.text.as_str()).collect();
     assert!(texts.contains(&"Baron in 1:10: back now, spend 1500 gold, and be there"), "{texts:?}");
+    assert_eq!(a.calls.iter().find(|c| c.key == "back-Baron-1200").expect("back call").say, "Baron in 70 seconds. Back and buy now.");
     assert!(texts.contains(&"Dragon is up: Darius (30 s), Lee Sin (30 s) and Zed (30 s) dead, their jungler can't smite. Take it"), "{texts:?}");
     let r = a.readiness.unwrap();
     assert_eq!(r.verdict, Verdict::Fight);
@@ -67,7 +68,18 @@ fn supports_and_junglers_ward_an_objective_before_it_spawns() {
     assert_eq!(ward.len(), 1, "{:?}", a.calls);
     assert_eq!(ward[0].key, "ward-Baron-1200");
     assert_eq!(ward[0].text, "Baron in 1:10: ward the pit and the river bushes, bring a Control Ward");
-    assert_eq!(ward[0].say, "Baron in one minute. Ward the river.");
+    assert_eq!(ward[0].say, "Baron in 70 seconds. Ward the river.");
+
+    // Spoken once anywhere in the window, so it says the time left, not "one minute": a real game's
+    // dragon (killed 10:45.6, back 15:45.6) was called "in one minute" at 14:35, 70 s out.
+    let dragon = vec![GameEvent::Dragon { time: 645.6, team: Some(Team::Order), kind: "Air".into() }];
+    let s6 = GameSnapshot { time: 875.2, events: dragon, ..s.clone() };
+    let a6 = advise(&s6);
+    let c = a6.calls.iter().find(|c| c.key == "ward-Dragon-945").expect("ward call");
+    assert_eq!(c.say, "Dragon in 70 seconds. Ward the river.");
+    let s7 = GameSnapshot { time: 1163.0, ..s.clone() };
+    let a7 = advise(&s7);
+    assert_eq!(a7.calls.iter().find(|c| c.key == "ward-Baron-1200").expect("ward call").say, "Baron in 35 seconds. Ward the river.");
 
     // Holding a Control Ward and the lens: sweep instead.
     let mut s2 = s.clone();

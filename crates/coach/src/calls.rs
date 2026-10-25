@@ -149,6 +149,12 @@ fn clock(s: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
+/// Spoken countdown to the nearest 5 s: "70 seconds". A call is spoken once, anywhere in its window,
+/// so it says the real time left rather than the window's ("one minute").
+fn secs(s: f32) -> String {
+    format!("{} seconds", (s.max(0.0) / 5.0).round() as u32 * 5)
+}
+
 /// "A", "A and B", "A, B and C".
 fn and_list(v: Vec<String>) -> String {
     match v.as_slice() {
@@ -199,7 +205,7 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
                 out.push(Call {
                     key: format!("back-{}-{at}", t.name),
                     text: format!("{} in {}: back now, {what}, and be there", t.name, clock(dt)),
-                    say: format!("{} in {} seconds. Back and buy now.", t.name, (dt / 10.0).round() * 10.0),
+                    say: format!("{} in {}. Back and buy now.", t.name, secs(dt)),
                 });
             }
         }
@@ -218,7 +224,7 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
             out.push(Call {
                 key: format!("ward-{}-{at}", t.name),
                 text: format!("{} in {}: ward the pit and the river bushes{bring}", t.name, clock(dt)),
-                say: format!("{} in one minute. Ward the river.", t.name),
+                say: format!("{} in {}. Ward the river.", t.name, secs(dt)),
             });
         }
         // Up (or nearly) with enemies dead: take it. Their jungler dead means no smite
