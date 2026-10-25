@@ -33,9 +33,13 @@ const GOLD_X: (f32, f32) = (1170.0, 1300.0);
 const SHOP_Y: (f32, f32) = (1380.0, 1435.0);
 const SHOP_X0: f32 = 590.0;
 const SHOP_PITCH: f32 = 269.0;
+/// A shop slot's trait lines, above its name: the fallback for names OCR can't read ("Vi").
+const SHOP_TRAITS_Y: (f32, f32) = (1240.0, 1378.0);
 /// Player list HP column; my own row's HP is drawn larger.
 const HP_X: (f32, f32) = (2280.0, 2445.0);
 const MY_HP_H: f32 = 17.0;
+/// The HP column alone, read at 2× when the full-frame pass misses my row.
+const HP_COLUMN: (u32, u32, u32, u32) = (2290, 150, 160, 960);
 /// Augment titles sit mid-screen.
 const OFFER_Y: (f32, f32) = (300.0, 1100.0);
 /// A trait missing from this many reads in a row is gone (single reads drop rows).
@@ -141,6 +145,8 @@ fn tile(f: &Frame, k: u32) -> Frame {
 /// Display names → API names, normalised for matching.
 struct Names {
     units: Vec<(String, Api)>,
+    /// Each unit's trait set (sorted), for naming a shop slot from its trait lines.
+    unit_traits: Vec<(Vec<Api>, Api)>,
     traits: Vec<(String, Api)>,
     augments: HashMap<u32, String>,
     augment_api: Vec<Api>,
@@ -177,7 +183,17 @@ impl Names {
         }
         let mut augment_api: Vec<Api> = set.augments.keys().cloned().collect();
         augment_api.sort();
+        let unit_traits = set
+            .units
+            .values()
+            .map(|u| {
+                let mut t = u.traits.clone();
+                t.sort();
+                (t, u.api.clone())
+            })
+            .collect();
         Names {
+            unit_traits,
             units: by_name.into_iter().map(|(n, a)| (n, a.clone())).collect(),
             traits: set.traits.values().map(|t| (norm(&t.name), t.api.clone())).collect(),
             augments: augment_api.iter().enumerate().map(|(i, a)| (i as u32, set.augments[a].name.clone())).collect(),
@@ -258,13 +274,14 @@ fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
         Some((digits(a)?, digits(c)?))
     });
     let gold = boxes.iter().filter(|b| in_bar(b, GOLD_X)).find_map(|b| digits(&b.text));
-    let hp = boxes
-        .iter()
-        .filter(|b| g.within(b, HP_X, (150.0, 1100.0)) && b.h >= g.v(MY_HP_H))
-        .filter(|b| !b.text.is_empty() && b.text.chars().all(|c| c.is_ascii_digit()))
-        .max_by(|a, b| a.h.total_cmp(&b.h))
-        .and_then(|b| digits(&b.text))
-        .filter(|&h| (1..=100).contains(&h));
+    let tallest = |bs: &mut dyn Iterator<Item = &TextBox>, min_h: f32| {
+        bs.filter(|b| b.h >= min_h && !b.text.is_empty() && b.text.chars().all(|c| c.is_ascii_digit()))
+            .max_by(|a, b| a.h.total_cmp(&b.h))
+            .and_then(|b| digits(&b.text))
+            .filter(|h| (1..=100).contains(h))
+    };
+    let hp = tallest(&mut boxes.iter().filter(|b| g.within(b, HP_X, (150.0, 1100.0))), g.v(MY_HP_H))
+        .or_else(|| tallest(&mut ocr_crop(f, g.r(HP_COLUMN), 2).iter(), 2.0 * g.v(MY_HP_H)));
 
     // Streak: the number right of the flame; a red/orange flame is a win streak.
     let streak = lone_digit(f, g.r(STREAK)).filter(|&n| n > 0).map(|n| {
@@ -284,6 +301,23 @@ fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
             && let Some(api) = best(&b.text, &names.units)
         {
             shop[slot] = Some(api.clone());
+        }
+    }
+
+    // Unread names: the slot's trait lines name the unit when only one has exactly those traits.
+    for (slot, s) in shop.iter_mut().enumerate().filter(|(_, s)| s.is_none()) {
+        let x0 = SHOP_X0 + slot as f32 * SHOP_PITCH;
+        let mut seen: Vec<Api> = boxes
+            .iter()
+            .filter(|b| g.within(b, (x0, x0 + SHOP_PITCH - 10.0), SHOP_TRAITS_Y))
+            .filter_map(|b| best(b.text.trim_start_matches(|c: char| !c.is_alphabetic() || c.is_lowercase()), &names.traits).cloned())
+            .collect();
+        seen.sort();
+        seen.dedup();
+        if seen.len() >= 2
+            && let [(_, api)] = names.unit_traits.iter().filter(|(t, _)| *t == seen).collect::<Vec<_>>().as_slice()
+        {
+            *s = Some(api.clone());
         }
     }
 

@@ -28,6 +28,10 @@ const MAX_BOARDS: usize = 7;
 const HP_ROUNDS: usize = 8;
 /// Units owned up to this stage count as starting units (Choncc's 4/5-cost).
 pub const EARLY_STAGE: u32 = 2;
+/// Rounds a unit may be off my trait panel (sold, or sitting on the bench) before it stops
+/// counting as owned: ★1 units, then ★2+ ones (kept longer, they're rarely sold).
+const OFF_PANEL_ROUNDS: u32 = 4;
+const OFF_PANEL_ROUNDS_STARRED: u32 = 6;
 
 /// ★ from copies.
 pub fn star(copies: u32) -> u32 {
@@ -54,6 +58,8 @@ pub struct Tracked {
     pub since: Option<(u32, u32)>,
     /// Named from the trait panel alone (carousel, orbs, a starting unit), never seen bought.
     pub seen: bool,
+    /// Rounds in a row some trait of it was missing from my panel.
+    pub off_panel: u32,
 }
 
 /// Another player's board as its trait panel read while scouting.
@@ -82,6 +88,8 @@ pub struct Tracker {
     bought: Vec<(usize, Api)>,
     /// (round_index, HP), one per round, oldest first.
     hp: VecDeque<(u32, u32)>,
+    /// Round of the last off-panel check.
+    checked: u32,
 }
 
 fn count(panel: &[(Api, u32)], t: &str) -> u32 {
@@ -133,6 +141,7 @@ impl Tracker {
             self.shop = snap.shop.clone();
         }
         if !snap.traits.is_empty() {
+            self.off_panel(&snap.traits, set, round);
             self.correct(&snap.traits, set);
             self.panel = snap.traits.clone();
             if self.first_panel.is_none()
@@ -154,7 +163,7 @@ impl Tracker {
                 u.copies += copies;
                 u.seen &= seen;
             }
-            None => self.units.push(Tracked { api: api.into(), copies, since: self.stage, seen }),
+            None => self.units.push(Tracked { api: api.into(), copies, since: self.stage, seen, off_panel: 0 }),
         }
     }
 
@@ -230,6 +239,21 @@ impl Tracker {
         if let [(api, n)] = fits.as_slice() {
             self.remove(api, *n);
         }
+    }
+
+    /// Once per round: units with a trait missing from the panel aren't fielded; after enough
+    /// rounds of that they were sold (sells are rarely caught from gold alone) or are idle
+    /// on the bench, and stop counting.
+    fn off_panel(&mut self, panel: &[(Api, u32)], set: &TftSetData, round: u32) {
+        if round <= self.checked {
+            return;
+        }
+        self.checked = round;
+        for u in &mut self.units {
+            let fielded = set.units.get(&u.api).is_none_or(|d| d.traits.iter().all(|t| count(panel, t) > 0));
+            u.off_panel = if fielded { 0 } else { u.off_panel + 1 };
+        }
+        self.units.retain(|u| u.off_panel < if u.copies >= STAR2_COPIES { OFF_PANEL_ROUNDS_STARRED } else { OFF_PANEL_ROUNDS });
     }
 
     /// Trait counts above what tracked units explain are unknown units; when they are exactly one

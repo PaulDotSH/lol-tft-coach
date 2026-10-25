@@ -122,3 +122,25 @@ fn scouted_boards_merge_and_decay() {
     t.observe(&snap((3, 6), 30), &s);
     assert!(t.boards().is_empty());
 }
+
+#[test]
+fn units_off_the_panel_for_rounds_stop_counting() {
+    let s = set();
+    let mut t = Tracker::default();
+    own(&mut t, &s, (2, 1), &[GAREN, LUX]);
+    // Lux fielded every round (its traits on the panel), Garen never: sold or benched.
+    let lux: Vec<(&str, u32)> = s.units[LUX].traits.iter().map(|t| (t.as_str(), 1)).collect();
+    for round in 2..=4 {
+        t.observe(&TftSnapshot { traits: traits(&lux), ..snap((2, round), 50) }, &s);
+    }
+    assert_eq!((t.copies(GAREN), t.copies(LUX)), (1, 1), "3 rounds off the panel: still owned");
+    t.observe(&TftSnapshot { traits: traits(&lux), ..snap((2, 5), 50) }, &s);
+    assert_eq!((t.copies(GAREN), t.copies(LUX)), (0, 1), "4 rounds: gone");
+    // Several reads in one round count once.
+    let mut u = Tracker::default();
+    own(&mut u, &s, (3, 1), &[GAREN]);
+    for _ in 0..6 {
+        u.observe(&TftSnapshot { traits: traits(&lux), ..snap((3, 2), 50) }, &s);
+    }
+    assert_eq!(u.copies(GAREN), 1);
+}
