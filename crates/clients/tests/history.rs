@@ -31,6 +31,13 @@ fn list_keeps_rift_and_abyss_matchmade_games() {
     // List entries have no teams and no other players.
     let rift = &games[0];
     assert_eq!((rift.lane, rift.gold_diff_15, rift.first_tower), (Some(Lane::Middle), None, None));
+
+    // Mayhem's queue moved (2400 → 3270, seen live 2026-10-25): the game mode still says KIWI.
+    let mut kiwi = history::list_games(&list).find(|g| g["queueId"] == 2400).unwrap().clone();
+    kiwi["queueId"] = 3270.into();
+    assert_eq!(history::parse_game(&kiwi, Some(ME), None).map(|g| g.mode), Some(Mode::Mayhem));
+    assert_eq!(Mode::from_queue_mode(3270, "KIWI"), Mode::Mayhem);
+    assert_eq!(Mode::from_queue_mode(2400, ""), Mode::Mayhem, "no mode reported: the queue id decides");
 }
 
 #[test]

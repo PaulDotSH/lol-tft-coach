@@ -130,6 +130,7 @@ fn eog_fallbacks() {
     j["teams"][0]["players"][2]["isLocalPlayer"] = false.into();
     j["teams"][0]["players"][2]["stats"].as_object_mut().unwrap().remove("WIN");
     j["queueId"] = 450.into();
+    j["gameMode"] = "ARAM".into();
     let e = lcu::parse_eog(&j).unwrap();
     assert_eq!((e.champ, e.win, e.mode, e.kills), (103, true, Mode::Aram, 7));
 
@@ -250,6 +251,10 @@ fn eog_mayhem_reports_kiwi_without_queue_id() {
     assert_eq!(lcu::parse_eog(&j).unwrap().mode, Mode::Mayhem);
     j["gameMode"] = "CLASSIC".into();
     assert_eq!(lcu::parse_eog(&j).unwrap().mode, Mode::Rift);
+    // Mayhem's queue moved (2400 → 3270): the mode still says KIWI.
+    j["queueId"] = 3270.into();
+    j["gameMode"] = "KIWI".into();
+    assert_eq!(lcu::parse_eog(&j).unwrap().mode, Mode::Mayhem);
 }
 
 #[test]

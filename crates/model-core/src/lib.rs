@@ -94,6 +94,17 @@ impl Mode {
             _ => Mode::Rift,
         }
     }
+
+    /// Queue id plus the game mode the client reports with it. The mode wins: queue ids move
+    /// (ARAM: Mayhem went from 2400 to 3270) while Mayhem keeps reporting "KIWI".
+    pub fn from_queue_mode(queue_id: i64, game_mode: &str) -> Mode {
+        match game_mode {
+            "KIWI" => Mode::Mayhem,
+            "ARAM" => Mode::Aram,
+            "CLASSIC" => Mode::Rift,
+            _ => Mode::from_queue(queue_id),
+        }
+    }
 }
 
 // Shared by in-game advice (buy next, path) and champ select (build plan).

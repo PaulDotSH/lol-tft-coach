@@ -179,7 +179,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                     && let Some(c) = &lcu {
                         if let Ok(Some((q, game_mode))) = c.queue().await {
                             memo.not_lol = game_mode == "TFT";
-                            memo.mode = Some(Mode::from_queue(q));
+                            memo.mode = Some(Mode::from_queue_mode(q, &game_mode));
                             tracing::info!("queue {q} ({game_mode}) → {:?}", memo.mode);
                         }
                         memo.queue_checked = true;

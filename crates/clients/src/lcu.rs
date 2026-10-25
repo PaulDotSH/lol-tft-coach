@@ -156,9 +156,10 @@ impl Lcu {
     }
 
     pub async fn champ_select(&self) -> Result<Option<ChampSelect>> {
-        let (session, queue) = tokio::join!(self.get("/lol-champ-select/v1/session"), self.queue_id());
+        let (session, queue) = tokio::join!(self.get("/lol-champ-select/v1/session"), self.queue());
         let Some(session) = session? else { return Ok(None) };
-        Ok(parse_champ_select(&session, queue.ok().flatten().unwrap_or(-1)))
+        let (q, game_mode) = queue.ok().flatten().unwrap_or((-1, String::new()));
+        Ok(parse_champ_select(&session, q).map(|cs| ChampSelect { mode: Mode::from_queue_mode(cs.queue_id, &game_mode), ..cs }))
     }
 
     /// My current Solo/Duo and Flex rank, stamped `now` (unix ms); unranked queues left out.
@@ -273,15 +274,8 @@ pub fn parse_eog(json: &Value) -> Option<EogStats> {
             mine.is_some_and(|t| t["isWinningTeam"] == true)
         }
     };
-    let mode = match json["queueId"].as_i64().filter(|&q| q > 0) {
-        Some(q) => Mode::from_queue(q),
-        None => match json["gameMode"].as_str().or(json["queueType"].as_str()) {
-            Some("ARAM") => Mode::Aram,
-            // ARAM: Mayhem (queue 2400) reports itself as KIWI.
-            Some("KIWI") => Mode::Mayhem,
-            _ => Mode::Rift,
-        },
-    };
+    let game_mode = json["gameMode"].as_str().or(json["queueType"].as_str()).unwrap_or_default();
+    let mode = Mode::from_queue_mode(json["queueId"].as_i64().filter(|&q| q > 0).unwrap_or(-1), game_mode);
     let s = |k: &str| stat(k).unwrap_or(0);
     Some(EogStats {
         champ: id(&local["championId"])?,

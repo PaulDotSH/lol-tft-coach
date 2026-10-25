@@ -232,7 +232,7 @@ fn parse<'a>(game: &'a Value, puuid: Option<&str>, timeline: Option<&'a Value>) 
     let s = &me["stats"];
     let n = |k: &str| s[k].as_f64().map_or(0, |v| v.max(0.0) as u32);
     let queue_id = game["queueId"].as_i64()?;
-    let mode = Mode::from_queue(queue_id);
+    let mode = Mode::from_queue_mode(queue_id, game["gameMode"].as_str().unwrap_or_default());
     let mut duration_s = game["gameDuration"].as_u64()? as u32;
     if duration_s > 20_000 {
         duration_s /= 1000; // milliseconds in some client versions
