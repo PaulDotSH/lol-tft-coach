@@ -5,8 +5,8 @@
 //!
 //! My units come from their HP bars (`units`) and, with the embedder loaded, an image
 //! embedding of each one for telling them apart (tft-coach names them). The other player on
-//! screen (a scouted board's owner, my combat opponent) by their name plate; in my fights,
-//! the opponent's red-bar units too.
+//! screen (a scouted board's owner, my combat opponent) by their name plate; in fights, the
+//! red-bar units too (embedded while their bars are full).
 //!
 //! Not read yet: item bench icons, items on units.
 
@@ -52,8 +52,12 @@ const LIST_Y: (f32, f32) = (150.0, 1100.0);
 const PLATE_X: (f32, f32) = (450.0, 2100.0);
 const PLATE_Y: (f32, f32) = (100.0, 1150.0);
 /// Name plates of the other player on screen: the board area and, in combat, the opponent's
-/// plate behind the far bench.
-const VIEWED_Y: (f32, f32) = (30.0, 1150.0);
+/// plate behind the far bench (cut by the screen's top edge when they stand in the far corner).
+const VIEWED_Y: (f32, f32) = (0.0, 1150.0);
+/// The far half of the board, read again in a fight when the full-frame pass found no plate there.
+const FAR_PLATES: (u32, u32, u32, u32) = (450, 0, 1650, 400);
+/// A plate matches a player list name within this share of edits (plates sit on busy backgrounds).
+const PLATE_EDITS: f64 = 0.3;
 /// A unit at the same place with the same ★ keeps its embedding this many reads.
 const REEMBED: u32 = 10;
 /// Same place: within this many base px.
@@ -386,18 +390,39 @@ fn same_name(a: &str, b: &str) -> bool {
     a.len() >= 3 && (a == b || (a.len() >= 6 && strsim::levenshtein(&a, &b) <= 1))
 }
 
-/// Player list entries (not mine) whose tactician's plate shows in rows `y` of the board area.
-fn plates_shown<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>, y: (f32, f32)) -> Vec<&'a str> {
-    let list: Vec<&str> = boxes
+/// The player list name a plate's text reads as: the closest within PLATE_EDITS, and closer than any other.
+fn plate_name<'a>(text: &str, list: &[&'a str]) -> Option<&'a str> {
+    let t = norm(text);
+    if t.len() < 3 {
+        return None;
+    }
+    let mut d: Vec<(usize, &str)> = list.iter().map(|o| (strsim::levenshtein(&t, &norm(o)), *o)).collect();
+    d.sort();
+    let (best, name) = *d.first()?;
+    let ok = best as f64 <= (norm(name).len() as f64 * PLATE_EDITS).max(1.0);
+    (ok && d.get(1).is_none_or(|n| n.0 > best)).then_some(name)
+}
+
+/// Player list names (not mine; at least 3 characters, not one repeated like the "•••" under my HP).
+fn list_names<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>) -> Vec<&'a str> {
+    let name = |t: &str| {
+        let n = norm(t);
+        n.chars().count() >= 3 && n.chars().any(|c| !n.starts_with(c)) && t.chars().any(char::is_alphabetic)
+    };
+    boxes
         .iter()
-        .filter(|b| g.within(b, LIST_X, LIST_Y) && b.text.chars().any(char::is_alphabetic))
+        .filter(|b| g.within(b, LIST_X, LIST_Y) && name(&b.text))
         .map(|b| b.text.trim())
         .filter(|t| me.is_none_or(|m| !same_name(t, m)))
-        .collect();
+        .collect()
+}
+
+/// Player list entries (not mine) whose tactician's plate shows in rows `y` of the board area.
+fn plates_shown<'a>(boxes: &[TextBox], list: &[&'a str], g: &Geo, y: (f32, f32)) -> Vec<&'a str> {
     let mut shown: Vec<&str> = vec![];
     for p in boxes.iter().filter(|b| g.within(b, PLATE_X, y)) {
-        if let Some(o) = list.iter().find(|o| same_name(&p.text, o))
-            && !shown.contains(o)
+        if let Some(o) = plate_name(&p.text, list)
+            && !shown.contains(&o)
         {
             shown.push(o);
         }
@@ -410,13 +435,21 @@ fn plates_shown<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>, y: (f32, f3
 fn viewing_other(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> bool {
     let Some(me) = me else { return false };
     let mine = boxes.iter().any(|b| g.within(b, PLATE_X, PLATE_Y) && same_name(&b.text, me));
-    !mine && plates_shown(boxes, g, Some(me), PLATE_Y).len() == 1
+    !mine && plates_shown(boxes, &list_names(boxes, g, Some(me)), g, PLATE_Y).len() == 1
 }
 
 /// The one other player whose plate shows (scouting: the board's owner; combat: my opponent),
-/// as their player list entry reads. None with no plate or several (the carousel, a fight I'm not in).
-fn viewed(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> Option<String> {
-    match plates_shown(boxes, g, me, VIEWED_Y).as_slice() {
+/// as their player list entry reads. None with no plate or several (the carousel, a fight I'm not
+/// in). In a fight with none found, the far half of the board is read again on its own.
+fn viewed(f: &Frame, boxes: &[TextBox], g: &Geo, me: Option<&str>, fight: bool) -> Option<String> {
+    let list = list_names(boxes, g, me);
+    let mut shown = plates_shown(boxes, &list, g, VIEWED_Y);
+    if shown.is_empty() && fight {
+        let r = g.r(FAR_PLATES);
+        let far: Vec<TextBox> = ocr_crop(f, r, 1).into_iter().map(|b| TextBox { x: b.x + r.0 as f32, y: b.y + r.1 as f32, ..b }).collect();
+        shown = plates_shown(&far, &list, g, VIEWED_Y);
+    }
+    match shown.as_slice() {
         [one] => Some(one.to_string()),
         _ => None,
     }
@@ -503,9 +536,8 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
 
     let (units, enemies) = units::read(f, g.0);
     let viewing_other = viewing_other(&boxes, &g, me);
-    let viewing = viewed(&boxes, &g, me);
-    // Red bars with one other plate on screen: my opponent's (another fight shows two plates).
-    let foes = if enemies > 0 && viewing.is_some() { units::foes(f, g.0) } else { vec![] };
+    let viewing = viewed(f, &boxes, &g, me, enemies > 0);
+    let foes = if enemies > 0 { units::foes(f, g.0) } else { vec![] };
     Some(TftSnapshot {
         at,
         stage,
@@ -565,7 +597,10 @@ impl Reader {
         let Some(e) = &mut self.embedder else { return };
         let scale = f.width as f32 / BASE_W;
         self.seen = embed_units(e, f, scale, &mut snap.units, &self.seen);
-        self.seen_foes = embed_units(e, f, scale, &mut snap.foes, &self.seen_foes);
+        // Red bars only before the fight touches them (units still in place, crops clean).
+        if snap.foes.iter().all(|u| u.full) {
+            self.seen_foes = embed_units(e, f, scale, &mut snap.foes, &self.seen_foes);
+        }
     }
 
     /// One read of the screen; None when the TFT window or its HUD isn't up.
@@ -640,6 +675,16 @@ mod tests {
         assert_eq!(stage("3-1"), Some((3, 1)));
         assert_eq!(stage("24"), None);
         assert_eq!(digits("Lvl. 4"), Some(4));
+    }
+
+    #[test]
+    fn plates_match_list_names_through_ocr_slips() {
+        let list = ["LittleED92", "LeoDp", "Kabéas"];
+        assert_eq!(plate_name("Lit 1 ED92'", &list), Some("LittleED92"));
+        assert_eq!(plate_name("Littl ED92J", &list), Some("LittleED92"));
+        assert_eq!(plate_name("LeoDp", &list), Some("LeoDp"));
+        assert_eq!(plate_name("@ 27", &list), None);
+        assert_eq!(plate_name("Inferno", &list), None);
     }
 
     #[test]

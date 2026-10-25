@@ -140,3 +140,50 @@ fn my_own_panel_and_the_carousel_are_not_scouting() {
     t.observe(&scouting((3, 4), Some("Ann"), vec![], &[(DEFENDER, 2)]), &s);
     assert!(t.scout().players().is_empty(), "{:?}", t.scout().players());
 }
+
+#[test]
+fn fights_without_a_plate_go_to_whoever_holds_the_same_units_and_pve_is_skipped() {
+    let s = set();
+    let mut t = Tracker::default().with_library(library(&[RENGAR, TARIC, LUX, VI]));
+    let foes = |units: &[(&str, f32)]| units.iter().map(|&(u, x)| hex(x, 300.0, look(u), 1)).collect::<Vec<_>>();
+    read(&mut t, &s, &fight((4, 5), "Bob", foes(&[(RENGAR, 1000.0), (TARIC, 1200.0)])));
+    // Next round, Bob's plate unread: his Rengar and Taric again (and a new Lux).
+    let unnamed = |stage, units| TftSnapshot { viewing: None, ..fight(stage, "", units) };
+    read(&mut t, &s, &unnamed((4, 6), foes(&[(RENGAR, 1000.0), (TARIC, 1200.0), (LUX, 900.0)])));
+    assert_eq!(t.scout().players().len(), 1);
+    assert_eq!(held(&t, "Bob"), vec![(LUX.into(), 1), (RENGAR.into(), 1), (TARIC.into(), 1)]);
+    // Someone else's units: another player, nameless.
+    read(&mut t, &s, &unnamed((4, 6), foes(&[(VI, 1000.0)])));
+    assert_eq!(t.scout().players().len(), 2);
+    // Monsters on a PvE round, and units whose bars the fight already touched (no looks): nothing.
+    read(&mut t, &s, &unnamed((4, 7), foes(&[(GAREN, 1000.0)])));
+    let hit = vec![SeenUnit { full: false, emb: vec![], ..hex(1000.0, 300.0, vec![], 1) }];
+    read(&mut t, &s, &fight((4, 7), "Cid", hit));
+    assert_eq!(t.scout().players().len(), 2);
+    assert_eq!(t.scout().held(GAREN), 0);
+}
+
+/// A unit's looks over a floor: its own axis plus a strong background axis (8: my board, 9: an away arena).
+fn on_floor(api: Option<&str>, floor: usize) -> Vec<f32> {
+    let k = api.map_or(10, |a| [GAREN, LUX, VI, AHRI, LEONA, RENGAR, MORGANA, TARIC].iter().position(|u| *u == a).unwrap());
+    let mut v = [0.05; 11];
+    (v[k], v[floor]) = (1.0, 2.0);
+    let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    v.iter().map(|x| x / n).collect()
+}
+
+#[test]
+fn away_from_my_board_looks_are_compared_without_the_floor() {
+    let s = set();
+    let mut l = Library::default();
+    for u in [GAREN, LUX, VI, AHRI, LEONA, RENGAR, MORGANA, TARIC] {
+        l.learn(u, 1, &on_floor(Some(u), 8));
+    }
+    let mut t = Tracker::default().with_library(l);
+    // On another arena the floor dominates: as is, nothing is alike enough; centred, Rengar and
+    // Taric stand out and the stranger (a unit I never had) stays unnamed.
+    let foes = vec![hex(1000.0, 300.0, on_floor(Some(RENGAR), 9), 2), hex(1200.0, 300.0, on_floor(Some(TARIC), 9), 1), hex(1400.0, 300.0, on_floor(None, 9), 1)];
+    read(&mut t, &s, &fight((4, 1), "Bob", foes));
+    assert_eq!(held(&t, "Bob"), vec![(RENGAR.into(), 3), (TARIC.into(), 1)]);
+    assert_eq!(t.scout().players()[0].held().iter().filter(|h| h.api.is_none()).count(), 1);
+}

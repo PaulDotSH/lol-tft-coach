@@ -63,6 +63,6 @@ enemies: number,
  */
 viewing: string | null, 
 /**
- * Units with red HP bars (my combat opponent's, PvE monsters), read while `viewing` is known.
+ * Units with red HP bars (my combat opponent's, PvE monsters); `emb` only while every bar is full.
  */
 foes: Array<SeenUnit>, };

@@ -1,7 +1,9 @@
 //! Other players' units, from what my screen shows of them: a scouted board (its HP bars named
 //! as mine are: looks, then the trait panel's set search; bench units by looks) and, in my
-//! fights, my opponent's red bars (looks only, from still reads). Kept per player by name plate
-//! (by trait panel likeness when no name is read), forgotten after SCOUT_DECAY rounds unseen.
+//! fights, my opponent's red bars (looks only, from still reads; away from my board the looks
+//! are compared with each side's background taken out). Kept per player by name plate (when
+//! none is read: by trait panel likeness, or by the units named), forgotten after SCOUT_DECAY
+//! rounds unseen.
 //! Only my own confirmed pieces teach the library: other boards only read it.
 
 use crate::board::{self, Named};
@@ -20,6 +22,12 @@ const SAME_BOARD: f32 = 0.5;
 const MAX_PLAYERS: usize = 7;
 /// A red bar within this of the last read's (base px) hasn't moved: combat hasn't started.
 const STILL: f32 = 6.0;
+/// Named by centred looks (`Library::classify_centered`): best match at least this alike and
+/// this far ahead of the next unit, once the library knows CENTRED_UNITS units (with fewer,
+/// their mean is close to each one and centring leaves noise).
+const CENTRED_SIM: f32 = 0.45;
+const CENTRED_MARGIN: f32 = 0.05;
+const CENTRED_UNITS: usize = 8;
 /// A scouted board showing this share of a comp's traits plays that comp.
 const CONTEST_SHARE: f32 = 0.5;
 
@@ -143,13 +151,11 @@ impl Scout {
             if !same_panel(&snap.traits, mine) {
                 self.scouted(snap, set, lib, round);
             }
-        } else if !snap.foes.is_empty()
-            && let Some(name) = &snap.viewing
-        {
+        } else if !snap.foes.is_empty() && !snap.stage.is_some_and(pve) {
             let still = self.single_reads || still(&self.last_foes, &snap.foes);
             self.last_foes = snap.foes.clone();
             if still {
-                self.fought(name, &snap.foes, set, lib, round);
+                self.fought(snap, set, lib, round);
             }
         } else {
             self.last_foes.clear();
@@ -195,6 +201,20 @@ impl Scout {
         p
     }
 
+    /// The player whose named units overlap `held`'s most (SAME_BOARD of the union); new if none.
+    fn player_by_units(&mut self, held: &[Held]) -> &mut Player {
+        let names: HashSet<&Api> = held.iter().filter_map(|h| h.api.as_ref()).collect();
+        let similar = |p: &Player| {
+            let theirs: HashSet<&Api> = p.held.iter().filter_map(|h| h.api.as_ref()).collect();
+            names.intersection(&theirs).count() as f32 / names.union(&theirs).count().max(1) as f32
+        };
+        let best = self.players.iter().enumerate().map(|(i, p)| (i, similar(p))).filter(|&(_, s)| s >= SAME_BOARD).max_by(|a, b| a.1.total_cmp(&b.1));
+        match best {
+            Some((i, _)) => &mut self.players[i],
+            None => self.player(None, &[]),
+        }
+    }
+
     fn scouted(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library, round: u32) {
         if snap.traits.is_empty() && snap.units.is_empty() {
             return;
@@ -228,18 +248,31 @@ impl Scout {
         self.last = held;
     }
 
-    /// My opponent's red bars, named by looks. The read naming the most copies stands for the
-    /// round (units die and hide as the fight goes on); a scouting read that round stays.
-    fn fought(&mut self, name: &str, foes: &[SeenUnit], set: &TftSetData, lib: &Library, round: u32) {
-        let held: Vec<Held> = foes
+    /// My opponent's red bars, named by looks (as on my board, else centred on this read's mean).
+    /// The read naming the most copies stands for the round (units die and hide as the fight goes
+    /// on); a scouting read that round stays. Without their plate, the player holding most of
+    /// the same units is them.
+    fn fought(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library, round: u32) {
+        let embs: Vec<&Vec<f32>> = snap.units.iter().chain(&snap.foes).map(|u| &u.emb).filter(|e| !e.is_empty()).collect();
+        let d = embs.first().map_or(0, |e| e.len());
+        let center: Vec<f32> = (0..d).map(|i| embs.iter().map(|e| e.get(i).copied().unwrap_or(0.0)).sum::<f32>() / embs.len() as f32).collect();
+        let held: Vec<Held> = snap
+            .foes
             .iter()
+            .filter(|u| !u.emb.is_empty())
             .map(|u| {
-                let api = board::by_looks(lib, &u.emb, set);
+                let api = board::by_looks(lib, &u.emb, set).or_else(|| by_centred_looks(lib, &u.emb, &center, set));
                 Held { x: u.x, y: u.y, how: if api.is_some() { "~" } else { "?" }, api, star: u.star, bench: u.bench.is_some() }
             })
             .collect();
+        if held.is_empty() {
+            return;
+        }
         self.last = held.clone();
-        let p = self.player(Some(name), &[]);
+        let p = match &snap.viewing {
+            Some(name) => self.player(Some(name), &[]),
+            None => self.player_by_units(&held),
+        };
         p.seen = round;
         let named = |h: &[Held]| h.iter().filter(|h| h.api.is_some()).map(|h| copies(h.star)).sum::<u32>();
         let better = p.held_round < round || (p.fought && named(&held) > named(&p.held));
@@ -290,6 +323,22 @@ impl Scout {
 /// The same traits at the same counts (in any order).
 fn same_panel(a: &[TraitCount], b: &[TraitCount]) -> bool {
     !a.is_empty() && a.len() == b.len() && a.iter().all(|t| b.contains(t))
+}
+
+/// A unit named by centred looks when one stands out (and is in the set).
+fn by_centred_looks(lib: &Library, emb: &[f32], center: &[f32], set: &TftSetData) -> Option<Api> {
+    if lib.units() < CENTRED_UNITS {
+        return None;
+    }
+    let c = lib.classify_centered(emb, center);
+    let (api, s) = c.first()?;
+    let next = c.get(1).map_or(0.0, |n| n.1);
+    (*s >= CENTRED_SIM && s - next >= CENTRED_MARGIN && set.units.contains_key(api)).then(|| api.clone())
+}
+
+/// PvE rounds (minions, monsters): 1-2..1-4, then the 7th round of every later stage.
+fn pve((stage, round): (u32, u32)) -> bool {
+    (stage == 1 && round >= 2) || (stage >= 2 && round == 7)
 }
 
 /// Carousel rounds: 1-1, then the 4th round of every later stage.

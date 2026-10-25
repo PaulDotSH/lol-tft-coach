@@ -137,7 +137,7 @@ data_default! {
         /// The other player whose units are on screen: the scouted board's owner, or my combat
         /// opponent (their name plate, as in the player list).
         pub viewing: Option<String>,
-        /// Units with red HP bars (my combat opponent's, PvE monsters), read while `viewing` is known.
+        /// Units with red HP bars (my combat opponent's, PvE monsters); `emb` only while every bar is full.
         pub foes: Vec<SeenUnit>,
     }
 }
