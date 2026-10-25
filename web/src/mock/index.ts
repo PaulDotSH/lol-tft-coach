@@ -1,23 +1,32 @@
 // In-memory backend for a plain browser (no Tauri). Pushes the selected fixture every 2 s,
-// advancing the game clock like the real orchestrator would.
+// advancing the game clock like the real orchestrator would. A TFT fixture pushes its TftState
+// on the TFT channel while the LoL side sits idle, as the real backend does in a TFT queue.
 import type { Api } from '../lib/api';
 import type { AppState } from '../lib/bindings/AppState';
 import type { ChampStats } from '../lib/bindings/ChampStats';
 import type { ItemStat } from '../lib/bindings/ItemStat';
 import type { Respawn } from '../lib/bindings/Respawn';
+import type { TftState } from '../lib/tft-bindings/TftState';
 import { fixtures, settings as defaultSettings, type FixtureName } from './states';
 import { analysisFor } from './history';
 import { uiStatic } from './static';
+import { tftFixtures, tftNone, tftSet, type TftFixtureName } from './tft';
 
 // `?mock=idle` (etc.) picks the starting fixture; the dev switcher changes it live.
-const fromUrl = new URLSearchParams(location.search).get('mock') as FixtureName | null;
-let current: FixtureName = fromUrl && fromUrl in fixtures ? fromUrl : 'ingame rift';
+type MockName = FixtureName | TftFixtureName;
+const isTft = (n: MockName): n is TftFixtureName => n in tftFixtures;
+const fromUrl = new URLSearchParams(location.search).get('mock') as MockName | null;
+let current: MockName = fromUrl && (fromUrl in fixtures || fromUrl in tftFixtures) ? fromUrl : 'ingame rift';
 let settings = defaultSettings;
 let elapsed = 0;
 const subs = new Set<(s: AppState) => void>();
+const tftSubs = new Set<(s: TftState) => void>();
+
+const lolFixture = (): AppState => fixtures[isTft(current) ? 'idle' : current];
+const tftSnapshot = (): TftState => (isTft(current) ? tftFixtures[current] : tftNone);
 
 function snapshot(): AppState {
-  const f: AppState = fixtures[current];
+  const f: AppState = lolFixture();
   const tick = (r: Respawn): Respawn => ({ ...r, in_s: Math.max(0, r.in_s - elapsed) });
   const game = f.game && {
     ...f.game,
@@ -27,19 +36,22 @@ function snapshot(): AppState {
   };
   return { ...f, game, settings };
 }
-const push = () => subs.forEach((cb) => cb(snapshot()));
+const push = () => {
+  subs.forEach((cb) => cb(snapshot()));
+  tftSubs.forEach((cb) => cb(tftSnapshot()));
+};
 
 setInterval(() => {
-  if (fixtures[current].game) {
+  if (lolFixture().game || isTft(current)) {
     elapsed += 2;
     push();
   }
 }, 2000);
 
-export const mockFixtures = Object.keys(fixtures) as FixtureName[];
+export const mockFixtures = [...Object.keys(fixtures), ...Object.keys(tftFixtures)] as MockName[];
 export const mockPhase = {
   get: () => current,
-  set(name: FixtureName) {
+  set(name: MockName) {
     current = name;
     elapsed = 0;
     push();
@@ -104,5 +116,11 @@ export const mockApi: Api = {
   async onState(cb) {
     subs.add(cb);
     return () => subs.delete(cb);
+  },
+  getTft: () => delay(tftSnapshot()),
+  getTftStatic: () => delay(tftSet, 300),
+  async onTft(cb) {
+    tftSubs.add(cb);
+    return () => tftSubs.delete(cb);
   },
 };
