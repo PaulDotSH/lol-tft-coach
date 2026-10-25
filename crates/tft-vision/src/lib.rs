@@ -510,8 +510,11 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         .iter()
         .filter(|b| g.within(b, (250.0, 450.0), BAR_Y))
         .find_map(|b| b.text.split_once("vl").and_then(|(_, n)| digits(n)));
-    // The augment screen hides the bottom bar: an offer alone is still a TFT frame.
-    let offer_lines: Vec<String> = boxes.iter().filter(|b| g.within(b, (0.0, BASE_W), OFFER_Y)).map(|b| b.text.clone()).collect();
+    // The augment screen hides the bottom bar: an offer alone is still a TFT frame. Its
+    // "Choose One" title tells it from my own augments' panel, which lists names the same way.
+    let choosing = boxes.iter().any(|b| norm(&b.text).contains("chooseone"));
+    let offer_lines: Vec<String> =
+        boxes.iter().filter(|b| choosing && g.within(b, (0.0, BASE_W), OFFER_Y)).map(|b| b.text.clone()).collect();
     let augment_offer: Vec<Api> = ocr::match_augments(&offer_lines, &names.augments)
         .into_iter()
         .filter_map(|i| names.augment_api.get(i as usize).cloned())
