@@ -5,7 +5,8 @@ use std::collections::HashMap;
 
 const MAX_OFFERS: usize = 4;
 
-/// Lowercase alphanumeric words with common OCR confusions folded.
+/// Lowercase alphanumeric words with common OCR confusions folded; "+" stays, it tells
+/// tiers apart ("Residual Magic" / "Residual Magic +" / "++").
 /// Applied to both OCR text and names, so folding is symmetric.
 fn words(s: &str) -> Vec<String> {
     let mut out = String::with_capacity(s.len());
@@ -14,6 +15,7 @@ fn words(s: &str) -> Vec<String> {
             '\'' | '\u{2019}' | '`' => {}
             '0' => out.push('o'),
             '1' | '|' => out.push('l'),
+            '+' => out.push('+'),
             c if c.is_alphanumeric() => out.extend(c.to_lowercase()),
             _ => out.push(' '),
         }
@@ -190,6 +192,18 @@ mod tests {
             [1, 2, 3]
         );
         assert_eq!(run(&["Select an augment", "Back to Basics", "Reroll"]), [9]);
+    }
+
+    #[test]
+    fn plus_tiers_match_their_own_title() {
+        let names: HashMap<AugmentId, String> = [(1, "Residual Magic"), (2, "Residual Magic +"), (3, "Residual Magic ++"), (4, "Kick Start")]
+            .into_iter()
+            .map(|(id, n)| (id, n.to_string()))
+            .collect();
+        let m = |l: &[&str]| match_augments(&l.iter().map(|s| s.to_string()).collect::<Vec<_>>(), &names);
+        assert_eq!(m(&["Residual Magic", "Kick Start"]), [1, 4]);
+        assert_eq!(m(&["Residual Magic +", "Kick Start"]), [2, 4]);
+        assert_eq!(m(&["Residual Magic ++"]), [3]);
     }
 
     #[test]
