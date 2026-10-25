@@ -19,11 +19,11 @@ fn look(api: &str) -> Vec<f32> {
 }
 
 fn bench(slot: u32, api: &str, star: u32) -> SeenUnit {
-    SeenUnit { x: 485.0 + 163.5 * slot as f32, y: 910.0, star, bench: Some(slot), full: true, emb: look(api) }
+    SeenUnit { x: 485.0 + 163.5 * slot as f32, y: 910.0, star, bench: Some(slot), full: true, items: vec![], emb: look(api) }
 }
 
 fn hex(x: f32, y: f32, api: &str, star: u32) -> SeenUnit {
-    SeenUnit { x, y, star, bench: None, full: true, emb: look(api) }
+    SeenUnit { x, y, star, bench: None, full: true, items: vec![], emb: look(api) }
 }
 
 fn read(t: &mut Tracker, s: &TftSetData, snap: TftSnapshot) {

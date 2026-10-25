@@ -19,4 +19,8 @@ bench: number | null,
 /**
  * The bar is full (planning, or untouched in combat).
  */
-full: boolean, };
+full: boolean, 
+/**
+ * Items shown under its bar, left to right (unrecognised icons left out).
+ */
+items: Array<string>, };

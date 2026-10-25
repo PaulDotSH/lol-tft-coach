@@ -29,6 +29,8 @@ use tft_model::{AugmentTier, TftAugment, TftItem, TftSetData, TftTrait, TftUnit}
 const URL: &str = "https://raw.communitydragon.org/latest/cdragon/tft/en_us.json";
 const METADATA: &str = "https://raw.communitydragon.org/latest/content-metadata.json";
 const TTL: Duration = Duration::from_secs(12 * 3600);
+/// Item icons change with patches only.
+const ICON_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
 /// Set data for [`crate::SET`]. `version` is Community Dragon's game version ("16.21.8298620"),
 /// or "latest" when its metadata didn't answer.
@@ -47,6 +49,30 @@ pub fn icon_url(path: &str) -> String {
     let p = path.to_lowercase();
     let p = p.strip_suffix(".tex").or_else(|| p.strip_suffix(".dds")).map(|s| format!("{s}.png")).unwrap_or(p);
     format!("https://raw.communitydragon.org/latest/game/{p}")
+}
+
+/// Every item's icon (PNG bytes, disk-cached), eight requests at a time; failures are left out.
+pub async fn item_icons(http: &data::Http, set: &TftSetData) -> Vec<(String, Vec<u8>)> {
+    let mut urls: Vec<String> = set.items.values().map(|i| icon_url(&i.icon)).collect();
+    urls.sort();
+    urls.dedup();
+    let mut bodies: HashMap<String, Vec<u8>> = HashMap::new();
+    for chunk in urls.chunks(8) {
+        let mut tasks = tokio::task::JoinSet::new();
+        for url in chunk {
+            let (http, url) = (http.clone(), url.clone());
+            tasks.spawn(async move { (data::icons::get_bytes(&http, &url, ICON_TTL).await, url) });
+        }
+        while let Some(Ok((res, url))) = tasks.join_next().await {
+            match res {
+                Ok(b) => {
+                    bodies.insert(url, b);
+                }
+                Err(e) => tracing::warn!("tft item icon: {e:#}"),
+            }
+        }
+    }
+    set.items.values().filter_map(|i| Some((i.api.clone(), bodies.get(&icon_url(&i.icon))?.clone()))).collect()
 }
 
 pub fn parse_version(json: &str) -> anyhow::Result<String> {

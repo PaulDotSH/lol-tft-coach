@@ -162,6 +162,7 @@ pub fn read(f: &Frame, scale: f32) -> (Vec<SeenUnit>, u32) {
                 star: star(f, scale, b),
                 bench: (y > BENCH_Y).then_some(slot.clamp(0.0, (BENCH_SLOTS - 1) as f32) as u32),
                 full: b.w as f32 / scale >= FULL_W,
+                items: vec![],
                 emb: vec![],
             }
         })

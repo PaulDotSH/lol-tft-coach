@@ -96,6 +96,8 @@ data_default! {
         pub bench: Option<u32>,
         /// The bar is full (planning, or untouched in combat).
         pub full: bool,
+        /// Items shown under its bar, left to right (unrecognised icons left out).
+        pub items: Vec<Api>,
         /// Image embedding of the unit under the bar (empty without the embedder).
         #[serde(skip)]
         #[ts(skip)]
@@ -126,7 +128,7 @@ data_default! {
         pub traits: Vec<(Api, u32)>,
         /// Traits the panel has no room for (its "N+" badge; 9 when the badge shows but its number is unread).
         pub traits_hidden: u32,
-        /// Item components and completed items on my item bench.
+        /// Items on my item bench, top to bottom: components, completed items, consumables (unrecognised icons left out).
         pub items: Vec<Api>,
         /// The board on screen is another player's (scouting).
         pub viewing_other: bool,

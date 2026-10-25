@@ -42,7 +42,7 @@ traits: Array<[string, number]>,
  */
 traits_hidden: number, 
 /**
- * Item components and completed items on my item bench.
+ * Items on my item bench, top to bottom: components, completed items, consumables (unrecognised icons left out).
  */
 items: Array<string>, 
 /**
