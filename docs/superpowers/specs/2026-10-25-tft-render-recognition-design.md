@@ -64,8 +64,9 @@ arenas was low. A library seeded with every unit of the set, before any game, re
 
 ### 3. Compositing and embedding (`cargo run -p tft-vision --release --example seed_looks`)
 
-- Each render goes onto empty-hex patches cut from the two captured games (both arenas), with a
-  fake HP bar drawn where the game draws it relative to the unit's top.
+- Each render goes onto empty hexes of real captured frames (both arenas), with a synthetic bar
+  position placed where the game puts it relative to the unit's top. No bar is drawn: the crop
+  window starts 30 px below the bar.
 - The composite is cropped with the **same** `units::crop` code and embedded with the same
   `tft-embed`, so preprocessing can't drift between the seed and the live reader.
 - Per unit, keep ~16 diverse looks (farthest-point picking on the embeddings) and write
