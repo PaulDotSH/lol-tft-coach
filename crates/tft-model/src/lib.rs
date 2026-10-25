@@ -85,6 +85,23 @@ data_default! {
 
     // ---- live reading (tft-vision) ----
 
+    /// A unit on my screen, found by its HP bar.
+    pub struct SeenUnit {
+        /// The bar's left end, in 2560-wide pixels.
+        pub x: f32,
+        pub y: f32,
+        /// ★ from the bar's cap; 0 when unreadable.
+        pub star: u32,
+        /// Bench slot 0..=8; None on the board.
+        pub bench: Option<u32>,
+        /// The bar is full (planning, or untouched in combat).
+        pub full: bool,
+        /// Image embedding of the unit under the bar (empty without the embedder).
+        #[serde(skip)]
+        #[ts(skip)]
+        pub emb: Vec<f32>,
+    }
+
     /// One read of my screen. Every field is None / empty when it wasn't readable.
     pub struct TftSnapshot {
         /// Unix ms when captured.
@@ -107,10 +124,16 @@ data_default! {
         pub augment_offer: Vec<Api>,
         /// Trait panel of the board on screen: (trait, unique units counted).
         pub traits: Vec<(Api, u32)>,
+        /// Traits the panel has no room for (its "N+" badge; 9 when the badge shows but its number is unread).
+        pub traits_hidden: u32,
         /// Item components and completed items on my item bench.
         pub items: Vec<Api>,
         /// The board on screen is another player's (scouting).
         pub viewing_other: bool,
+        /// Units with green HP bars, board and bench.
+        pub units: Vec<SeenUnit>,
+        /// Red HP bars on screen (enemies in combat, PvE monsters).
+        pub enemies: u32,
     }
 }
 
@@ -194,12 +217,16 @@ data! {
 
     // ---- coach output ----
 
-    /// A unit I own as tracked from purchases (or seen only through traits).
+    /// A unit I own: recognised on my board and bench (a piece not recognised yet has `api`
+    /// ""), else tracked from purchases (or seen only through traits, `star` 0).
     pub struct OwnedUnit {
         pub api: Api,
         pub copies: u32,
         /// 1..=3 from copies.
         pub star: u32,
+        /// Pieces of it on the board and on the bench (both 0 when only purchases are known).
+        pub board: u32,
+        pub bench: u32,
     }
 
     pub struct CompPick {

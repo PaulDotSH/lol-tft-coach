@@ -3,11 +3,16 @@
 //! window plus enlarged crops for small text. Positions are measured on 2560×1440
 //! captures (HUD at default scale) and scaled to the client size.
 //!
-//! Not read yet: item bench icons, team size, other players' boards (scouting).
+//! My units come from their HP bars (`units`) and, with the embedder loaded, an image
+//! embedding of each one for telling them apart (tft-coach names them).
+//!
+//! Not read yet: item bench icons, items on units.
+
+mod units;
 
 use ocr::{Frame, TextBox};
 use std::collections::HashMap;
-use tft_model::{Api, TftSetData, TftSnapshot};
+use tft_model::{Api, SeenUnit, TftSetData, TftSnapshot};
 
 /// Capture width the regions below were measured at.
 const BASE_W: f32 = 2560.0;
@@ -15,8 +20,6 @@ const BASE_W: f32 = 2560.0;
 const STAGE: (u32, u32, u32, u32) = (990, 0, 120, 50);
 /// Just the "4-6" digits, for the thresholded retry.
 const STAGE_TIGHT: (u32, u32, u32, u32) = (1020, 8, 60, 36);
-/// Trait panel names, read at 2×, thresholded to dark-on-white.
-const PANEL: (u32, u32, u32, u32) = (130, 340, 300, 780);
 const PANEL_THRESHOLD: u8 = 150;
 /// A trait's count digit, left of its name: x, width, height (top = the name's top).
 const COUNT: (u32, u32, u32) = (150, 28, 34);
@@ -40,8 +43,37 @@ const HP_X: (f32, f32) = (2280.0, 2445.0);
 const MY_HP_H: f32 = 17.0;
 /// The HP column alone, read at 2× when the full-frame pass misses my row.
 const HP_COLUMN: (u32, u32, u32, u32) = (2290, 150, 160, 960);
+/// Player list names (mine is the big HP row, drawn without a name).
+const LIST_X: (f32, f32) = (2100.0, 2450.0);
+const LIST_Y: (f32, f32) = (150.0, 1100.0);
+/// Tacticians' name plates over the board.
+const PLATE_X: (f32, f32) = (450.0, 2100.0);
+const PLATE_Y: (f32, f32) = (100.0, 1150.0);
+/// A unit at the same place with the same ★ keeps its embedding this many reads.
+const REEMBED: u32 = 10;
+/// Same place: within this many base px.
+const SAME_PLACE: f32 = 3.0;
 /// Augment titles sit mid-screen.
 const OFFER_Y: (f32, f32) = (300.0, 1100.0);
+/// Trait panel rows: the first name's top edge, the row pitch, and rows shown before "N+".
+const ROW0: f32 = 358.0;
+const ROW_PITCH: f32 = 70.6;
+const ROWS: u32 = 9;
+/// A row's name line (x range, and y from the row's top edge), read at 2×.
+const ROW_NAME_X: (f32, f32) = (180.0, 440.0);
+const ROW_NAME_Y: (f32, f32) = (-6.0, 26.0);
+/// Text is the brightest part of a row: lit pixels are this share of the row's brightest
+/// (inactive traits are drawn grey), never below ROW_FLOOR.
+const ROW_LIT: f32 = 0.6;
+const ROW_FLOOR: u8 = 100;
+/// Text is grey or white: channels at most this far apart.
+const ROW_GREY: u8 = 45;
+/// The "N+" badge for traits past the last row, in the icon column below it.
+const MORE: (f32, f32, f32, f32) = (88.0, -12.0, 56.0, 46.0);
+/// Cream pixels of the badge's text (base px) that show it's there.
+const MORE_LIT: f32 = 25.0;
+/// Hidden traits when the badge is there but its number unread.
+const MORE_UNREAD: u32 = 9;
 /// A trait missing from this many reads in a row is gone (single reads drop rows).
 const TRAIT_MISSES: u32 = 3;
 /// Fuzzy name match: allowed edits per character.
@@ -241,6 +273,98 @@ fn lone_digit(f: &Frame, (x, y, w, h): (u32, u32, u32, u32)) -> Option<u32> {
         .find_map(|t| t.text.chars().find(char::is_ascii_digit).and_then(|d| d.to_digit(10)))
 }
 
+/// Grey or white pixels about as bright as the crop's brightest text → black, the rest
+/// (darker, or coloured like the board showing past a short name's box) white.
+fn threshold_text(f: &mut Frame) {
+    let lum = |p: &[u8]| p[0].max(p[1]).max(p[2]);
+    let grey = |p: &[u8]| lum(p) - p[0].min(p[1]).min(p[2]) <= ROW_GREY;
+    let top = f.bgra.chunks(4).filter(|p| grey(p)).map(lum).max().unwrap_or(0);
+    let t = ((top as f32 * ROW_LIT) as u8).max(ROW_FLOOR);
+    for p in f.bgra.chunks_mut(4) {
+        let v = if lum(p) >= t && grey(p) { 0 } else { 255 };
+        (p[0], p[1], p[2]) = (v, v, v);
+    }
+}
+
+/// Frames stacked top to bottom (same width), white gaps between.
+fn stack(parts: &[Frame], gap: u32) -> Frame {
+    let w = parts.iter().map(|p| p.width).max().unwrap_or(1);
+    let mut bgra = vec![];
+    for p in parts {
+        for row in p.bgra.chunks((p.width * 4) as usize) {
+            bgra.extend_from_slice(row);
+            bgra.extend(std::iter::repeat_n(255u8, ((w - p.width) * 4) as usize));
+        }
+        bgra.extend(std::iter::repeat_n(255u8, (w * gap * 4) as usize));
+    }
+    let h = bgra.len() as u32 / (w * 4);
+    Frame { width: w, height: h, bgra }
+}
+
+/// The trait panel: each row's name line is cut out at its fixed place, thresholded against
+/// its own brightest text and stacked, so one OCR pass reads every row (one read of the whole
+/// panel drops grey rows); counts by digit templates at the row's count box; then the "N+"
+/// badge for rows the panel has no room for.
+fn panel(f: &Frame, g: &Geo, names: &Names) -> (Vec<(Api, u32)>, u32) {
+    let scale = 2;
+    let tops: Vec<u32> = (0..ROWS).map(|k| g.v(ROW0 + k as f32 * ROW_PITCH) as u32).collect();
+    let (x0, x1) = (g.v(ROW_NAME_X.0) as u32, g.v(ROW_NAME_X.1) as u32);
+    let (dy0, dy1) = (g.v(ROW_NAME_Y.0), g.v(ROW_NAME_Y.1));
+    let parts: Vec<Frame> = tops
+        .iter()
+        .map(|&t| {
+            let mut c = crop(f, x0, (t as f32 + dy0) as u32, x1 - x0, (dy1 - dy0) as u32, scale);
+            threshold_text(&mut c);
+            c
+        })
+        .collect();
+    let row_h = parts.first().map_or(1, |p| p.height);
+    let gap = row_h / 2;
+    let mut text: Vec<String> = vec![String::new(); ROWS as usize];
+    for b in ocr::recognize_boxes(&stack(&parts, gap)).unwrap_or_default() {
+        let k = ((b.y + b.h / 2.0) / (row_h + gap) as f32) as usize;
+        if let Some(t) = text.get_mut(k) {
+            t.push_str(&b.text);
+            t.push(' ');
+        }
+    }
+    let (cx, _, cw, ch) = g.r((COUNT.0, 0, COUNT.1, COUNT.2));
+    let mut traits: Vec<(Api, u32)> = vec![];
+    for (k, t) in text.iter().enumerate() {
+        let Some(api) = best(t.trim(), &names.traits) else { continue };
+        if traits.iter().any(|(a, _)| a == api) {
+            continue;
+        }
+        let top = tops[k];
+        // Templates first; OCR of a lone digit is the fallback, and a thin "1" often reads as nothing.
+        let n = match_digit(&count_mask(f, g.0, top)).or_else(|| lone_digit(f, (cx, top, cw, ch))).unwrap_or(1);
+        traits.push((api.clone(), n));
+    }
+    // "N+" sits where a tenth row would start, only when the panel is full.
+    let hidden = if text.last().is_some_and(|t| !t.trim().is_empty()) {
+        let top = g.v(ROW0 + ROWS as f32 * ROW_PITCH);
+        let (x, w, h) = (g.v(MORE.0) as u32, g.v(MORE.2) as u32, g.v(MORE.3) as u32);
+        let mut c = crop(f, x, (top + g.v(MORE.1)) as u32, w, h, 3);
+        threshold(&mut c, PANEL_THRESHOLD);
+        ocr::recognize_boxes(&tile(&c, 3))
+            .unwrap_or_default()
+            .iter()
+            .find_map(|b| {
+                let (n, _) = b.text.split_once('+')?;
+                n.chars().rev().find_map(|c| c.to_digit(10))
+            })
+            // OCR rarely reads the badge ("1+", "6+" come back empty): its cream glyphs say there
+            // are some, and an unknown count only loosens what the panel says.
+            .unwrap_or_else(|| {
+                let lit = crop(f, x, (top + g.v(MORE.1)) as u32, w, h, 1).bgra.chunks(4).filter(|p| p[2] > 200 && p[1] > 185 && p[0] > 140).count();
+                if lit as f32 >= MORE_LIT * g.0 * g.0 { MORE_UNREAD } else { 0 }
+            })
+    } else {
+        0
+    };
+    (traits, hidden)
+}
+
 fn ocr_crop(f: &Frame, r: (u32, u32, u32, u32), scale: u32) -> Vec<TextBox> {
     ocr::recognize_boxes(&crop(f, r.0, r.1, r.2, r.3, scale)).unwrap_or_default()
 }
@@ -248,10 +372,30 @@ fn ocr_crop(f: &Frame, r: (u32, u32, u32, u32), scale: u32) -> Vec<TextBox> {
 /// Read one captured frame. None when the TFT HUD isn't on screen (alt-tabbed,
 /// loading screen).
 pub fn read_frame(f: &Frame, set: &TftSetData, at: u64) -> Option<TftSnapshot> {
-    read_with(f, &Names::new(set), at)
+    read_with(f, &Names::new(set), None, at)
 }
 
-fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
+/// Same player name, allowing one OCR slip in longer names.
+fn same_name(a: &str, b: &str) -> bool {
+    let (a, b) = (norm(a), norm(b));
+    a.len() >= 3 && (a == b || (a.len() >= 6 && strsim::levenshtein(&a, &b) <= 1))
+}
+
+/// Another player's board is on screen when their tactician's plate shows and mine doesn't
+/// (in combat both stand on one board). Unknown without my name: false.
+fn viewing_other(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> bool {
+    let Some(me) = me else { return false };
+    let others: Vec<&str> = boxes
+        .iter()
+        .filter(|b| g.within(b, LIST_X, LIST_Y) && b.text.chars().any(char::is_alphabetic))
+        .map(|b| b.text.as_str())
+        .collect();
+    let plates: Vec<&str> = boxes.iter().filter(|b| g.within(b, PLATE_X, PLATE_Y)).map(|b| b.text.as_str()).collect();
+    let mine = plates.iter().any(|p| same_name(p, me));
+    !mine && plates.iter().any(|p| !same_name(p, me) && others.iter().any(|o| same_name(p, o)))
+}
+
+fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftSnapshot> {
     let g = Geo(f.width as f32 / BASE_W);
     let boxes = ocr::recognize_boxes(f).ok()?;
     let stage = ocr_crop(f, g.r(STAGE), 2).iter().find_map(|b| stage(&b.text)).or_else(|| {
@@ -321,27 +465,7 @@ fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
         }
     }
 
-    // Trait panel: names from a 2× crop read twice (as is, and thresholded: each
-    // misses different rows), top to bottom, then each row's count digit.
-    let (px, py, pw, ph) = g.r(PANEL);
-    let plain = crop(f, px, py, pw, ph, 2);
-    let mut dark = plain.clone();
-    threshold(&mut dark, PANEL_THRESHOLD);
-    let mut rows: Vec<(u32, &Api)> = vec![];
-    for b in [plain, dark].iter().flat_map(|p| ocr::recognize_boxes(p).unwrap_or_default()) {
-        if let Some(api) = best(&b.text, &names.traits)
-            && !rows.iter().any(|(_, a)| *a == api)
-        {
-            rows.push((py + (b.y / 2.0) as u32, api));
-        }
-    }
-    rows.sort();
-    let (cx, _, cw, ch) = g.r((COUNT.0, 0, COUNT.1, COUNT.2));
-    // Templates first; OCR of a lone digit is the fallback, and a thin "1" often reads as nothing.
-    let traits = rows
-        .into_iter()
-        .map(|(top, api)| (api.clone(), match_digit(&count_mask(f, g.0, top)).or_else(|| lone_digit(f, (cx, top, cw, ch))).unwrap_or(1)))
-        .collect();
+    let (traits, traits_hidden) = panel(f, &g, names);
 
     let offer_lines: Vec<String> = boxes.iter().filter(|b| g.within(b, (0.0, BASE_W), OFFER_Y)).map(|b| b.text.clone()).collect();
     let augment_offer: Vec<Api> = ocr::match_augments(&offer_lines, &names.augments)
@@ -350,6 +474,7 @@ fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
         .take(3)
         .collect();
 
+    let (units, enemies) = units::read(f, g.0);
     Some(TftSnapshot {
         at,
         stage,
@@ -362,22 +487,67 @@ fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
         shop,
         augment_offer,
         traits,
+        traits_hidden,
         items: vec![],
-        viewing_other: false,
+        viewing_other: viewing_other(&boxes, &g, me),
+        units,
+        enemies,
     })
 }
 
-/// Reads the TFT window; keeps the name tables OCR text is matched against and
-/// the trait panel of the last reads.
+/// Reads the TFT window; keeps the name tables OCR text is matched against,
+/// the trait panel of the last reads and the last units' embeddings.
 pub struct Reader {
     names: Names,
     /// (trait, count, reads in a row it was missing).
     traits: Vec<(Api, u32, u32)>,
+    /// My Riot ID game name, as on my tactician's plate.
+    me: Option<String>,
+    embedder: Option<tft_embed::Embedder>,
+    /// Last read's units with their embeddings, and reads since each was embedded.
+    seen: Vec<(SeenUnit, u32)>,
 }
 
 impl Reader {
     pub fn new(set: &TftSetData) -> Reader {
-        Reader { names: Names::new(set), traits: vec![] }
+        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![] }
+    }
+
+    /// My name for telling my board from a scouted one.
+    pub fn with_me(mut self, me: Option<String>) -> Reader {
+        self.me = me.filter(|m| !m.is_empty());
+        self
+    }
+
+    /// Embed each unit's crop, for naming units by their looks.
+    pub fn with_embedder(mut self, e: Option<tft_embed::Embedder>) -> Reader {
+        self.embedder = e;
+        self
+    }
+
+    /// Fill in `emb` for every unit; one that stayed put keeps its embedding a while.
+    fn embed(&mut self, f: &Frame, snap: &mut TftSnapshot) {
+        let Some(e) = &mut self.embedder else { return };
+        let scale = f.width as f32 / BASE_W;
+        let mut ages = vec![0u32; snap.units.len()];
+        let mut todo = vec![];
+        for (i, u) in snap.units.iter_mut().enumerate() {
+            let near = |p: &SeenUnit| (p.x - u.x).abs() <= SAME_PLACE && (p.y - u.y).abs() <= SAME_PLACE && p.star == u.star;
+            match self.seen.iter().find(|(p, age)| near(p) && *age < REEMBED && !p.emb.is_empty()) {
+                Some((p, age)) => (u.emb, ages[i]) = (p.emb.clone(), age + 1),
+                None => todo.push(i),
+            }
+        }
+        let crops: Vec<tft_embed::Rgb> = todo.iter().map(|&i| units::crop(f, scale, &snap.units[i])).collect();
+        match e.embed(&crops) {
+            Ok(embs) => {
+                for (i, v) in todo.into_iter().zip(embs) {
+                    snap.units[i].emb = v;
+                }
+            }
+            Err(err) => tracing::warn!("tft embed: {err:#}"),
+        }
+        self.seen = snap.units.iter().cloned().zip(ages).collect();
     }
 
     /// One read of the screen; None when the TFT window or its HUD isn't up.
@@ -385,8 +555,9 @@ impl Reader {
         let (w, h) = ocr::league_client()?;
         let f = ocr::capture_client(ocr::scoreboard::Rect { x: 0, y: 0, w: w as i32, h: h as i32 })?;
         let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
-        let mut snap = read_with(&f, &self.names, at)?;
+        let mut snap = read_with(&f, &self.names, self.me.as_deref(), at)?;
         self.smooth(&mut snap);
+        self.embed(&f, &mut snap);
         Some(snap)
     }
 
@@ -408,9 +579,11 @@ impl Reader {
         snap.traits = self.traits.iter().map(|t| (t.0.clone(), t.1)).collect();
     }
 
-    /// Read a saved frame (calibration, tests).
-    pub fn read_frame(&self, f: &Frame, at: u64) -> Option<TftSnapshot> {
-        read_with(f, &self.names, at)
+    /// Read a saved frame (calibration, replays); embeds units when the embedder is loaded.
+    pub fn read_frame(&mut self, f: &Frame, at: u64) -> Option<TftSnapshot> {
+        let mut snap = read_with(f, &self.names, self.me.as_deref(), at)?;
+        self.embed(f, &mut snap);
+        Some(snap)
     }
 }
 

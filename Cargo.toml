@@ -23,6 +23,7 @@ tft-data = { path = "crates/tft-data" }
 tft-coach = { path = "crates/tft-coach" }
 tft-vision = { path = "crates/tft-vision" }
 tft-choncc = { path = "crates/tft-choncc" }
+tft-embed = { path = "crates/tft-embed" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"

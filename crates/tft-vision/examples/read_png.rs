@@ -1,9 +1,11 @@
 //! Run the reader on saved captures with the Set 18 fixture's names.
 //! `cargo run -p tft-vision --release --example read_png -- <png>...`
+//! `TFT_ME=<my name>` tells my board from scouted ones; `TFT_MODEL=<dinov2-small.onnx>` embeds units.
 
 fn main() -> anyhow::Result<()> {
     let set = tft_data::parse_set_data(&std::fs::read_to_string("fixtures/tft/cdragon_set18.json")?, tft_data::SET)?;
-    let r = tft_vision::Reader::new(&set);
+    let embedder = std::env::var("TFT_MODEL").ok().map(|m| tft_embed::Embedder::load(std::path::Path::new(&m))).transpose()?;
+    let mut r = tft_vision::Reader::new(&set).with_me(std::env::var("TFT_ME").ok()).with_embedder(embedder);
     for p in std::env::args().skip(1) {
         let img = ocr::scoreboard::decode_png(&std::fs::read(&p)?).ok_or_else(|| anyhow::anyhow!("bad png"))?;
         let bgra = img.px.as_chunks::<4>().0.iter().flat_map(|c| [c[2], c[1], c[0], c[3]]).collect();

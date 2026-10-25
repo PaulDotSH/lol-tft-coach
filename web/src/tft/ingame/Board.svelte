@@ -1,6 +1,7 @@
 <script lang="ts">
-  // My units as tracked from purchases (★ from copies; copies toward the next star), and the
-  // units of my target comp seen on other boards while scouting.
+  // My units: recognised on my board and bench (or tracked from purchases; ★ from copies,
+  // copies toward the next star), pieces not recognised yet, and the units of my target comp
+  // seen on other boards while scouting.
   import type { OwnedUnit } from '../../lib/tft-bindings/OwnedUnit';
   import { tft } from '../../lib/tft-store.svelte';
   import { stars, tftName, unitCost } from '../../lib/tft';
@@ -9,8 +10,14 @@
   let { owned, contested }: { owned: OwnedUnit[]; contested: [string, number][] } = $props();
 
   const sorted = $derived(
-    [...owned].sort((a, b) => b.star - a.star || unitCost(tft.set, b.api) - unitCost(tft.set, a.api) || b.copies - a.copies),
+    owned
+      .filter((u) => u.api)
+      .sort((a, b) => b.star - a.star || unitCost(tft.set, b.api) - unitCost(tft.set, a.api) || b.copies - a.copies),
   );
+  /** Pieces on screen nobody could name yet. */
+  const unknown = $derived(owned.filter((u) => !u.api));
+  const unknownBoard = $derived(unknown.reduce((n, u) => n + u.board, 0));
+  const unknownBench = $derived(unknown.reduce((n, u) => n + u.bench, 0));
   /** Copies needed for the next star: 3 for ★2, 9 for ★3. */
   const next = (u: OwnedUnit) => (u.star >= 3 ? null : u.star === 2 ? 9 : 3);
 </script>
@@ -21,16 +28,25 @@
     <ul class="owned">
       {#each sorted as u (u.api)}
         {@const n = next(u)}
-        <li>
+        <li class:benched={u.bench > 0 && u.board === 0}>
           <TftIcon kind="unit" api={u.api} size={40} />
           <span class="stars s{u.star}" aria-label="{u.star} star">{stars(u.star)}</span>
           <span class="name">{tftName(tft.set, 'unit', u.api)}</span>
-          {#if n}<span class="copies num muted" title="Copies toward the next star">{u.copies}/{n}</span>{/if}
+          <span class="copies muted">
+            {#if u.bench > 0}<span class="bench">{u.board > 0 ? `+${u.bench} bench` : 'bench'}</span>{/if}
+            {#if n}<span class="num" title="Copies toward the next star">{u.copies}/{n}</span>{/if}
+          </span>
         </li>
       {/each}
     </ul>
   {:else}
     <p class="empty">No units tracked yet.</p>
+  {/if}
+  {#if unknownBoard + unknownBench}
+    <p class="unknown muted">
+      Not recognised yet:
+      {[unknownBoard && `${unknownBoard} on the board`, unknownBench && `${unknownBench} on the bench`].filter(Boolean).join(', ')}
+    </p>
   {/if}
 
   {#if contested.length}
@@ -94,6 +110,17 @@
     grid-row: 1;
     grid-column: 3;
     font-size: 13px;
+  }
+  .owned li.benched {
+    opacity: 0.75;
+  }
+  .bench {
+    margin-right: 6px;
+    font-size: 12px;
+  }
+  .unknown {
+    margin: 8px 0 0;
+    font-size: 14px;
   }
   h3 {
     margin: 14px 0 6px;

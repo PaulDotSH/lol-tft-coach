@@ -1,7 +1,8 @@
 //! TFT: watches the client for TFT queues, loads Set data and the queue's meta,
 //! reads my screen in game (tft-vision, on its own thread) and runs the TFT coach.
 //! Pushes `TftState` on the `tft` event. Independent of the LoL orchestrator,
-//! which stays quiet in TFT.
+//! which stays quiet in TFT. Units are told apart by an image model fetched once
+//! (`%LOCALAPPDATA%\lol-coach\models`) and looks learnt over games (`tft\looks.bin`).
 
 use crate::debug;
 use clients::lcu::Lcu;
@@ -20,10 +21,16 @@ const META_EVERY: Duration = Duration::from_secs(3600);
 const HISTORY_RETRY: Duration = Duration::from_secs(30);
 const HISTORY_TRIES: u32 = 10;
 const HISTORY_COUNT: u32 = 30;
+/// The learnt looks are written this often while reading (and when the game ends).
+const LOOKS_SAVE: Duration = Duration::from_secs(120);
+/// The image model download may take a while (88 MB).
+const MODEL_TIMEOUT: Duration = Duration::from_secs(600);
 
 pub struct TftShared {
     state: Mutex<TftState>,
     set: Mutex<Option<Arc<TftSetData>>>,
+    /// The image model on disk, once fetched.
+    model: Mutex<Option<std::path::PathBuf>>,
 }
 
 impl Default for TftShared {
@@ -41,6 +48,7 @@ impl Default for TftShared {
                 status: vec![],
             }),
             set: Mutex::new(None),
+            model: Mutex::new(None),
         }
     }
 }
@@ -77,12 +85,56 @@ impl Drop for Reader {
     }
 }
 
-fn start_reader(tft: Arc<TftShared>, set: Arc<TftSetData>, meta: Arc<TftMeta>, queue: i64) -> Reader {
+fn looks_path() -> std::path::PathBuf {
+    crate::settings::local_dir("tft").join("looks.bin")
+}
+
+fn save_looks(lib: &tft_coach::Library) {
+    let path = looks_path();
+    let tmp = path.with_extension("tmp");
+    if let Err(e) = std::fs::write(&tmp, lib.to_bytes()).and_then(|_| std::fs::rename(&tmp, &path)) {
+        tracing::warn!("tft looks {path:?}: {e:#}");
+    }
+}
+
+/// The image model, downloaded once.
+async fn fetch_model() -> anyhow::Result<std::path::PathBuf> {
+    let path = crate::settings::local_dir("models").join(tft_embed::MODEL_FILE);
+    if std::fs::metadata(&path).is_ok_and(|m| m.len() > 1_000_000) {
+        return Ok(path);
+    }
+    tracing::info!("tft: fetching the unit model ({})", tft_embed::MODEL_URL);
+    let client = reqwest::Client::builder().timeout(MODEL_TIMEOUT).build()?;
+    let bytes = client.get(tft_embed::MODEL_URL).send().await?.error_for_status()?.bytes().await?;
+    let tmp = path.with_extension("part");
+    tokio::fs::write(&tmp, &bytes).await?;
+    tokio::fs::rename(&tmp, &path).await?;
+    Ok(path)
+}
+
+fn start_reader(
+    tft: Arc<TftShared>,
+    set: Arc<TftSetData>,
+    meta: Arc<TftMeta>,
+    queue: i64,
+    me: Option<String>,
+    model: Option<std::path::PathBuf>,
+) -> Reader {
     let stop = Arc::new(AtomicBool::new(false));
     let flag = stop.clone();
     std::thread::spawn(move || {
-        let mut vision = tft_vision::Reader::new(&set);
-        let mut tracker = tft_coach::Tracker::default();
+        let embedder = model.and_then(|m| match tft_embed::Embedder::load(&m) {
+            Ok(e) => Some(e),
+            Err(e) => {
+                tracing::warn!("tft unit model {m:?}: {e:#}");
+                None
+            }
+        });
+        let mut vision = tft_vision::Reader::new(&set).with_me(me).with_embedder(embedder);
+        let library = std::fs::read(looks_path()).ok().and_then(|b| tft_coach::Library::from_bytes(&b)).unwrap_or_default();
+        tracing::info!("tft: {} looks of {} units known", library.len(), library.units());
+        let mut tracker = tft_coach::Tracker::default().with_library(library);
+        let (mut saved, mut saved_len) = (Instant::now(), tracker.library().len());
         let mut keep: Option<String> = None;
         let hooks: Box<dyn tft_coach::ModeHooks> = match TftMode::of_queue(queue) {
             // Choncc or Treat until 2026-11-17: delete with the tft-choncc crate.
@@ -106,10 +158,23 @@ fn start_reader(tft: Arc<TftShared>, set: Arc<TftSetData>, meta: Arc<TftMeta>, q
                 debug::dump("tft-advice", Duration::from_secs(5), &advice);
                 tft.state.lock().unwrap().advice = Some(advice);
             }
+            if saved.elapsed() > LOOKS_SAVE && tracker.library().len() != saved_len {
+                save_looks(tracker.library());
+                (saved, saved_len) = (Instant::now(), tracker.library().len());
+            }
             std::thread::sleep(READ_EVERY.saturating_sub(t.elapsed()));
+        }
+        if tracker.library().len() != saved_len {
+            save_looks(tracker.library());
         }
     });
     Reader { stop }
+}
+
+/// My Riot ID game name, as my tactician's plate shows it.
+async fn my_name(lcu: &Lcu) -> Option<String> {
+    let me = lcu.get("/lol-summoner/v1/current-summoner").await.ok().flatten()?;
+    me["gameName"].as_str().or(me["displayName"].as_str()).map(str::to_string).filter(|n| !n.is_empty())
 }
 
 async fn history(lcu: &Lcu) -> anyhow::Result<Vec<TftPastGame>> {
@@ -128,6 +193,8 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
     let (mut want_history, mut tries, mut last_try) = (true, 0u32, None::<Instant>);
     let mut prev = TftPhase::None;
     let mut last_json = String::new();
+    let mut me: Option<String> = None;
+    let mut model_task: Option<tauri::async_runtime::JoinHandle<()>> = None;
     loop {
         if lcu.is_none() {
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
@@ -186,13 +253,31 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
             _ => None,
         };
         status.push(("Meta".to_string(), meta.is_some()));
+        // The unit model: fetched in the background the first time a TFT queue shows up.
+        if now != TftPhase::None && model_task.is_none() {
+            let tft = tft.clone();
+            model_task = Some(tauri::async_runtime::spawn(async move {
+                match fetch_model().await {
+                    Ok(p) => *tft.model.lock().unwrap() = Some(p),
+                    Err(e) => tracing::warn!("tft unit model: {e:#}"),
+                }
+            }));
+        }
+        let model = tft.model.lock().unwrap().clone();
+        status.push(("Unit recognition".to_string(), model.is_some()));
+        if me.is_none()
+            && now != TftPhase::None
+            && let Some(c) = &lcu
+        {
+            me = my_name(c).await;
+        }
 
         // In game: one reader thread per game.
         match (now, &set, &meta, queue) {
             (TftPhase::InGame, Some(s), Some(m), Some(q)) if reader.is_none() => {
                 tracing::info!("tft: reading the screen (queue {q})");
                 tft.state.lock().unwrap().advice = None;
-                reader = Some(start_reader(tft.clone(), s.clone(), m.clone(), q));
+                reader = Some(start_reader(tft.clone(), s.clone(), m.clone(), q, me.clone(), model.clone()));
             }
             (TftPhase::InGame, ..) => {}
             _ => reader = None,

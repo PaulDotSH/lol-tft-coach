@@ -23,7 +23,7 @@ fn buys_from_emptied_slots_and_stars_from_copies() {
     observe(&mut t, &s, (2, 1), Some(6), &[Some(GAREN), Some(AHRI), Some(LUX), Some(VI), Some(LEONA)]);
     assert_eq!(t.units().len(), 1);
     observe(&mut t, &s, (2, 1), Some(5), &[None, Some(AHRI), Some(LUX), Some(VI), Some(LEONA)]);
-    assert!(t.owned().contains(&OwnedUnit { api: GAREN.into(), copies: 3, star: 2 }));
+    assert!(t.owned().contains(&OwnedUnit { api: GAREN.into(), copies: 3, star: 2, board: 0, bench: 0 }));
     assert_eq!((star(2), star(3), star(8), star(9)), (1, 2, 2, 3));
 }
 

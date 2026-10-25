@@ -3,16 +3,19 @@
 //! No I/O: every input is a value. Limited-time modes plug in through `ModeHooks`.
 
 mod augments;
+pub mod board;
 mod calls;
 mod econ;
 pub mod fit;
 mod history;
 mod items;
+pub mod library;
 mod shop;
 pub mod tracker;
 
 pub use econ::{LEVEL_AT, levelling};
 pub use history::{match_comp, pregame, review, trends};
+pub use library::Library;
 pub use tracker::Tracker;
 use tft_model::*;
 

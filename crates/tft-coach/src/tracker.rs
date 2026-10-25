@@ -1,8 +1,12 @@
-//! What I own, kept across ticks from my own screen: shop purchases (a slot empties while gold
-//! drops by that unit's cost), best-effort sells, ★ from copies, corrected by the trait panel.
+//! What I own, kept across ticks from my own screen. With HP bars on screen, the pieces on my
+//! board and bench (`board`) are what I own. Without them (or before the first quiet read):
+//! shop purchases (a slot empties while gold drops by that unit's cost), best-effort sells,
+//! ★ from copies, corrected by the trait panel.
 //! Other boards seen while scouting are kept as trait panels and forgotten when unseen.
 //! Every snapshot field may be unreadable on any tick: None never counts as 0.
 
+use crate::board;
+use crate::library::Library;
 use std::collections::{HashSet, VecDeque};
 use tft_model::*;
 
@@ -90,6 +94,10 @@ pub struct Tracker {
     hp: VecDeque<(u32, u32)>,
     /// Round of the last off-panel check.
     checked: u32,
+    /// My pieces by their HP bars, named.
+    board: board::Board,
+    /// Units' looks, kept across games (the app loads and saves it).
+    library: Library,
 }
 
 fn count(panel: &[(Api, u32)], t: &str) -> u32 {
@@ -105,7 +113,11 @@ impl Tracker {
         if let (Some(now), Some(was)) = (snap.stage, self.stage)
             && now < was
         {
-            *self = Tracker::default(); // stage went back: a new game
+            // Stage went back: a new game (what units look like carries over).
+            let (library, single) = (std::mem::take(&mut self.library), self.board.single_reads);
+            *self = Tracker::default();
+            self.library = library;
+            self.board.single_reads = single;
         }
         let same_stage = snap.stage.is_some() && snap.stage == self.stage;
         if snap.stage.is_some() {
@@ -151,6 +163,8 @@ impl Tracker {
             }
         }
         self.items = snap.items.clone();
+        let hints: Vec<Api> = self.units.iter().map(|u| u.api.clone()).collect();
+        self.board.observe(snap, set, &mut self.library, &hints);
     }
 
     fn round(&self) -> u32 {
@@ -183,6 +197,7 @@ impl Tracker {
         for (slot, api) in bought {
             if snap.shop.get(slot).is_some_and(|s| s.as_deref() == Some(api.as_str())) {
                 self.remove(&api, 1);
+                self.board.unbought(&api);
             }
         }
     }
@@ -211,6 +226,7 @@ impl Tracker {
         for (b, (slot, api, _)) in emptied.into_iter().enumerate() {
             if mask & (1 << b) != 0 {
                 self.add(&api, 1, false);
+                self.board.bought(&api);
                 self.bought.push((slot, api));
             }
         }
@@ -317,11 +333,35 @@ impl Tracker {
         }
     }
 
-    /// Tracked units (★ from copies), then unknown units as `star: 0` with the trait as `api`.
+    /// My pieces when the board is being read (unnamed ones with `api` ""); else tracked units
+    /// (★ from copies), then unknown units as `star: 0` with the trait as `api`.
     pub fn owned(&self) -> Vec<OwnedUnit> {
-        let known = self.units.iter().map(|u| OwnedUnit { api: u.api.clone(), copies: u.copies, star: star(u.copies) });
-        let unknown = self.unknown.iter().map(|(t, n)| OwnedUnit { api: t.clone(), copies: *n, star: 0 });
+        if self.board.active(self.round()) {
+            return self.board.owned();
+        }
+        let known = self.units.iter().map(|u| OwnedUnit { api: u.api.clone(), copies: u.copies, star: star(u.copies), board: 0, bench: 0 });
+        let unknown = self.unknown.iter().map(|(t, n)| OwnedUnit { api: t.clone(), copies: *n, star: 0, board: 0, bench: 0 });
         known.chain(unknown).collect()
+    }
+
+    /// My pieces by their HP bars.
+    pub fn board(&self) -> &board::Board {
+        &self.board
+    }
+
+    /// Replays of sparse captures: use every quiet read.
+    pub fn single_reads(mut self) -> Tracker {
+        self.board.single_reads = true;
+        self
+    }
+
+    pub fn with_library(mut self, library: Library) -> Tracker {
+        self.library = library;
+        self
+    }
+
+    pub fn library(&self) -> &Library {
+        &self.library
     }
 
     /// Tracked units in the order I got them.
@@ -330,6 +370,9 @@ impl Tracker {
     }
 
     pub fn copies(&self, api: &str) -> u32 {
+        if self.board.active(self.round()) {
+            return self.board.copies(api);
+        }
         self.units.iter().find(|u| u.api == api).map_or(0, |u| u.copies)
     }
 

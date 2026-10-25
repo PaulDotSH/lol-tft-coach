@@ -17,6 +17,7 @@ tft-data.workspace = true
 tft-coach.workspace = true
 tft-choncc.workspace = true
 tft-vision.workspace = true
+tft-embed.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true

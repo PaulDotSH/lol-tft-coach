@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
     let meta = tft_data::meta(&http, queue, &set).await?;
     let hooks: Box<dyn tft_coach::ModeHooks> =
         if TftMode::of_queue(queue) == TftMode::Choncc { Box::new(tft_choncc::ChonccHooks) } else { Box::new(tft_coach::StandardHooks) };
-    let reader = tft_vision::Reader::new(&set);
+    let mut reader = tft_vision::Reader::new(&set);
     let mut tracker = tft_coach::Tracker::default();
     let mut keep: Option<String> = None;
     let name = |api: &str| tft_coach::unit_name(&set, api).to_string();
