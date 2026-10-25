@@ -3,7 +3,7 @@
 use crate::Frame;
 use windows::Win32::Foundation::{HWND, POINT, RECT};
 use windows::Win32::Graphics::Gdi::*;
-use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetClientRect, IsIconic};
+use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetClientRect, GetWindowTextW, IsIconic};
 use windows::core::{PCWSTR, w};
 
 /// Fractions of the client area holding the three augment card *titles* (and the
@@ -92,6 +92,13 @@ pub(crate) fn league_window() -> Option<HWND> {
     unsafe {
         FindWindowW(w!("RiotWindowClass"), PCWSTR::null())
             .or_else(|_| FindWindowW(PCWSTR::null(), w!("League of Legends (TM) Client")))
+            // TFT runs in its own Unreal client; its title is "TFT" plus trailing spaces.
+            .or_else(|_| {
+                let h = FindWindowW(w!("UnrealWindow"), PCWSTR::null())?;
+                let mut t = [0u16; 16];
+                let n = GetWindowTextW(h, &mut t) as usize;
+                if String::from_utf16_lossy(&t[..n]).trim() == "TFT" { Ok(h) } else { Err(windows::core::Error::empty()) }
+            })
             .ok()
             .filter(|h| !h.is_invalid() && !IsIconic(*h).as_bool())
     }
