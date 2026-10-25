@@ -94,6 +94,11 @@ impl Piece {
         matches!(self.named, Named::Bought | Named::Panel)
     }
 
+    /// Sure and agreed with by the panel: what the library learns from.
+    pub fn confirmed(&self) -> bool {
+        self.sure() && self.confirmed
+    }
+
     /// Best similarity of `emb` to this piece's looks (0 without looks).
     fn alike(&self, emb: &[f32]) -> f32 {
         self.looks.iter().map(|l| similarity(l, emb)).fold(0.0, f32::max)

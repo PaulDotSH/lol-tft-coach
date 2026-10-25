@@ -2,7 +2,11 @@
 //! pieces with their names. `cargo run -p tft-vision --release --example board_replay -- <dir or png>...`
 //! Env: `TFT_MODEL` (dinov2-small.onnx, required for looks), `TFT_ME` (my name),
 //! `TFT_LIB` (library file, loaded when present and saved at the end), `TFT_LABELS` (JSON lines
-//! of every named piece, for auditing), `TFT_STABLE=1` (wait for two still reads, as live).
+//! of every named piece, for auditing), `TFT_STABLE=1` (wait for two still reads, as live),
+//! `TFT_CROPS` (eval crops of my confirmed pieces, see `common/crops.rs`).
+
+#[path = "common/crops.rs"]
+mod crops;
 
 use std::io::Write;
 use tft_coach::board::Named;
@@ -20,6 +24,7 @@ fn main() -> anyhow::Result<()> {
         tracker = tracker.single_reads();
     }
     let mut labels = std::env::var("TFT_LABELS").ok().map(std::fs::File::create).transpose()?;
+    let mut crops = crops::Crops::from_env()?;
     let name = |api: &str| tft_coach::unit_name(&set, api).to_string();
     // A directory stands for its captures in order (one process: xargs would split a long list).
     let mut files: Vec<String> = vec![];
@@ -36,14 +41,18 @@ fn main() -> anyhow::Result<()> {
     for p in files {
         let img = ocr::scoreboard::decode_png(&std::fs::read(&p)?).ok_or_else(|| anyhow::anyhow!("bad png"))?;
         let bgra = img.px.as_chunks::<4>().0.iter().flat_map(|c| [c[2], c[1], c[0], c[3]]).collect();
-        let Some(snap) = reader.read_frame(&ocr::Frame { width: img.w, height: img.h, bgra }, 0) else { continue };
+        let f = ocr::Frame { width: img.w, height: img.h, bgra };
+        let Some(snap) = reader.read_frame(&f, 0) else { continue };
         let before = tracker.board().pieces().len();
         tracker.observe(&snap, &set);
+        let file = p.rsplit(['/', '\\']).next().unwrap_or(&p).to_string();
+        if let Some(c) = &mut crops {
+            c.mine(&f, file.trim_end_matches(".png"), &snap, &tracker)?;
+        }
         let quiet = !snap.viewing_other && snap.enemies == 0 && !snap.units.is_empty() && snap.units.iter().all(|u| u.full);
         if !quiet {
             continue;
         }
-        let file = p.rsplit(['/', '\\']).next().unwrap_or(&p).to_string();
         let stage = snap.stage.map_or("?".into(), |(a, b)| format!("{a}-{b}"));
         let pieces = tracker.board().pieces();
         let show: Vec<String> = pieces
@@ -66,6 +75,9 @@ fn main() -> anyhow::Result<()> {
                 writeln!(f, "{}", serde_json::json!({"file": p, "x": q.x, "y": q.y, "api": q.api, "named": format!("{:?}", q.named), "star": q.star, "bench": q.bench}))?;
             }
         }
+    }
+    if let Some(c) = &crops {
+        println!("crops: {:?}", c.counts);
     }
     println!("library now: {} looks of {} units", tracker.library().len(), tracker.library().units());
     if let Some(p) = lib_path {

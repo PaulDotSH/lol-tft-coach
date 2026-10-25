@@ -13,7 +13,7 @@
 
 pub mod items;
 pub mod team;
-mod units;
+pub mod units;
 
 use ocr::{Frame, TextBox};
 use std::collections::HashMap;

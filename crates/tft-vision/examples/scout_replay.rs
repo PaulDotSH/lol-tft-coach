@@ -5,7 +5,11 @@
 //! Env: `TFT_MODEL` (required), `TFT_ME`, `TFT_LIB` (library, loaded when present; saved at the
 //! end unless `TFT_LIB_KEEP=1`), `TFT_STABLE=1` (two still reads, as live), `TFT_LABELS` (JSON
 //! lines of every named unit of others, for auditing), `TFT_EMBS` (JSON lines of every bar's
-//! embedding, green and red, for measuring looks offline).
+//! embedding, green and red, for measuring looks offline), `TFT_CROPS` (eval crops of others'
+//! units, see `common/crops.rs`).
+
+#[path = "common/crops.rs"]
+mod crops;
 
 use std::io::Write;
 
@@ -23,6 +27,7 @@ fn main() -> anyhow::Result<()> {
     }
     let mut labels = std::env::var("TFT_LABELS").ok().map(std::fs::File::create).transpose()?;
     let mut embs = std::env::var("TFT_EMBS").ok().map(std::fs::File::create).transpose()?;
+    let mut crops = crops::Crops::from_env()?;
     let name = |api: &str| tft_coach::unit_name(&set, api).to_string();
     let mut files: Vec<String> = vec![];
     for a in std::env::args().skip(1) {
@@ -38,8 +43,13 @@ fn main() -> anyhow::Result<()> {
     for (k, p) in files.iter().enumerate() {
         let img = ocr::scoreboard::decode_png(&std::fs::read(p)?).ok_or_else(|| anyhow::anyhow!("bad png"))?;
         let bgra = img.px.as_chunks::<4>().0.iter().flat_map(|c| [c[2], c[1], c[0], c[3]]).collect();
-        let Some(snap) = reader.read_frame(&ocr::Frame { width: img.w, height: img.h, bgra }, 0) else { continue };
+        let f = ocr::Frame { width: img.w, height: img.h, bgra };
+        let Some(snap) = reader.read_frame(&f, 0) else { continue };
         tracker.observe(&snap, &set);
+        let file = p.rsplit(['/', '\\']).next().unwrap_or(p).to_string();
+        if let Some(c) = &mut crops {
+            c.others(&f, file.trim_end_matches(".png"), &snap, &tracker)?;
+        }
         if let Some(f) = &mut embs {
             for (red, u) in snap.units.iter().map(|u| (false, u)).chain(snap.foes.iter().map(|u| (true, u))) {
                 let j = serde_json::json!({"k": k, "file": p, "stage": snap.stage, "other": snap.viewing_other, "who": snap.viewing, "red": red, "x": u.x, "y": u.y, "star": u.star, "bench": u.bench, "full": u.full, "emb": u.emb});
@@ -49,7 +59,6 @@ fn main() -> anyhow::Result<()> {
         if !snap.viewing_other && snap.foes.is_empty() {
             continue;
         }
-        let file = p.rsplit(['/', '\\']).next().unwrap_or(p).to_string();
         let stage = snap.stage.map_or("?".into(), |(a, b)| format!("{a}-{b}"));
         let what = if snap.viewing_other { "scout" } else { "combat" };
         let who = snap.viewing.clone().unwrap_or_else(|| "?".into());
@@ -77,6 +86,9 @@ fn main() -> anyhow::Result<()> {
                 writeln!(f, "{}", serde_json::json!({"k": k, "file": p, "what": what, "who": who, "x": u.x, "y": u.y, "api": u.api, "how": u.how, "star": u.star, "bench": u.bench}))?;
             }
         }
+    }
+    if let Some(c) = &crops {
+        println!("crops: {:?}", c.counts);
     }
     println!("held by others:");
     for p in tracker.scout().players() {
