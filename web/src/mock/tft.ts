@@ -399,6 +399,7 @@ const standardAdvice: TftAdvice = {
     { key: 'contested-DA_18_Ahri', text: 'Ahri is contested by 2 boards', say: 'Ahri is contested by two' },
   ],
   choncc: null,
+  team_size: [6, 6],
 };
 
 const chonccAdvice: TftAdvice = {
@@ -444,7 +445,10 @@ const chonccAdvice: TftAdvice = {
   ],
   augments: [],
   contested: [['DA_18_Soraka', 1]],
-  calls: [{ key: 'roll-4-1', text: 'Roll down now', say: 'Roll down now' }],
+  calls: [
+    { key: 'roll-4-1', text: 'Roll down now', say: 'Roll down now' },
+    { key: 'free-slot-9', text: 'Free slot on your board (8/9): field a unit', say: 'Free slot on your board.' },
+  ],
   choncc: {
     starter: 'DA_18_Kennen',
     comps: [
@@ -462,6 +466,7 @@ const chonccAdvice: TftAdvice = {
       'Under 50 HP the Golden Orb drops a radiant item, a reforger and gold.',
     ],
   },
+  team_size: [8, 9],
 };
 
 const base = { history, trends, review: null, advice: null, meta: [] as CompPick[] };

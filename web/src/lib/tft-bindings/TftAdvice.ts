@@ -17,4 +17,8 @@ comps: Array<CompPick>, shop: Array<ShopAdvice>, econ: EconAdvice | null, items:
 /**
  * Units of my target comp seen on other boards, with how many boards.
  */
-contested: Array<[string, number]>, calls: Array<TftCall>, choncc: ChonccAdvice | null, };
+contested: Array<[string, number]>, calls: Array<TftCall>, choncc: ChonccAdvice | null, 
+/**
+ * Units on my board and the cap, as last read in planning.
+ */
+team_size: [number, number] | null, };

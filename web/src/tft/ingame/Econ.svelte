@@ -1,16 +1,22 @@
 <script lang="ts">
   // The key line, readable from across the desk: what to do with gold right now
-  // (level / roll / save / hold) with its reason, next to the stage.
+  // (level / roll / save / hold) with its reason, next to the stage and the team size
+  // (units on board / cap; highlighted while a slot is free).
   import type { EconAdvice } from '../../lib/tft-bindings/EconAdvice';
   import { stageText } from '../../lib/tft';
 
-  let { econ, stage }: { econ: EconAdvice | null; stage: [number, number] | null } = $props();
+  let {
+    econ,
+    stage,
+    team = null,
+  }: { econ: EconAdvice | null; stage: [number, number] | null; team?: [number, number] | null } = $props();
 
   const LABELS = { level: 'Level', roll: 'Roll', save: 'Save', hold: 'Hold' } as const;
 </script>
 
 <section class="econ {econ?.action ?? 'none'}" aria-label="Gold">
   {#if stage}<span class="stage num" title="Stage">{stageText(stage)}</span>{/if}
+  {#if team}<span class="team num" class:free={team[0] < team[1]} title="Units on board / team size">{team[0]}/{team[1]}</span>{/if}
   {#if econ}
     <span class="action">{LABELS[econ.action]}</span>
     <p class="text">{econ.text}</p>
@@ -46,6 +52,14 @@
     font-size: 26px;
     font-weight: 600;
     color: var(--muted);
+  }
+  .team {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .team.free {
+    color: var(--gold);
   }
   .action {
     flex: none;

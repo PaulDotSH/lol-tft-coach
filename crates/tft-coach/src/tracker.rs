@@ -36,6 +36,8 @@ pub const EARLY_STAGE: u32 = 2;
 /// counting as owned: ★1 units, then ★2+ ones (kept longer, they're rarely sold).
 const OFF_PANEL_ROUNDS: u32 = 4;
 const OFF_PANEL_ROUNDS_STARRED: u32 = 6;
+/// A free board slot is called after this many reads in a row show it (one misread is no call).
+const FREE_READS: u32 = 2;
 
 /// ★ from copies.
 pub fn star(copies: u32) -> u32 {
@@ -98,6 +100,12 @@ pub struct Tracker {
     board: board::Board,
     /// Units' looks, kept across games (the app loads and saves it).
     library: Library,
+    /// Last team size read (units on board, cap) and reads in a row with a free slot.
+    team: Option<(u32, u32)>,
+    free_reads: u32,
+    /// How far the cap runs above my level (bonus slots), from reads with both; and the last level read.
+    team_bonus: u32,
+    level: Option<u32>,
 }
 
 fn count(panel: &[(Api, u32)], t: &str) -> u32 {
@@ -128,6 +136,18 @@ impl Tracker {
         if snap.viewing_other {
             self.scout(&snap.traits, round);
             return;
+        }
+        if let Some(l) = snap.level {
+            self.level = Some(l);
+        }
+        // The counter only shows in planning: unread ticks keep the last read.
+        if let Some((n, cap)) = snap.team_size {
+            let was_free = self.team.is_some_and(|(n, c)| n < c && c == cap);
+            self.free_reads = if n >= cap { 0 } else if was_free { self.free_reads + 1 } else { 1 };
+            self.team = Some((n, cap));
+            if let Some(l) = snap.level.filter(|&l| cap >= l) {
+                self.team_bonus = cap - l;
+            }
         }
         if let Some(hp) = snap.hp {
             match self.hp.back_mut() {
@@ -403,6 +423,24 @@ impl Tracker {
     /// The last stage read.
     pub fn stage(&self) -> Option<(u32, u32)> {
         self.stage
+    }
+
+    /// Units on my board and the cap, as last read (the counter shows in planning only).
+    pub fn team_size(&self) -> Option<(u32, u32)> {
+        self.team
+    }
+
+    /// My level: read now, else the cap on screen less its bonus slots, else the higher of the
+    /// last level read and the last cap's.
+    pub fn level(&self, snap: &TftSnapshot) -> Option<u32> {
+        let from = |t: Option<(u32, u32)>| t.map(|(_, cap)| cap.saturating_sub(self.team_bonus));
+        snap.level.or(from(snap.team_size)).or(self.level.max(from(self.team)))
+    }
+
+    /// A free slot on my board this read (planning), once seen on enough reads in a row.
+    pub fn free_slot(&self, snap: &TftSnapshot) -> Option<(u32, u32)> {
+        let need = if self.board.single_reads { 1 } else { FREE_READS };
+        snap.team_size.filter(|(n, cap)| n < cap && self.free_reads >= need)
     }
 
     /// HP lost over the last `rounds` rounds (None until two rounds are read).

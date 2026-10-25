@@ -164,3 +164,22 @@ fn looks_learnt_in_one_game_name_units_in_the_next() {
     read(&mut next, &s, screen(10, &[None; 5], vec![hex(1000.0, 600.0, GAREN, 1), bench(3, VI, 1)], &[(DEFENDER, 1), (BRUISER, 1)]));
     assert!(named(&next).contains(&(Some(VI.into()), Named::Looks, Some(3), 1)), "{:?}", named(&next));
 }
+
+#[test]
+fn a_free_slot_is_called_with_the_bench_unit_to_field() {
+    let (s, m) = (set(), meta());
+    let mut t = Tracker::default();
+    start(&mut t, &s);
+    let units = vec![hex(1000.0, 600.0, GAREN, 1), bench(0, VI, 1)];
+    let now = |team| TftSnapshot { team_size: Some(team), units: units.clone(), traits: traits(&[(DEFENDER, 1), (BRUISER, 1)]), ..snap((2, 1), 8) };
+    // One read could be a misread; the second calls it, keyed by the cap.
+    assert!(!keys(&tick(&mut t, &s, &m, &now((1, 2)))).iter().any(|k| k.starts_with("free-slot")));
+    let a = tick(&mut t, &s, &m, &now((1, 2)));
+    let c = a.calls.iter().find(|c| c.key == "free-slot-2").expect("free slot call");
+    assert_eq!(c.text, "Free slot on your board (1/2): put Vi on");
+    assert_eq!(a.team_size, Some((1, 2)));
+    // Filled: no call. In combat the counter hides: the last read stays shown, no call.
+    assert!(!keys(&tick(&mut t, &s, &m, &now((2, 2)))).iter().any(|k| k.starts_with("free-slot")));
+    let a = tick(&mut t, &s, &m, &TftSnapshot { team_size: None, ..now((1, 2)) });
+    assert_eq!((a.team_size, a.calls.iter().any(|c| c.key.starts_with("free-slot"))), (Some((2, 2)), false));
+}

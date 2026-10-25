@@ -94,6 +94,9 @@ fn econ_follows_the_comp_levelling() {
     // Interest.
     let a = econ((3, 1), &RENGAR_UNITS, |n| (n.level, n.gold) = (Some(5), Some(27)));
     assert_eq!(a.econ.unwrap().text, "Save: 27 gold, +2 interest; 3 more for +3");
+    // Level unread: the team size's cap stands in.
+    let a = econ((4, 2), &RENGAR_UNITS, |n| (n.team_size, n.gold) = (Some((7, 7)), Some(50)));
+    assert_eq!(keys(&a), ["level-8"]);
     // Gold unread: no econ advice at all.
     let a = econ((3, 1), &RENGAR_UNITS, |n| (n.level, n.gold) = (Some(5), None));
     assert!(a.econ.is_none());
