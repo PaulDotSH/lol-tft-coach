@@ -2380,6 +2380,7 @@ name = "model-live"
 version = "0.1.0"
 dependencies = [
  "model-core",
+ "model-draft",
  "serde",
  "ts-rs",
 ]

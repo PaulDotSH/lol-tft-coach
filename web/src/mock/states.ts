@@ -9,6 +9,7 @@ import { macroFewGames, macroReport } from './macro';
 import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
 import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
+import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoeCard, zoeLaning } from './matchup';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true };
 
@@ -183,6 +184,7 @@ const riftGame: GameAdvice = {
     { key: 'cs', kind: 'lane', text: 'CS 21 behind the average pace (6.2/min vs 7.4): last-hit every wave, catch side waves' },
     { key: 'control-ward', kind: 'vision', text: 'Next back: buy a Control Ward (75 g)' },
   ],
+  matchup: [zedLaning],
 };
 
 const mayhemGame: GameAdvice = {
@@ -263,6 +265,7 @@ const mayhemGame: GameAdvice = {
   readiness: { verdict: 'even', text: 'Even: fight only with numbers or near your side', reasons: ['+0.6k item gold'] },
   calls: [],
   tips: [],
+  matchup: [],
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.
@@ -300,6 +303,22 @@ const mayhemFull: GameAdvice = {
   augments: null,
   my_augments: [...mayhemPicks, { id: 1305, candidates: [1305], time: 1210 }],
   gold_sinks: fullBuildSinks,
+};
+
+// Sett support at 6:20 against Ashe + Zoe: the laning panel is open, Zoe just hit 6.
+const laningGame: GameAdvice = {
+  ...riftGame,
+  time: 380,
+  my_champ: 875,
+  buy_next: null,
+  alternatives: [],
+  path: [],
+  owned: [3865, 2003, 1001],
+  calls: [],
+  tips: [],
+  bounties: [],
+  readiness: null,
+  matchup: [asheLaning, zoeLaning],
 };
 
 export const fixtures = {
@@ -370,10 +389,35 @@ export const fixtures = {
       bench: [],
       team: null,
       memory: [
-        { champ: 238, games: 4, wins: 1, lane_games: 3, gold_15: -650, killed_me: 9 },
-        { champ: 145, games: 2, wins: 2, lane_games: 0, gold_15: null, killed_me: 1 },
+        zedCard.record!,
+        { champ: 145, games: 2, wins: 2, lane_games: 0, gold_15: null, killed_me: 1, early_kills: 0, same_games: 1, same_wins: 1, last: [true, true] },
       ],
-      bot_lane: null,
+      matchup: {
+        lane: 'middle',
+        allies: [134],
+        partner: null,
+        cards: [zedCard],
+        build: {
+          vs: 238,
+          games: 2140,
+          win_rate: 53.1,
+          start: [1056, 2003, 2003],
+          start_games: 1610,
+          start_wr: 53.4,
+          core: [6655, 4645, 3020],
+          runes: [8112, 8139, 8140, 8106, 8226, 8210],
+          summoners: [4, 12],
+          skills: 'QWE',
+        },
+        runes: [
+          { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
+          { id: 8139, name: 'Taste of Blood', icon: 'perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png', reason: null },
+          { id: 8140, name: 'Grisly Mementos', icon: 'perk-images/Styles/Domination/GrislyMementos/GrislyMementos.png', reason: null },
+          { id: 8106, name: 'Ultimate Hunter', icon: 'perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png', reason: null },
+          { id: 8226, name: 'Manaflow Band', icon: 'perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png', reason: null },
+          { id: 8210, name: 'Transcendence', icon: 'perk-images/Styles/Sorcery/Transcendence/Transcendence.png', reason: null },
+        ],
+      },
       enemies: [238, 145, 254],
       draft: {
         lanes: [
@@ -439,23 +483,79 @@ export const fixtures = {
       runes: null,
       bench: [],
       team: null,
-      memory: [{ champ: 111, games: 3, wins: 2, lane_games: 3, gold_15: 350, killed_me: 4 }],
+      memory: [nautilusCard.record!],
       enemies: [81, 111],
       draft: null,
-      bot_lane: {
+      matchup: {
+        lane: 'support',
         allies: [201, 222],
-        enemies: [81, 111],
-        numbers: [
-          { champ: 81, with: false, value: 57.97, games: 1908 },
-          { champ: 111, with: false, value: 48.6, games: 74 },
-          { champ: 222, with: true, value: 1.8, games: 2412 },
+        partner: { champ: 222, delta: 1.8, games: 2412 },
+        cards: [ezrealCard, nautilusCard],
+        build: {
+          vs: 111,
+          games: 1807,
+          win_rate: 57.78,
+          start: [3865, 2003, 2003],
+          start_games: 1776,
+          start_wr: 57.83,
+          core: [3876, 3047, 3190],
+          runes: [8465, 8463, 8473, 8242, 8347, 8345],
+          summoners: [4, 3],
+          skills: 'QEW',
+        },
+        runes: [
+          { id: 8465, name: 'Guardian', icon: 'perk-images/Styles/Resolve/Guardian/Guardian.png', reason: null },
+          { id: 8463, name: 'Font of Life', icon: 'perk-images/Styles/Resolve/FontOfLife/FontOfLife.png', reason: null },
+          { id: 8473, name: 'Bone Plating', icon: 'perk-images/Styles/Resolve/BonePlating/BonePlating.png', reason: null },
+          { id: 8242, name: 'Unflinching', icon: 'perk-images/Styles/Sorcery/Unflinching/Unflinching.png', reason: null },
+          { id: 8347, name: 'Cosmic Insight', icon: 'perk-images/Styles/Inspiration/CosmicInsight/CosmicInsight.png', reason: null },
+          { id: 8345, name: 'Biscuit Delivery', icon: 'perk-images/Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png', reason: null },
         ],
-        windows: [
-          { champ: 81, tags: ['poke'], note: 'Q poke all lane; all-in when his E dash is down' },
-          { champ: 111, tags: ['strong level 2', 'all-in at 6', 'hard engage'], note: 'Hook + passive root at 2, point-and-click R at 6: stay behind minions' },
+      },
+    },
+  },
+  'champselect sett': {
+    ...base,
+    phase: 'champselect',
+    sources: src({}),
+    champ_select: {
+      mode: 'rift',
+      my_lane: 'support',
+      my_champ: 875,
+      picks: [],
+      bans: [],
+      build: null,
+      runes: null,
+      bench: [],
+      team: null,
+      memory: [zoeCard.record!],
+      enemies: [22, 142],
+      draft: null,
+      matchup: {
+        lane: 'support',
+        allies: [875, 222],
+        partner: { champ: 222, delta: 0.6, games: 1180 },
+        cards: [asheCard, zoeCard],
+        build: {
+          vs: 142,
+          games: 412,
+          win_rate: 47.6,
+          start: [3865, 2003, 2003],
+          start_games: 398,
+          start_wr: 47.9,
+          core: [3876, 3047, 3190],
+          runes: [8439, 8446, 8429, 8451, 8347, 8345],
+          summoners: [4, 14],
+          skills: 'WQE',
+        },
+        runes: [
+          { id: 8439, name: 'Aftershock', icon: 'perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png', reason: null },
+          { id: 8446, name: 'Demolish', icon: 'perk-images/Styles/Resolve/Demolish/Demolish.png', reason: null },
+          { id: 8429, name: 'Conditioning', icon: 'perk-images/Styles/Resolve/Conditioning/Conditioning.png', reason: null },
+          { id: 8451, name: 'Overgrowth', icon: 'perk-images/Styles/Resolve/Overgrowth/Overgrowth.png', reason: null },
+          { id: 8347, name: 'Cosmic Insight', icon: 'perk-images/Styles/Inspiration/CosmicInsight/CosmicInsight.png', reason: null },
+          { id: 8345, name: 'Biscuit Delivery', icon: 'perk-images/Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png', reason: null },
         ],
-        memory: [{ champ: 111, games: 3, wins: 2, lane_games: 3, gold_15: 350, killed_me: 4 }],
-        start: { vs: 81, games: 1807, win_rate: 57.78, start: [3865, 2003, 2003], start_games: 1776, start_wr: 57.83, core: [3876, 3047, 3190] },
       },
     },
   },
@@ -511,7 +611,7 @@ export const fixtures = {
       enemies: [],
       draft: null,
       memory: [],
-      bot_lane: null,
+      matchup: null,
       team: {
         champs: [81, 1, 134, 63, 45],
         physical: 0.21,
@@ -570,7 +670,7 @@ export const fixtures = {
       enemies: [],
       draft: null,
       memory: [],
-      bot_lane: null,
+      matchup: null,
       team: {
         champs: [21, 99, 89, 53, 1],
         physical: 0.32,
@@ -588,6 +688,7 @@ export const fixtures = {
     },
   },
   'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals },
+  'ingame laning': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: laningGame, goal_progress: liveGoals },
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
   'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },
   'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull, goal_progress: liveGoals.slice(1) },

@@ -15,4 +15,16 @@ start: Array<number>, start_games: number, start_wr: number,
 /**
  * Most played first, second and third completed items.
  */
-core: Array<number>, };
+core: Array<number>, 
+/**
+ * Most played rune page: primary tree (keystone first), then secondary.
+ */
+runes: Array<number>, 
+/**
+ * Most played summoner spells (Data Dragon summoner keys: 4 Flash, 14 Ignite, …).
+ */
+summoners: Array<number>, 
+/**
+ * Skill max order, e.g. "QEW".
+ */
+skills: string, };

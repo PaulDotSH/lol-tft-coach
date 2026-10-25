@@ -3,7 +3,6 @@
 
 use crate::state::{Shared, ensure};
 use model::*;
-use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 fn lane_stats(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<Lane>) -> Option<Arc<ChampStats>> {
@@ -42,7 +41,7 @@ fn counters_vs(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane, v
     )
 }
 
-fn matchup(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<MatchupBuild>> {
+fn matchup_page(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<MatchupBuild>> {
     let (a, b) = (sd.champs.get(&me)?.clone(), sd.champs.get(&vs)?.clone());
     let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
     ensure(
@@ -54,36 +53,37 @@ fn matchup(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: 
     )
 }
 
-fn lane_notes() -> &'static HashMap<String, LaneNote> {
-    static NOTES: OnceLock<HashMap<String, LaneNote>> = OnceLock::new();
-    NOTES.get_or_init(|| data::lane_notes::lane_notes().unwrap_or_else(|e| {
+/// Hand-written laning notes, parsed once (empty if the file is broken).
+pub fn lane_notes() -> &'static LaneNotes {
+    static NOTES: OnceLock<LaneNotes> = OnceLock::new();
+    NOTES.get_or_init(|| data::notes::lane_notes().unwrap_or_else(|e| {
         tracing::warn!("lane notes: {e:#}");
-        HashMap::new()
+        LaneNotes::default()
     }))
 }
 
-/// Bot lane 2v2 plan when I play support or ADC; lolalytics parts join once fetched.
-pub fn bot_lane(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice) -> Option<BotLanePlan> {
-    let lane = cs.my_lane.filter(|l| matches!(l, Lane::Bottom | Lane::Support) && cs.mode == Mode::Rift)?;
-    let me = cs.my_pick.or(cs.my_hover)?;
+/// Matchup card for my lane opponent(s) once my lane and champion are known;
+/// lolalytics and Data Dragon parts join once fetched.
+pub fn matchup(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice) -> Option<MatchupPlan> {
+    let me = cs.my_pick.or(cs.my_hover).filter(|_| cs.mode == Mode::Rift)?;
     let draft = advice.draft.as_ref();
     let lanes = draft.map_or(&[][..], |d| d.lanes.as_slice());
+    let lane = cs.my_lane.or_else(|| lanes.iter().find(|l| l.ally == Some(me)).map(|l| l.lane))?;
     let enemy = |l: Lane| lanes.iter().find(|x| x.lane == l).and_then(|x| x.enemy);
-    let vs: Vec<(Lane, Vec<Matchup>)> = [Lane::Bottom, Lane::Support]
-        .into_iter()
-        .filter(|&l| enemy(l).is_some())
-        .filter_map(|l| Some((l, (*counters_vs(sh, sd, me, lane, l)?).clone())))
-        .collect();
-    let start = enemy(Lane::Bottom).and_then(|e| matchup(sh, sd, me, e, lane, Lane::Bottom));
-    coach::bot_lane_plan(&coach::BotLaneInput {
+    let faced: Vec<(Lane, ChampKey)> = coach::opposing_lanes(lane).iter().filter_map(|&l| Some((l, enemy(l)?))).collect();
+    let vs: Vec<(Lane, Vec<Matchup>)> = faced.iter().filter_map(|&(l, _)| Some((l, (*counters_vs(sh, sd, me, lane, l)?).clone()))).collect();
+    // Direct opponent: same lane, else (support with their support unknown) their bot laner.
+    let build = faced.iter().find(|f| f.0 == lane).or(faced.first()).and_then(|&(l, e)| matchup_page(sh, sd, me, e, lane, l));
+    let champs: Vec<ChampKey> = faced.iter().map(|f| f.1).collect();
+    let spells = crate::ingame::spells(sh, sd, &champs);
+    coach::matchup_plan(&coach::MatchupInput {
         cs,
-        sd,
+        card: coach::CardData { sd, notes: lane_notes(), me, spells: &spells, memory: &advice.memory },
+        lane,
         lanes,
         duos: draft.map_or(&[][..], |d| d.allies.duos.as_slice()),
-        memory: &advice.memory,
         vs: &vs,
-        start: start.as_deref(),
-        notes: lane_notes(),
+        build: build.as_deref(),
     })
 }
 

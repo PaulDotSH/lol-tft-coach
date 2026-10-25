@@ -1,0 +1,1170 @@
+# Hand-written laning notes, one per champion, keyed by Data Dragon id (static knowledge, no live data).
+# Tags (optional, default false):
+#   level2  strong level-2 all-in       level6  the ult turns the lane at 6
+#   engage  hard engage                 poke    wins by poking
+#   sustain heals or shields through poke
+# watch: their spells to play around, by key ("E", "QR"); the card shows their cooldowns.
+# wins / spike / trade: one short line each (at most 90 characters). No cooldown numbers here:
+# those come from Data Dragon.
+
+[Aatrox]
+sustain = true
+watch = "QW"
+wins = "Q sweet spots hit hard and knock up; W pulls you back in; heals off damage"
+spike = "6: R boosts healing and damage; strong with his first item"
+trade = "Stand inside the Q, not at its edge; trade when Q is on cooldown"
+
+[Ahri]
+poke = true
+level6 = true
+watch = "E"
+wins = "Charm (E) into a Q burst; R dashes let her chase, dodge or roam"
+spike = "6: three R dashes make her all-ins and roams deadly"
+trade = "Keep a minion between you vs E; trade when Charm is down"
+
+[Akali]
+level6 = true
+watch = "WR"
+wins = "Shroud (W) hides her; Q poke, E-R burst all-in"
+spike = "6: R all-in from range; first item makes her burst lethal"
+trade = "Trade when W is down; a Control Ward or sweeper reveals the shroud"
+
+[Akshan]
+poke = true
+watch = "E"
+wins = "Double-shot autos and an E swing around walls; revives allies he avenges"
+spike = "6: R executes from range; strong with his first item"
+trade = "Short range early: all-in him when E is down"
+
+[Alistar]
+level2 = true
+engage = true
+watch = "WQ"
+wins = "W-Q combo at 2: headbutt into knock-up, then he chases"
+spike = "6: R cuts the damage he takes, so he dives towers"
+trade = "Stay out of W range when he walks up; punish him after W-Q"
+
+[Ambessa]
+level6 = true
+watch = "WR"
+wins = "Dashes after every spell for long all-ins; W braces and shields"
+spike = "6: R blinks to the farthest champion in a line and suppresses"
+trade = "Don't hit into her W brace; trade once her dashes and energy run out"
+
+[Amumu]
+engage = true
+level6 = true
+watch = "QR"
+wins = "Bandage Toss (Q) engages from range; R stuns everyone around him"
+spike = "6: R stuns a whole fight; very strong ganks"
+trade = "Dodge Q (two charges); spread out vs R"
+
+[Anivia]
+poke = true
+watch = "QW"
+wins = "Q stun, E deals double to chilled targets; W wall traps you"
+spike = "6: R storm zones and slows; strong after her first item"
+trade = "All-in when her egg passive is down; fight away from walls"
+
+[Annie]
+level6 = true
+engage = true
+watch = "R"
+wins = "Stun every fourth spell, then Q-W burst"
+spike = "6: Flash-R stun with Tibbers bursts from half health"
+trade = "Watch her stun passive: back off when it is ready"
+
+[Aphelios]
+watch = "R"
+wins = "Strong 2v2 with the right guns: Calibrum range, Gravitum root"
+spike = "6: R moonlight burst; very strong at two items"
+trade = "No dash: engage him when his gun's Q is down"
+
+[Ashe]
+poke = true
+level6 = true
+watch = "WR"
+wins = "Every auto slows; W volley pokes; R arrow stuns from far away"
+spike = "6: R stun is a long-range engage"
+trade = "Dodge W behind minions; she has no dash, so all-in her"
+
+[AurelionSol]
+poke = true
+watch = "QE"
+wins = "Q breath burns, E black hole pulls; scales by collecting stardust"
+spike = "6: R falling star knocks up; strong late with stacks"
+trade = "Punish him early before his stacks; he is slow and easy to gank"
+
+[Aurora]
+poke = true
+watch = "WE"
+wins = "Q curses and pulls back; E slows; W hop makes her invisible"
+spike = "6: R zone slows and lets her teleport across it"
+trade = "Trade when W is down; leave her R zone rather than fight in it"
+
+[Azir]
+poke = true
+watch = "WR"
+wins = "Soldiers (W) attack from range and zone you; E-Q dash shuffle"
+spike = "6: R wall pushes you into his team; strong after Nashor's Tooth"
+trade = "Walk at him when soldiers are down; keep Flash for the shuffle"
+
+[Bard]
+watch = "QR"
+wins = "Roams often; Q stuns you against a wall or a minion behind you"
+spike = "6: R stasis freezes everyone in it; chimes add damage over time"
+trade = "Don't stand in line with a wall or minion behind you; punish his roams"
+
+[Belveth]
+watch = "QE"
+wins = "Fast attacks and Q dashes; E makes her tanky while she spins"
+spike = "6: R void coral boosts her; strong at two items"
+trade = "Leave her E spin; hit her when her Q dashes are down"
+
+[Blitzcrank]
+engage = true
+level2 = true
+watch = "Q"
+wins = "Grab is the whole threat: one hook into knock-up kills"
+spike = "Level 2-3 with E knock-up; R silences and strips shields"
+trade = "Stay behind minions; he is weak for a long time after a missed hook"
+
+[Brand]
+poke = true
+level6 = true
+watch = "WR"
+wins = "Burns stack fast: three spells stun and explode"
+spike = "6: R bounces between you and your partner"
+trade = "Dodge W; all-in him before 6 and stand apart vs R"
+
+[Braum]
+engage = true
+watch = "QE"
+wins = "Passive stuns after four hits; E shield blocks your poke and engage"
+spike = "6: R knocks up in a line"
+trade = "Don't throw spells into E; dodge Q so his passive can't stack"
+
+[Briar]
+watch = "WE"
+wins = "W frenzy leaps and heals; charged E stuns you into walls"
+spike = "6: R is a long-range fear dive"
+trade = "Step away from walls; hit her when frenzy ends"
+
+[Caitlyn]
+poke = true
+watch = "WE"
+wins = "Longest range: she wins farm trades; headshots through traps"
+spike = "6: R finishes low targets; crit items scale her hard"
+trade = "Engage when her traps (W) are down; E net is her only escape"
+
+[Camille]
+watch = "E"
+wins = "Hookshot (E) dashes off walls and stuns; Q deals true damage"
+spike = "6: R locks you in with her; strong after Trinity Force"
+trade = "Stay away from walls; trade when E is down"
+
+[Cassiopeia]
+poke = true
+level6 = true
+watch = "QR"
+wins = "Q poison, then E spam: very strong sustained trades"
+spike = "6: R stuns you if you face her"
+trade = "Dodge Q; turn away from her R; all-in when Q misses"
+
+[Chogath]
+watch = "QW"
+wins = "Q knock-up and W silence; R true-damage execute"
+spike = "6: Feast executes and stacks health"
+trade = "Dodge Q; trade when it's down, he has no dash"
+
+[Corki]
+poke = true
+watch = "WR"
+wins = "R rockets poke; W valkyrie dash; the Package flies every few minutes"
+spike = "6 with more rockets; Trinity Force"
+trade = "All-in him when W is down"
+
+[Darius]
+level2 = true
+watch = "QE"
+wins = "Q edge heals him; E pulls you into bleed stacks and an R reset"
+spike = "6: Noxian Guillotine true damage that resets on kills"
+trade = "Never stand at the Q edge; short trades only, out of E range"
+
+[Diana]
+level6 = true
+watch = "QR"
+wins = "Q then E dashes in; R pulls you in for a burst"
+spike = "6: R pull; first item makes her burst lethal"
+trade = "Dodge Q (her E only resets on a hit); trade when Q is down"
+
+[DrMundo]
+sustain = true
+watch = "Q"
+wins = "Q cleaver poke heals him; huge regeneration with R"
+spike = "6: R heals a lot; strong once tanky"
+trade = "Buy Grievous Wounds; trade when a cleaver misses"
+
+[Draven]
+level2 = true
+watch = "QE"
+wins = "Spinning axes deal huge damage early; E pushes you away"
+spike = "Strongest levels 1-3 and at his first item"
+trade = "Don't trade into his axes; poke him while he walks to catch them"
+
+[Ekko]
+watch = "WE"
+wins = "Q hits twice, E dashes; W zone stuns after a delay"
+spike = "6: R rewinds to heal and burst"
+trade = "Step out of the W zone; trade after he uses E"
+
+[Elise]
+level2 = true
+watch = "E"
+wins = "Cocoon (E) stun into a spider-form burst"
+spike = "Level 3 ganks; strongest early"
+trade = "Dodge E; trade when it's down"
+
+[Evelynn]
+level6 = true
+watch = "W"
+wins = "Invisible from 6; W charm into burst"
+spike = "6: camouflage ganks; R executes low targets"
+trade = "Buy a Control Ward; walk away from her W mark"
+
+[Ezreal]
+poke = true
+watch = "QE"
+wins = "Q poke all lane; E blink escapes"
+spike = "Sheen and Trinity Force; strong at two items"
+trade = "All-in him when his E dash is down"
+
+[Fiddlesticks]
+level6 = true
+watch = "ER"
+wins = "E silences, Q fears; R lands from fog"
+spike = "6: R channel fears a whole fight"
+trade = "Ward around; keep Flash for his R"
+
+[Fiora]
+watch = "W"
+wins = "Vitals deal true damage; W parries and stuns"
+spike = "6: R grand challenge heals her team; strong at her first item"
+trade = "Don't throw CC into W; trade after it"
+
+[Fizz]
+level6 = true
+watch = "ER"
+wins = "E dodges everything; W-Q burst"
+spike = "6: R shark knock-up burst"
+trade = "Trade when E is down; he is weak to early pushes and poke"
+
+[Galio]
+watch = "E"
+wins = "E dash knock-up, Q poke, W taunt"
+spike = "6: R joins fights anywhere on the map"
+trade = "Dodge E; don't stand next to him when he charges W"
+
+[Gangplank]
+poke = true
+watch = "QE"
+wins = "Q parley poke; barrels (E) chain huge damage"
+spike = "6: R cannon barrage; Trinity Force"
+trade = "Hit barrels yourself; fight when he is out of barrels"
+
+[Garen]
+watch = "QR"
+wins = "Q silence; E spin; R true-damage execute"
+spike = "6: R execute; tanky with his first item"
+trade = "Poke him and walk away; he heals out of combat"
+
+[Gnar]
+poke = true
+watch = "R"
+wins = "Mini Gnar kites with Q; Mega Gnar stuns you into walls"
+spike = "6: Mega form R stuns into walls"
+trade = "Trade when he is mini with low rage; avoid walls when he is mega"
+
+[Gragas]
+watch = "ER"
+wins = "E body slam stun, Q barrel poke; R knocks you around"
+spike = "6: R moves you into his team"
+trade = "Dodge E; W cuts the damage he takes"
+
+[Graves]
+watch = "E"
+wins = "Shotgun burst up close; E dash gives armor"
+spike = "6: R and his first item"
+trade = "Fight at range; trade when E is down"
+
+[Gwen]
+watch = "QW"
+wins = "W mist blocks attackers outside it; Q snips deal true damage"
+spike = "6: R needles slow and burst"
+trade = "Step into her W mist to hit her; trade after Q"
+
+[Hecarim]
+watch = "ER"
+wins = "E charge knocks you back; R fears"
+spike = "6: R engage; strong at his first item"
+trade = "Ward his paths; spread out so R can't fear several of you"
+
+[Heimerdinger]
+poke = true
+watch = "E"
+wins = "Turrets zone the lane; E grenade stuns"
+spike = "6: R upgrades a turret or rockets"
+trade = "Don't fight near his turrets; kill them first"
+
+[Hwei]
+poke = true
+watch = "E"
+wins = "Long-range spells: E set fears and roots, Q set bursts"
+spike = "6: R spreads and slows"
+trade = "Dodge his E spells; he has no dash"
+
+[Illaoi]
+watch = "E"
+wins = "Tentacles hit hard; E pulls your spirit"
+spike = "6: R spawns more tentacles"
+trade = "Dodge E; never fight in her R"
+
+[Irelia]
+watch = "QE"
+wins = "Q dashes reset on low minions; E stuns"
+spike = "6: R wall; strong at her first item"
+trade = "Trade when her passive isn't stacked"
+
+[Ivern]
+watch = "Q"
+wins = "Q roots and lets allies jump in; E shields"
+spike = "6: Daisy fights for him"
+trade = "Dodge Q; he is weak alone"
+
+[Janna]
+watch = "QR"
+wins = "Disengage: Q and R stop all-ins"
+spike = "6: R knocks back and heals"
+trade = "Poke her when Q is down"
+
+[JarvanIV]
+watch = "QR"
+wins = "E-Q knock-up; R traps you"
+spike = "6: R arena; strong at his first item"
+trade = "Dodge the E-Q; leave his R arena with Flash or a dash"
+
+[Jax]
+watch = "E"
+wins = "E dodges autos and stuns; Q jumps"
+spike = "6: R tankier; strong at his first item"
+trade = "Don't auto during E; trade after it"
+
+[Jayce]
+poke = true
+watch = "QE"
+wins = "Q through the E gate pokes hard; hammer form all-in"
+spike = "Level 3+ with all forms; first item"
+trade = "Dodge gated Q; he has no escape after E"
+
+[Jhin]
+poke = true
+watch = "W"
+wins = "Fourth shot crits hard; W roots you if his team hit you just before"
+spike = "6: R snipes from far away; strong at his first item"
+trade = "Trade right after his fourth shot or while he reloads"
+
+[Jinx]
+watch = "W"
+wins = "Weak early with no dash; rockets poke; W slows from far"
+spike = "First crit item, then very strong at two or three; R is global"
+trade = "Win lane early: all-in her, her only escape is E chompers"
+
+[KSante]
+watch = "WR"
+wins = "W charge knocks up; Q stacks into a knock-up; very tanky"
+spike = "6: R kicks you away and goes All Out"
+trade = "Avoid long fights after his R; he is squishy while All Out"
+
+[Kaisa]
+level6 = true
+watch = "R"
+wins = "R dash all-in at 6; Q spikes once it evolves (two items)"
+spike = "6, then her two-item Q evolve"
+trade = "Fight her before her Q evolves"
+
+[Kalista]
+level2 = true
+engage = true
+watch = "E"
+wins = "Hops between autos; E rend stacks kill fast with her support"
+spike = "Level 2-3 all-in; R throws her support in at 6"
+trade = "Trade when her support is out of range; she is weak when low"
+
+[Karma]
+poke = true
+watch = "QW"
+wins = "Strong R-Q poke early; W tether roots; E shield speeds her team"
+spike = "Levels 1-3 are her strongest; she falls off mid game"
+trade = "All-in her rather than trade spells"
+
+[Karthus]
+poke = true
+watch = "QR"
+wins = "Q spam deals big damage; W wall slows; R hits everyone on the map"
+spike = "6: R finishes low targets anywhere"
+trade = "He is immobile: dodge Q and all-in him; recall when low after 6"
+
+[Kassadin]
+watch = "R"
+wins = "Weak early; R blink makes him a hyper-mobile assassin; Q blocks magic"
+spike = "Level 6, then very strong at 11 and 16"
+trade = "Punish him levels 1-5 and deny his farm"
+
+[Katarina]
+level6 = true
+watch = "ER"
+wins = "Daggers and E shunpo reset on kills; R spins and cuts healing"
+spike = "6: R spin wins teamfights"
+trade = "Stay off her dagger spots; save your CC to stop her R"
+
+[Kayle]
+watch = "R"
+wins = "Weak melee early; ranged at 6, splash at 11, invulnerable R"
+spike = "Levels 6, 11 and 16"
+trade = "Bully her early, she has no escape"
+
+[Kayn]
+watch = "QW"
+wins = "W slows and Q dashes; becomes a healing bruiser or an assassin"
+spike = "His form at 10-15 minutes; R hides inside you"
+trade = "Punish him before his form; ward his entrances"
+
+[Kennen]
+level6 = true
+watch = "ER"
+wins = "Three marks stun; E rush gets in; Q shuriken pokes"
+spike = "6: R storm stuns a group"
+trade = "Stand back from E rush; fight him when he is low on energy"
+
+[Khazix]
+watch = "QW"
+wins = "Isolated targets take bonus damage; Q burst from the jungle"
+spike = "Each evolution; R invisibility"
+trade = "Stay near allies or minions; ward the river"
+
+[Kindred]
+watch = "R"
+wins = "Q dash kiting; marks stack her power through the game"
+spike = "6: R stops all deaths in its zone"
+trade = "Don't fight inside her R; contest her marks"
+
+[Kled]
+watch = "Q"
+wins = "Q bear trap pulls; remounts when Skaarl heals; huge all-ins"
+spike = "6: R charge across the map"
+trade = "Trade when he is dismounted and low"
+
+[KogMaw]
+watch = "W"
+wins = "Weak early, scales hard; very long-range W in mid game"
+spike = "Level 6 artillery; two items"
+trade = "Punish him early: he has no dash"
+
+[Leblanc]
+watch = "WE"
+wins = "W dash then Q burst; E chain roots if you stay in range"
+spike = "6: R mimics a spell for a double burst"
+trade = "Trade when W is down; stay out of E range after her W"
+
+[LeeSin]
+watch = "QR"
+wins = "Q sonic wave dash; E slows; R kicks you into his team"
+spike = "Level 3 ganks; R at 6"
+trade = "Dodge Q with minions between you; ward the river"
+
+[Leona]
+level2 = true
+level6 = true
+engage = true
+watch = "ER"
+wins = "E-Q stun all-in at 2; R adds a stun at 6"
+spike = "Level 2 all-in, then R at 6"
+trade = "Fight when her E is down; poke her, she has no ranged damage"
+
+[Lillia]
+watch = "QR"
+wins = "Q edge burns; E roll from range; R sleeps everyone she marked"
+spike = "6: R sleep ganks"
+trade = "Dodge the Q edge; step out of her E path"
+
+[Lissandra]
+level6 = true
+watch = "WR"
+wins = "W root, E hop, R freeze: burst from range"
+spike = "6: R self-heal or lockdown"
+trade = "Stay out of W range; she has to walk up to use it"
+
+[Locke]
+level6 = true
+watch = "ER"
+wins = "Q marks you; E teleport-dash into empowered autos"
+spike = "6: R executes low targets and makes him stronger"
+trade = "Keep your health high vs R; trade after his E"
+
+[Lucian]
+level2 = true
+watch = "E"
+wins = "Strong early E-Q-W burst; double shots after every spell"
+spike = "First item"
+trade = "Fight him late, not early: he falls off without items"
+
+[Lulu]
+poke = true
+watch = "WR"
+wins = "Wins short trades; W polymorph stops your all-in"
+spike = "6: R saves her carry"
+trade = "Bait W before you engage"
+
+[Lux]
+poke = true
+watch = "QE"
+wins = "Q binds through one minion: stand behind two; E slows and pokes"
+spike = "6: R laser finishes low targets"
+trade = "All-in her when Q is down"
+
+[Malphite]
+engage = true
+level6 = true
+watch = "R"
+wins = "Q poke and slow; R engage knock-up from far"
+spike = "6: R engage"
+trade = "Spread out vs R; poke him when his passive shield is down"
+
+[Malzahar]
+level6 = true
+watch = "R"
+wins = "Voidlings and E push the wave; R suppresses"
+spike = "6: R suppress all-in"
+trade = "Kill voidlings; QSS removes his R"
+
+[Maokai]
+engage = true
+watch = "W"
+wins = "W root dash; saplings slow; heals through his passive"
+spike = "6: R roots in a long line"
+trade = "Dodge saplings in brush; trade when W is down"
+
+[MasterYi]
+watch = "QR"
+wins = "Q untargetable; R chases; W heals"
+spike = "First item; very strong at two"
+trade = "Keep your CC for him; fight together"
+
+[Mel]
+poke = true
+watch = "WE"
+wins = "W reflects projectiles; Q poke; E roots"
+spike = "6: R hits everyone she marked"
+trade = "Don't throw projectiles into W; all-in when it's down"
+
+[Milio]
+sustain = true
+watch = "R"
+wins = "R cleanses and heals; Q kicks you away; no engage"
+spike = "6: R cleanses his team's CC"
+trade = "Bait R before your big engage"
+
+[MissFortune]
+poke = true
+level6 = true
+watch = "QR"
+wins = "Q bounces through minions; W speed; R cone wipes fights"
+spike = "6: R cone"
+trade = "Stand out of the R cone; stay away from low minions near you"
+
+[MonkeyKing]
+watch = "WR"
+wins = "W decoy; Q armour shred; R knock-up spin"
+spike = "6: R spin"
+trade = "Trade after his W decoy; spread out vs R"
+
+[Mordekaiser]
+level6 = true
+watch = "ER"
+wins = "Q hits hard alone; E pulls you in; R drags you into his realm"
+spike = "6: R duels you alone"
+trade = "Dodge Q and E; fight him near your allies before 6"
+
+[Morgana]
+watch = "QE"
+wins = "Q binds for a long time; E blocks your CC"
+spike = "6: R tether stuns if you stay close"
+trade = "Wait for her E before you engage"
+
+[Naafiri]
+watch = "QE"
+wins = "Daggers and a pack of hounds; E dash and Q poke"
+spike = "6: R adds hounds and speed"
+trade = "Kill her hounds; trade when E is down"
+
+[Nami]
+poke = true
+watch = "Q"
+wins = "Bubble (Q) into ADC trades; she wins short trades early"
+spike = "6: R wave knocks up"
+trade = "Dodge Q; all-in her when bubble misses"
+
+[Nasus]
+watch = "WR"
+wins = "Q stacks; W wither slows; scales hard"
+spike = "6: R, then his Q stacks"
+trade = "Bully him early, he has a weak lane"
+
+[Nautilus]
+level2 = true
+level6 = true
+engage = true
+watch = "QR"
+wins = "Hook + passive root at 2; point-and-click R at 6"
+spike = "Level 2 hook all-in; R at 6"
+trade = "Stay behind minions; trade when his hook is down"
+
+[Neeko]
+watch = "E"
+wins = "E root grows when it passes through enemies; disguises"
+spike = "6: R stun"
+trade = "Dodge E; she has no escape"
+
+[Nidalee]
+poke = true
+watch = "Q"
+wins = "Q spear from long range; cougar form all-in"
+spike = "Level 6 and her first item"
+trade = "Dodge Q; push her with your minions"
+
+[Nilah]
+level2 = true
+sustain = true
+watch = "W"
+wins = "Strong melee early with her support; W dodges auto attacks"
+spike = "6: R pulls and heals"
+trade = "Trade when W is down; poke from range"
+
+[Nocturne]
+level6 = true
+watch = "ER"
+wins = "Q path speeds him; E fear tether; R darkness dive"
+spike = "6: R dives from far away"
+trade = "Walk away to break the E tether; group up when his R is up"
+
+[Nunu]
+watch = "WR"
+wins = "W snowball engage; Q heals; E slows and roots"
+spike = "6: R channel slows and bursts"
+trade = "Leave his R area; ward the river"
+
+[Olaf]
+watch = "R"
+wins = "Q axes slow; R makes him immune to CC"
+spike = "6: R; strong with his first item"
+trade = "Kite him; don't waste CC into his R"
+
+[Orianna]
+poke = true
+watch = "WR"
+wins = "Ball zones the lane; W speeds her and slows you; R pulls"
+spike = "6: R shockwave wins teamfights"
+trade = "Stay away from the ball; fight when it's far from you"
+
+[Ornn]
+watch = "ER"
+wins = "E knocks up off walls; brittle procs on CC; R ram"
+spike = "6: R; upgrades his team's items late"
+trade = "Stay away from walls; short trades, he wins long ones"
+
+[Pantheon]
+level2 = true
+watch = "W"
+wins = "W stun into empowered Q; E blocks damage from the front"
+spike = "Strong early; R roams at 6"
+trade = "Trade when W is down; hit him from behind his E"
+
+[Poppy]
+watch = "EW"
+wins = "E pins you into walls; W stops dashes"
+spike = "6: R knocks you away"
+trade = "Stay away from walls; don't dash near her W"
+
+[Pyke]
+level2 = true
+level6 = true
+engage = true
+watch = "QE"
+wins = "Hook and dash stun; R executes low targets: don't stay low"
+spike = "Level 2 hook, then R at 6"
+trade = "Trade when Q is down; recall early rather than sit low"
+
+[Qiyana]
+watch = "WR"
+wins = "Element combos burst; R knocks you into walls for a stun"
+spike = "6: R; first item"
+trade = "Stay away from walls; trade when W is down"
+
+[Quinn]
+poke = true
+watch = "E"
+wins = "E vaults and pushes you away; Q blinds"
+spike = "6: R roam speed"
+trade = "Trade when E is down; stay near your tower vs her early range"
+
+[Rakan]
+engage = true
+level6 = true
+watch = "WR"
+wins = "W knock-up engage; R charms the whole team"
+spike = "6: R charm"
+trade = "Stand apart; punish him while W is down"
+
+[Rammus]
+watch = "EW"
+wins = "Q ball engage; E taunt; W armor punishes your autos"
+spike = "6: R slows and knocks up"
+trade = "Don't auto him during W"
+
+[RekSai]
+watch = "E"
+wins = "Burrow knock-up from below; strong early ganks"
+spike = "Level 3 ganks"
+trade = "Ward the river; back off when she disappears from the map"
+
+[Rell]
+level2 = true
+engage = true
+level6 = true
+watch = "WR"
+wins = "Dives with W; R pulls everyone in"
+spike = "6: R pull"
+trade = "Spread out; punish her while W is down"
+
+[Renata]
+level6 = true
+watch = "QR"
+wins = "Q roots and flings; R makes your team fight each other"
+spike = "6: R turns your team on each other"
+trade = "Spread out after 6; dodge Q"
+
+[Renekton]
+level2 = true
+watch = "WE"
+wins = "W stun; E dashes twice; strongest early with full fury"
+spike = "Level 3 and 6"
+trade = "Trade when his fury is low"
+
+[Rengar]
+watch = "E"
+wins = "Leaps from brush; E bola slows and roots"
+spike = "6: R invisible hunt"
+trade = "Stay away from brush; ward the bushes"
+
+[Riven]
+watch = "QW"
+wins = "Q dashes three times; W stuns around her; E shields through your trade"
+spike = "6: R adds range and an execute wave; strong at her first item"
+trade = "Trade when her Q dashes are down; don't stand close when W is up"
+
+[Rumble]
+poke = true
+watch = "ER"
+wins = "Flamespitter Q burns up close; E harpoons slow; stronger when heated"
+spike = "6: R carpet zones a whole fight"
+trade = "Trade when he overheats and goes silent; stay out of Q range"
+
+[Ryze]
+watch = "WE"
+wins = "W roots, Q bursts; E spreads his combo through minions"
+spike = "Mana items: strong once he has two"
+trade = "Fight him away from the minions his E spreads through"
+
+[Samira]
+level2 = true
+level6 = true
+engage = true
+watch = "WR"
+wins = "Dashes in after her support's CC; W blocks projectiles"
+spike = "6: R spin after S style"
+trade = "Save your CC for her; don't throw projectiles into W"
+
+[Sejuani]
+engage = true
+watch = "QR"
+wins = "Q dash knock-up; R stun from far; frost stacks stun"
+spike = "6: R stuns from far away"
+trade = "Dodge R; stay away when her passive frost is stacked"
+
+[Senna]
+poke = true
+sustain = true
+watch = "W"
+wins = "Long-range autos and Q heals; W roots"
+spike = "Souls scale her late"
+trade = "Engage her: she is weak when caught"
+
+[Seraphine]
+poke = true
+level6 = true
+watch = "ER"
+wins = "Long-range poke; E roots slowed targets"
+spike = "6: R charm goes through allies"
+trade = "Engage her when E is down"
+
+[Sett]
+level2 = true
+watch = "EW"
+wins = "Grit: W true damage in its centre; E pulls and stuns between two things"
+spike = "6: R suplex; strong at his first item"
+trade = "Don't stand in W's centre; stay out of E with walls or minions behind you"
+
+[Shaco]
+watch = "WQ"
+wins = "Boxes fear; Q blinks invisible"
+spike = "6: R clone"
+trade = "Kill the boxes; ward the river"
+
+[Shen]
+watch = "E"
+wins = "E taunt; W dodges autos; R shields allies anywhere"
+spike = "6: R global"
+trade = "Trade when E is down; his W only blocks autos, not spells"
+
+[Shyvana]
+watch = "ER"
+wins = "E fireball marks you; R dragon form burns and knocks back"
+spike = "6: dragon form; strong at her first item"
+trade = "Trade before 6; avoid fights when her fury bar is full"
+
+[Singed]
+watch = "E"
+wins = "E flings you into his poison trail; proxy farms behind your tower"
+spike = "6: R makes him fast and tanky"
+trade = "Never chase him through his poison; poke him instead"
+
+[Sion]
+watch = "QR"
+wins = "Q charge knocks up; W shield explodes; R runs you over"
+spike = "6: R engage from far away"
+trade = "Walk out of the Q zone; hit the W shield or step away before it bursts"
+
+[Sivir]
+watch = "E"
+wins = "E spell shield blocks one CC; W bounces push the wave fast"
+spike = "6: R speeds her whole team; strong at two items"
+trade = "Bait her E with a cheap spell before your engage"
+
+[Skarner]
+watch = "ER"
+wins = "E carries you into walls for a stun; R suppresses and drags you"
+spike = "6: R picks one of you off"
+trade = "Stay away from walls; keep Flash for his R"
+
+[Smolder]
+poke = true
+watch = "Q"
+wins = "Q stacks over time and scales hard; weak lane early"
+spike = "His Q stack thresholds; very strong late"
+trade = "Punish him early: E is his only escape"
+
+[Sona]
+poke = true
+level6 = true
+watch = "R"
+wins = "Q poke and power chords win short trades; heals with W"
+spike = "6: R stun in a line; strong with items"
+trade = "Punish her levels 1-5, she is squishy and slow"
+
+[Soraka]
+sustain = true
+watch = "E"
+wins = "Heals undo poke; E silences and roots if you stay in it"
+spike = "6: global R heal"
+trade = "All-in instead of poking; buy Grievous Wounds"
+
+[Swain]
+watch = "E"
+wins = "E pull roots you to him; W reveals; R drains health"
+spike = "6: R makes him a tanky drain"
+trade = "Dodge E; don't fight long in his R"
+
+[Sylas]
+watch = "ER"
+wins = "E dash-chain into burst; heals with W; R steals your ult"
+spike = "6: R steals the best enemy ult"
+trade = "Dodge his second E; trade when it's down"
+
+[Syndra]
+poke = true
+level6 = true
+watch = "ER"
+wins = "Q spheres poke; E knocks spheres into you for a stun"
+spike = "6: R burst grows with her spheres"
+trade = "Dodge E; all-in her when it's down"
+
+[TahmKench]
+watch = "QR"
+wins = "Q slow; three stacks stun; W dives in; tanky with grey health"
+spike = "6: R devours you or saves his ally"
+trade = "Avoid his three-stack stun; trade when Q is down"
+
+[Taliyah]
+poke = true
+watch = "WE"
+wins = "W knock-up onto her E minefield; Q pokes fast"
+spike = "6: R wall roams across the map"
+trade = "Dodge W; walk around her minefield, not through it"
+
+[Talon]
+watch = "WR"
+wins = "W blades go out and back; Q dashes; roams over walls"
+spike = "6: R invisible burst"
+trade = "Trade when W is down; ping his roams"
+
+[Taric]
+sustain = true
+level6 = true
+watch = "ER"
+wins = "E stun is delayed; R makes his team invulnerable at 6: wait it out"
+spike = "6: R invulnerability"
+trade = "Step out of the E beam; fight after his R ends"
+
+[Teemo]
+poke = true
+watch = "Q"
+wins = "Q blinds autos; poison autos; shrooms everywhere"
+spike = "6: shrooms in every bush"
+trade = "Buy a sweeper; all-in him, he wins poke wars"
+
+[Thresh]
+level2 = true
+engage = true
+watch = "QE"
+wins = "Hook from fog; E flay knocks you back; stand behind minions"
+spike = "6: R box slows everyone inside"
+trade = "Punish a missed hook; don't walk into his box"
+
+[Tristana]
+level2 = true
+watch = "EW"
+wins = "E bomb burst at 2-3; W jump resets on kills"
+spike = "Level 2-3; first item"
+trade = "Trade when E is down; she escapes with W"
+
+[Trundle]
+watch = "R"
+wins = "Q bites your attack damage; E pillar blocks your escape"
+spike = "6: R steals your resistances"
+trade = "Trade before 6; buy QSS later if he picks on you"
+
+[Tryndamere]
+watch = "R"
+wins = "Crit spins; R makes him unkillable for a few seconds"
+spike = "6: R; strong at his first item"
+trade = "Kite him and wait out his R before you burst him"
+
+[TwistedFate]
+watch = "WR"
+wins = "Gold card stuns; R teleports him to any lane"
+spike = "6: R roams"
+trade = "Trade when W is down; ping when he disappears"
+
+[Twitch]
+watch = "Q"
+wins = "Invisible ganks with Q; E execute stacks; weak lane"
+spike = "First item; R long-range spray"
+trade = "Punish him early; ward around when he goes invisible"
+
+[Udyr]
+watch = "E"
+wins = "E stun; stance dancing; tanky and fast"
+spike = "First item"
+trade = "Kite him; he has no range"
+
+[Urgot]
+watch = "ER"
+wins = "E flips you over him; W shreds; Q slows"
+spike = "6: R execute below a quarter of health"
+trade = "Dodge E; stay healthy vs his R"
+
+[Varus]
+poke = true
+level6 = true
+watch = "QR"
+wins = "Q poke all lane; R root spreads to nearby allies"
+spike = "6: R root"
+trade = "Dodge Q; stand apart from your partner vs R"
+
+[Vayne]
+watch = "E"
+wins = "Short range early; E stuns you against walls; true damage silver bolts"
+spike = "Two items; very strong late"
+trade = "Stay away from walls; punish her early"
+
+[Veigar]
+watch = "E"
+wins = "E cage stuns at the edge; stacks power forever"
+spike = "6: R burst finishes low targets"
+trade = "Stay out of the cage; walk around it, not through it"
+
+[Velkoz]
+poke = true
+watch = "QE"
+wins = "Long-range poke: dodge the Q split and the E knock-up"
+spike = "6: R laser true damage"
+trade = "All-in him, he has no dash"
+
+[Vex]
+watch = "WR"
+wins = "Passive fears dashers; W shield; R dash resets on kills"
+spike = "6: R dash resets on kills"
+trade = "Don't dash at her when the fear is ready"
+
+[Vi]
+watch = "QR"
+wins = "Q charge knock-up; R locks onto you"
+spike = "6: R picks you off"
+trade = "Dodge Q; keep allies close vs R"
+
+[Viego]
+watch = "W"
+wins = "W stun dash; possesses dead champions"
+spike = "First item"
+trade = "Dodge W; fight away from your dead allies"
+
+[Viktor]
+poke = true
+watch = "WE"
+wins = "E laser poke; W slow zone stuns; Q shields"
+spike = "6: R storm; strong after his upgrades"
+trade = "Leave the W zone; all-in him, he has no dash"
+
+[Vladimir]
+sustain = true
+watch = "QW"
+wins = "Q heals; W pool dodges everything; R amplifies damage"
+spike = "6: R; strong late"
+trade = "Trade when W is down; buy Grievous Wounds"
+
+[Volibear]
+watch = "QR"
+wins = "Q stun dash; E lightning from above; R disables towers"
+spike = "6: R tower dive"
+trade = "Dodge Q; don't fight under your tower after his 6"
+
+[Warwick]
+watch = "R"
+wins = "R suppress leap; heals at low health; smells low targets"
+spike = "6: R suppress leap"
+trade = "Short trades only; keep CC for him"
+
+[Xayah]
+watch = "ER"
+wins = "Feathers root (E) when she pulls them back; R dodges your engage"
+spike = "6: R makes her untargetable"
+trade = "Bait R; stand out of the feather line"
+
+[Xerath]
+poke = true
+watch = "E"
+wins = "Long-range poke, no dash; E stuns from far"
+spike = "6: R artillery"
+trade = "All-in him when his E is down"
+
+[XinZhao]
+watch = "E"
+wins = "E dash; Q knock-up; W slows"
+spike = "6: R knocks back and blocks ranged damage"
+trade = "Trade when E is down; step out of his R circle to hit him"
+
+[Yasuo]
+watch = "WQ"
+wins = "W windwall blocks projectiles; Q3 knocks up; shield passive"
+spike = "6: R on knocked-up targets; two crit items"
+trade = "Trade when W is down; poke his passive shield first"
+
+[Yone]
+watch = "ER"
+wins = "E spirit dash returns him; Q3 knocks up"
+spike = "6: R knock-up line"
+trade = "Trade when E is down; hit him where his E will return him"
+
+[Yorick]
+watch = "E"
+wins = "Ghouls and maiden push; E mist marks you; W cage traps"
+spike = "6: R maiden"
+trade = "Kill ghouls; fight him away from his maiden"
+
+[Yunara]
+watch = "ER"
+wins = "Q spreads on-hit autos; E ghosts her; R upgrades her spells"
+spike = "6: R adds a dash and a laser; strong with crit items"
+trade = "Weak before items: trade when E is down"
+
+[Yuumi]
+sustain = true
+watch = "Q"
+wins = "Weak lane: engage the ADC she sits on early"
+spike = "6: R roots"
+trade = "Engage early; she can't help when her ADC is low"
+
+[Zaahen]
+watch = "WQ"
+wins = "W stab pulls you in; recast Q knocks up; heals off Q and R"
+spike = "Full Determination stacks: more damage and a revive"
+trade = "Dodge W; avoid long fights once his stacks are full"
+
+[Zac]
+watch = "E"
+wins = "E slingshot from fog; Q pulls; heals by picking up blobs"
+spike = "6: R bounces knock everyone up"
+trade = "Step on his blobs to deny the heal"
+
+[Zed]
+level6 = true
+watch = "WR"
+wins = "W shadow Q poke from range; R all-in"
+spike = "6: R; first lethality item"
+trade = "Trade when W is down; Zhonya's or Exhaust for R"
+
+[Zeri]
+watch = "E"
+wins = "Weak early, scales with items; Q autos chain"
+spike = "Two items; R overcharge"
+trade = "Trade before her spike"
+
+[Ziggs]
+poke = true
+watch = "W"
+wins = "Long-range poke and fast pushes; W pushes himself away"
+spike = "6: R long range bomb"
+trade = "All-in him, he has no escape but W"
+
+[Zilean]
+poke = true
+level6 = true
+watch = "QR"
+wins = "Double bomb stuns; slows you; R revives his carry"
+spike = "6: R revive"
+trade = "Dodge Q; burst through his R"
+
+[Zoe]
+poke = true
+level6 = true
+watch = "E"
+wins = "Long-range burst: E sleep from fog or over walls into a long Q"
+spike = "6: R hop to aim Q; strong at her first item"
+trade = "Trade when E is down; stay behind minions so E pops on them"
+
+[Zyra]
+poke = true
+watch = "E"
+wins = "Plants zone: don't fight in them; strong poke levels 1-3"
+spike = "6: R knock-up"
+trade = "Dodge E root; all-in her when E is down"

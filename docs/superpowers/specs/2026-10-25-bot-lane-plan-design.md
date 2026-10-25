@@ -1,6 +1,6 @@
 # Bot lane 2v2 plan (champ select)
 
-Date: 2026-10-25. Status: draft for review.
+Date: 2026-10-25. Status: built (227db73), then folded into the lane matchup card (2026-10-25-matchup-tips-design.md).
 
 ## Goal
 

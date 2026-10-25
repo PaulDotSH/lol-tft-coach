@@ -11,10 +11,12 @@
   import MacroChampLine from './MacroChampLine.svelte';
   import TeamSide from './TeamSide.svelte';
   import Memory from './Memory.svelte';
-  import BotLane from './BotLane.svelte';
+  import Matchup from './Matchup.svelte';
 
   let { cs }: { cs: ChampSelectAdvice } = $props();
   const rift = $derived(cs.mode === 'rift');
+  /** History vs enemies the matchup card doesn't already show. */
+  const others = $derived(cs.memory.filter((m) => !cs.matchup?.cards.some((c) => c.champ === m.champ)));
 </script>
 
 <div class="cs">
@@ -46,12 +48,12 @@
     </div>
   {/if}
 
-  {#if cs.bot_lane}
-    <BotLane plan={cs.bot_lane} />
+  {#if cs.matchup}
+    <Matchup plan={cs.matchup} />
   {/if}
 
-  {#if cs.memory.length}
-    <Memory memory={cs.memory} />
+  {#if others.length}
+    <Memory memory={others} />
   {/if}
 
   {#if cs.picks.length || cs.bans.length}

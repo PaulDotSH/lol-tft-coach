@@ -163,8 +163,9 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                             debug::dump("champ-select", Duration::from_secs(2), &cs);
                             let mut advice = champ_select_advice(&sh, &sd, &cs);
                             let games = macro_sync.games();
-                            advice.memory = coach::matchup_memory(games.as_deref().map_or(&[], |g| g.as_slice()), &cs.enemies, cs.mode);
-                            advice.bot_lane = crate::draft::bot_lane(&sh, &sd, &cs, &advice);
+                            let me = cs.my_pick.or(cs.my_hover);
+                            advice.memory = coach::matchup_memory(games.as_deref().map_or(&[], |g| g.as_slice()), &cs.enemies, cs.mode, me);
+                            advice.matchup = crate::draft::matchup(&sh, &sd, &cs, &advice);
                             debug::dump("champ-select-advice", Duration::from_secs(5), &advice);
                             champ_select = Some(advice);
                         }
@@ -211,7 +212,8 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                         if settings.record_fixtures {
                             record(&mut memo, raw);
                         }
-                        game = Some(game_advice(&sh, &sd, &snap, &mut memo));
+                        let games = macro_sync.games();
+                        game = Some(game_advice(&sh, &sd, &snap, &mut memo, games.as_deref().map_or(&[], |g| g.as_slice())));
                     }
                     LiveState::Loading => game_src = SourceState::Degraded,
                     LiveState::Unavailable => {
@@ -375,7 +377,8 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
     })
 }
 
-fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mut Memo) -> GameAdvice {
+/// `games`: my match history (record against my lane opponents).
+fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mut Memo, games: &[PastGame]) -> GameAdvice {
     let me = &snap.players[snap.me];
     let lane = if snap.mode == Mode::Rift { me.position.or(memo.my_lane) } else { None };
     let my_stats = stats(sh, sd, me.champ, lane, snap.mode);
@@ -451,7 +454,20 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         keep: memo.last_buy,
     });
     let ults = crate::ingame::ults(sh, sd, snap);
-    coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults });
+    let enemies: Vec<ChampKey> = snap.players.iter().filter(|p| p.team != me.team).map(|p| p.champ).collect();
+    let memory = coach::matchup_memory(games, &enemies, snap.mode, Some(me.champ));
+    // Spells only for the laning panel's opponents: the lane opponent and the bot lane pair.
+    let faced: Vec<ChampKey> = if snap.mode == Mode::Rift {
+        let bot = |l: Option<Lane>| matches!(l, Some(Lane::Bottom | Lane::Support));
+        let opp = advice.threats.iter().find(|t| t.lane_opp).map(|t| t.champ);
+        let pair = bot(lane) || snap.players.iter().any(|p| Some(p.champ) == opp && bot(p.position));
+        snap.players.iter().filter(|p| p.team != me.team && (Some(p.champ) == opp || (pair && bot(p.position)))).map(|p| p.champ).collect()
+    } else {
+        vec![]
+    };
+    let spells = crate::ingame::spells(sh, sd, &faced);
+    let notes = crate::draft::lane_notes();
+    coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
     if let Some(s) = advice.gold.history.last() {
         memo.gold.push(s.clone());
     }

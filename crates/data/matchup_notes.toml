@@ -1,0 +1,43 @@
+# Hand-written notes for one exact pairing: [my champion] then their champion = one line
+# (at most 180 characters). Keyed by Data Dragon id. Champion-wide notes live in champ_notes.toml.
+
+[Sett]
+Zoe = "She out-ranges you and E sleeps you through fog: hide behind minions or in brush, then walk at her when E is down. Flash-E her before 6; after 6 she hops away with R."
+Lux = "Q binds through one minion: stand behind two. She has no escape once Q is down: walk up then and E her into your ADC; her W shield won't stop the stun."
+Brand = "Don't walk into W; he wants long fights. All-in when W misses: E pulls him into your ADC, Exhaust or Ignite before his 6."
+Nautilus = "His hook can pull you away from your ADC: fight next to them. Your W shield eats his burst; E stuns him if you stand between him and a minion."
+Thresh = "Stay behind minions vs hook. When he misses Q, walk up and E: he has no damage to answer your W."
+Leona = "She wins level 2 if she lands E: back off until she uses it. Your W true damage hits hard after her stun ends."
+
+[Nautilus]
+Morgana = "Her E blocks your hook and R: wait for it, or hook her ADC instead. All-in when E is down; her Q binds you for long, stay behind minions."
+Braum = "His E shield blocks your hook: throw Q when E is down or from a side angle. Don't trade into four passive hits."
+Thresh = "Both hooks hit at 2: hold yours for his missed Q. Your passive root plus R beats his box if you go first."
+Blitzcrank = "Stand behind minions; if he grabs you, your W shield and passive root punish him under your ADC."
+Leona = "She beats you if she lands E first: bait it, then hook her. Your R is longer range than her E-Q."
+Lux = "She pokes you down from range: hook her when Q is down, she has no escape. Stand behind two minions."
+Janna = "Her Q and R stop your all-in: bait R with a fake engage, then hook her or her ADC after it."
+Soraka = "Hook Soraka, not her ADC: her heals fall off when she is stunned. Buy Grievous Wounds early for your ADC."
+Yuumi = "Hook the ADC she sits on: Yuumi can't save them during your CC chain."
+Sett = "His W shields your burst back: hook him only when your ADC can follow. Don't stand between him and a wall."
+
+[Thresh]
+Morgana = "Her E blocks hooks: throw Q only after E is used, or flay (E) her ADC instead. Lantern your ADC out of her Q bind."
+Braum = "His E blocks your hook: angle Q from the side or wait for E. His passive stacks fast, so keep trades short."
+Nautilus = "Hold your flay for his hook dash: E interrupts it. Lantern your ADC out if he lands R."
+Blitzcrank = "Lantern your ADC after he grabs them; flay him away. Stand behind minions yourself."
+Leona = "Flay (E) interrupts her E dash: save it for her engage, then hook back."
+Lux = "Hook her when Q is down; your lantern saves an ADC caught by her bind."
+Janna = "Her Q stops your hook dash: bait it, then hook again. Engage when her R is down."
+Sett = "Flay him away when he walks up; his E pulls you if you stand between him and minions."
+
+[Braum]
+Blitzcrank = "Your E blocks his hook: stand in front of your ADC with E ready. Punish a missed grab with Q passive stacks."
+Thresh = "Your E blocks his hook and lantern pull angles; keep E for his Q. Dodge his flay, then stack passive."
+Nautilus = "E blocks his hook and his R if you stand between him and your ADC. W to your ADC when he lands Q."
+Leona = "Your E blocks her E dash: hold it for her engage. Q into four hits on her after she uses E."
+Lux = "E blocks her Q bind and her R: stand in front of your ADC. She can't trade back once Q is down."
+Zoe = "E blocks her Q and her E bubble. Stand in front of your ADC; walk up and stack passive when she uses E."
+Karma = "She out-pokes you early: keep E for her R-Q, and all-in at 2-3 with Q into your ADC's autos."
+Senna = "E blocks her Q and autos; engage on her with W to your ADC's target."
+Sett = "His E pulls and stuns you and your ADC if you stand on both sides of him: spread out. His W isn't a projectile, so E won't block it: step out of its centre."
