@@ -4,7 +4,9 @@
 //! captures (HUD at default scale) and scaled to the client size.
 //!
 //! My units come from their HP bars (`units`) and, with the embedder loaded, an image
-//! embedding of each one for telling them apart (tft-coach names them).
+//! embedding of each one for telling them apart (tft-coach names them). The other player on
+//! screen (a scouted board's owner, my combat opponent) by their name plate; in my fights,
+//! the opponent's red-bar units too.
 //!
 //! Not read yet: item bench icons, items on units.
 
@@ -49,6 +51,9 @@ const LIST_Y: (f32, f32) = (150.0, 1100.0);
 /// Tacticians' name plates over the board.
 const PLATE_X: (f32, f32) = (450.0, 2100.0);
 const PLATE_Y: (f32, f32) = (100.0, 1150.0);
+/// Name plates of the other player on screen: the board area and, in combat, the opponent's
+/// plate behind the far bench.
+const VIEWED_Y: (f32, f32) = (30.0, 1150.0);
 /// A unit at the same place with the same ★ keeps its embedding this many reads.
 const REEMBED: u32 = 10;
 /// Same place: within this many base px.
@@ -381,18 +386,40 @@ fn same_name(a: &str, b: &str) -> bool {
     a.len() >= 3 && (a == b || (a.len() >= 6 && strsim::levenshtein(&a, &b) <= 1))
 }
 
-/// Another player's board is on screen when their tactician's plate shows and mine doesn't
-/// (in combat both stand on one board). Unknown without my name: false.
-fn viewing_other(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> bool {
-    let Some(me) = me else { return false };
-    let others: Vec<&str> = boxes
+/// Player list entries (not mine) whose tactician's plate shows in rows `y` of the board area.
+fn plates_shown<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>, y: (f32, f32)) -> Vec<&'a str> {
+    let list: Vec<&str> = boxes
         .iter()
         .filter(|b| g.within(b, LIST_X, LIST_Y) && b.text.chars().any(char::is_alphabetic))
-        .map(|b| b.text.as_str())
+        .map(|b| b.text.trim())
+        .filter(|t| me.is_none_or(|m| !same_name(t, m)))
         .collect();
-    let plates: Vec<&str> = boxes.iter().filter(|b| g.within(b, PLATE_X, PLATE_Y)).map(|b| b.text.as_str()).collect();
-    let mine = plates.iter().any(|p| same_name(p, me));
-    !mine && plates.iter().any(|p| !same_name(p, me) && others.iter().any(|o| same_name(p, o)))
+    let mut shown: Vec<&str> = vec![];
+    for p in boxes.iter().filter(|b| g.within(b, PLATE_X, y)) {
+        if let Some(o) = list.iter().find(|o| same_name(&p.text, o))
+            && !shown.contains(o)
+        {
+            shown.push(o);
+        }
+    }
+    shown
+}
+
+/// Another player's board is on screen when their tactician's plate shows and mine doesn't
+/// (in combat both stand on one board; the carousel shows every plate). Unknown without my name: false.
+fn viewing_other(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> bool {
+    let Some(me) = me else { return false };
+    let mine = boxes.iter().any(|b| g.within(b, PLATE_X, PLATE_Y) && same_name(&b.text, me));
+    !mine && plates_shown(boxes, g, Some(me), PLATE_Y).len() == 1
+}
+
+/// The one other player whose plate shows (scouting: the board's owner; combat: my opponent),
+/// as their player list entry reads. None with no plate or several (the carousel, a fight I'm not in).
+fn viewed(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> Option<String> {
+    match plates_shown(boxes, g, me, VIEWED_Y).as_slice() {
+        [one] => Some(one.to_string()),
+        _ => None,
+    }
 }
 
 fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftSnapshot> {
@@ -475,6 +502,10 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         .collect();
 
     let (units, enemies) = units::read(f, g.0);
+    let viewing_other = viewing_other(&boxes, &g, me);
+    let viewing = viewed(&boxes, &g, me);
+    // Red bars with one other plate on screen: my opponent's (another fight shows two plates).
+    let foes = if enemies > 0 && viewing.is_some() { units::foes(f, g.0) } else { vec![] };
     Some(TftSnapshot {
         at,
         stage,
@@ -489,9 +520,11 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         traits,
         traits_hidden,
         items: vec![],
-        viewing_other: viewing_other(&boxes, &g, me),
+        viewing_other,
         units,
         enemies,
+        viewing,
+        foes,
     })
 }
 
@@ -506,11 +539,13 @@ pub struct Reader {
     embedder: Option<tft_embed::Embedder>,
     /// Last read's units with their embeddings, and reads since each was embedded.
     seen: Vec<(SeenUnit, u32)>,
+    /// The same for red-bar units.
+    seen_foes: Vec<(SeenUnit, u32)>,
 }
 
 impl Reader {
     pub fn new(set: &TftSetData) -> Reader {
-        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![] }
+        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![], seen_foes: vec![] }
     }
 
     /// My name for telling my board from a scouted one.
@@ -525,29 +560,12 @@ impl Reader {
         self
     }
 
-    /// Fill in `emb` for every unit; one that stayed put keeps its embedding a while.
+    /// Fill in `emb` for every unit (green and red bars); one that stayed put keeps its embedding a while.
     fn embed(&mut self, f: &Frame, snap: &mut TftSnapshot) {
         let Some(e) = &mut self.embedder else { return };
         let scale = f.width as f32 / BASE_W;
-        let mut ages = vec![0u32; snap.units.len()];
-        let mut todo = vec![];
-        for (i, u) in snap.units.iter_mut().enumerate() {
-            let near = |p: &SeenUnit| (p.x - u.x).abs() <= SAME_PLACE && (p.y - u.y).abs() <= SAME_PLACE && p.star == u.star;
-            match self.seen.iter().find(|(p, age)| near(p) && *age < REEMBED && !p.emb.is_empty()) {
-                Some((p, age)) => (u.emb, ages[i]) = (p.emb.clone(), age + 1),
-                None => todo.push(i),
-            }
-        }
-        let crops: Vec<tft_embed::Rgb> = todo.iter().map(|&i| units::crop(f, scale, &snap.units[i])).collect();
-        match e.embed(&crops) {
-            Ok(embs) => {
-                for (i, v) in todo.into_iter().zip(embs) {
-                    snap.units[i].emb = v;
-                }
-            }
-            Err(err) => tracing::warn!("tft embed: {err:#}"),
-        }
-        self.seen = snap.units.iter().cloned().zip(ages).collect();
+        self.seen = embed_units(e, f, scale, &mut snap.units, &self.seen);
+        self.seen_foes = embed_units(e, f, scale, &mut snap.foes, &self.seen_foes);
     }
 
     /// One read of the screen; None when the TFT window or its HUD isn't up.
@@ -585,6 +603,31 @@ impl Reader {
         self.embed(f, &mut snap);
         Some(snap)
     }
+}
+
+/// Embed `units`, reusing `seen`'s embedding for a unit at the same place and ★; the new `seen`.
+fn embed_units(e: &mut tft_embed::Embedder, f: &Frame, scale: f32, units: &mut [SeenUnit], seen: &[(SeenUnit, u32)]) -> Vec<(SeenUnit, u32)> {
+    let mut ages = vec![0u32; units.len()];
+    let mut todo = vec![];
+    for (i, u) in units.iter_mut().enumerate() {
+        let near = |p: &SeenUnit| (p.x - u.x).abs() <= SAME_PLACE && (p.y - u.y).abs() <= SAME_PLACE && p.star == u.star;
+        match seen.iter().find(|(p, age)| near(p) && *age < REEMBED && !p.emb.is_empty()) {
+            Some((p, age)) => (u.emb, ages[i]) = (p.emb.clone(), age + 1),
+            None => todo.push(i),
+        }
+    }
+    if !todo.is_empty() {
+        let crops: Vec<tft_embed::Rgb> = todo.iter().map(|&i| units::crop(f, scale, &units[i])).collect();
+        match e.embed(&crops) {
+            Ok(embs) => {
+                for (i, v) in todo.into_iter().zip(embs) {
+                    units[i].emb = v;
+                }
+            }
+            Err(err) => tracing::warn!("tft embed: {err:#}"),
+        }
+    }
+    units.iter().cloned().zip(ages).collect()
 }
 
 #[cfg(test)]

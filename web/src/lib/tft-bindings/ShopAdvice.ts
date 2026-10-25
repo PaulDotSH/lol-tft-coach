@@ -6,6 +6,14 @@ export type ShopAdvice = {
  */
 slot: number, unit: string, buy: boolean, reason: string, 
 /**
- * Other players hold it (scouted).
+ * Other players hold it (scouted, or fought).
  */
-contested: number, };
+contested: number, 
+/**
+ * Copies other players hold (units named on their boards and benches).
+ */
+held: number, 
+/**
+ * Copies left in the pool once theirs and mine are out (None: the unit has no pool).
+ */
+left: number | null, };

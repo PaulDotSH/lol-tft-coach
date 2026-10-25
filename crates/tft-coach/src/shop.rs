@@ -1,7 +1,9 @@
 //! Buy or skip each shop slot: units of the target comp, ★ upgrades, backup comps while
-//! there's still time to pivot, early pairs; with how many scouted boards hold the unit.
+//! there's still time to pivot, early pairs; with how many copies other players hold and how
+//! many are left in the pool.
 
 use crate::fit::contested;
+use crate::scout::{Scout, pool};
 use crate::tracker::{STAR2_COPIES, STAR3_COPIES, Tracker};
 use crate::unit_name;
 use tft_model::*;
@@ -15,7 +17,6 @@ const EARLY_UNTIL: u32 = 2;
 
 pub fn advise(snap: &TftSnapshot, tracker: &Tracker, set: &TftSetData, comps: &[&MetaComp]) -> Vec<ShopAdvice> {
     let stage_at_most = |s: u32| tracker.stage().is_some_and(|st| st.0 <= s);
-    let boards = tracker.boards();
     snap.shop
         .iter()
         .enumerate()
@@ -30,7 +31,7 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, set: &TftSetData, comps: &[
             };
             let target = comps.first().filter(|c| c.units.contains(u));
             let alt = comps.iter().skip(1).find(|c| c.units.contains(u));
-            let contest = target.or(alt).map_or(0, |c| contested(u, c, set, boards));
+            let contest = target.or(alt).map(|c| contested(u, c, set, tracker));
             let (mut buy, mut reason) = if let Some(c) = target {
                 (true, star_up.map_or_else(|| format!("for {}", c.name), |s| format!("makes ★{s} {name}")))
             } else if star_up.is_some_and(|s| s == 3 || stage_at_most(UPGRADE_UNTIL)) {
@@ -42,8 +43,8 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, set: &TftSetData, comps: &[
             } else {
                 (false, "not in your comp".to_string())
             };
-            if contest > 0 {
-                reason = format!("{reason}, contested by {contest} board{}", if contest == 1 { "" } else { "s" });
+            if let Some(c) = contest.as_ref().filter(|c| c.boards > 0) {
+                reason = format!("{reason}, {}", Scout::say(c));
             }
             let cost = set.units.get(u).map(|d| d.cost);
             if buy
@@ -53,7 +54,9 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, set: &TftSetData, comps: &[
                 buy = false;
                 reason = format!("{reason}, but it costs {cost} (you have {gold})");
             }
-            Some(ShopAdvice { slot: slot as u32, unit: u.clone(), buy, reason, contested: contest })
+            let held = tracker.scout().held(u);
+            let left = cost.and_then(pool).map(|n| n.saturating_sub(held + copies));
+            Some(ShopAdvice { slot: slot as u32, unit: u.clone(), buy, reason, contested: contest.map_or(0, |c| c.boards), held, left })
         })
         .collect()
 }

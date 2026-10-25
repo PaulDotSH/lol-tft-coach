@@ -1,9 +1,9 @@
 //! Comp fit: how well each MetaTFT comp suits what I hold right now (units by ★, traits on the
-//! panel, components for its carry items, minus units other boards hold), tie-broken by its
+//! panel, components for its carry items, minus units other players hold), tie-broken by its
 //! average placement. The last target stays unless another comp clearly beats it.
 
 use crate::CoachInput;
-use crate::tracker::{Board, Tracker, star};
+use crate::tracker::{Tracker, star};
 use tft_model::*;
 
 /// Each owned comp unit; every ★ above 1 adds STAR_W more.
@@ -13,7 +13,7 @@ const STAR_W: f32 = 0.5;
 const TRAIT_W: f32 = 0.3;
 /// Share of my held components that build the comp's items.
 const ITEM_W: f32 = 0.25;
-/// Per scouted board holding a comp unit, spread over the comp's units.
+/// Per other player holding a comp unit, spread over the comp's units.
 const CONTEST_W: f32 = 0.3;
 /// Per place the (shrunk) average is better than PLACE_MID.
 const PLACE_W: f32 = 0.15;
@@ -27,8 +27,6 @@ pub const KEEP_MARGIN: f32 = 0.04;
 pub const TOP_COMPS: usize = 3;
 /// Carry builds whose items count for a comp.
 pub const BUILDS: usize = 3;
-/// A scouted board showing this share of a comp's traits plays that comp.
-const CONTEST_SHARE: f32 = 0.5;
 
 /// Average placement shrunk toward PLACE_MID by PRIOR_GAMES.
 pub fn shrunk(avg: f32, games: u32, prior: f32) -> f32 {
@@ -40,19 +38,10 @@ pub fn wanted_items(comp: &MetaComp) -> impl Iterator<Item = &Api> {
     comp.builds.iter().take(BUILDS).flat_map(|b| &b.items).chain(&comp.items)
 }
 
-/// Scouted boards that likely hold `unit`: every trait of it shows there, and either one of them
-/// belongs to it alone (a unique trait) or the board shows CONTEST_SHARE of `comp`'s traits.
-pub fn contested(unit: &str, comp: &MetaComp, set: &TftSetData, boards: &[Board]) -> u32 {
-    let Some(def) = set.units.get(unit).filter(|d| !d.traits.is_empty()) else { return 0 };
-    let unique = def.traits.iter().any(|t| set.units.values().filter(|u| u.traits.contains(t)).count() == 1);
-    boards
-        .iter()
-        .filter(|b| {
-            let has = |t: &Api| b.traits.iter().any(|(x, n)| x == t && *n > 0);
-            let share = comp.traits.iter().filter(|(t, _)| has(t)).count() as f32 / comp.traits.len().max(1) as f32;
-            def.traits.iter().all(has) && (unique || share >= CONTEST_SHARE)
-        })
-        .count() as u32
+/// How other players contest `unit` of `comp`: who holds it (named, else by trait panel),
+/// copies they hold and copies left in the pool (see `Scout::contest`).
+pub fn contested(unit: &str, comp: &MetaComp, set: &TftSetData, tracker: &Tracker) -> Contest {
+    tracker.scout().contest(unit, comp, set, tracker.copies(unit))
 }
 
 /// How much the comp suits me now; higher is better.
@@ -72,7 +61,7 @@ pub fn score(comp: &MetaComp, input: &CoachInput) -> f32 {
     let held: Vec<&Api> = tracker.items().iter().filter(|i| set.items.get(*i).is_some_and(|d| d.component)).collect();
     let builds_from: Vec<&Api> = wanted_items(comp).filter_map(|i| set.items.get(i)).flat_map(|d| &d.components).collect();
     let items = held.iter().filter(|c| builds_from.contains(c)).count() as f32 / held.len().max(1) as f32;
-    let contest = comp.units.iter().map(|u| contested(u, comp, set, tracker.boards())).sum::<u32>() as f32 / n;
+    let contest = comp.units.iter().map(|u| tracker.scout().holders(u, comp, set)).sum::<u32>() as f32 / n;
     let place = PLACE_MID - shrunk(comp.avg_place, comp.games, PRIOR_GAMES);
     units + TRAIT_W * traits + ITEM_W * items - CONTEST_W * contest + PLACE_W * place + hooks.comp_bonus(comp, input)
 }

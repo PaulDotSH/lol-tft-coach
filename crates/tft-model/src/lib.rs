@@ -134,6 +134,11 @@ data_default! {
         pub units: Vec<SeenUnit>,
         /// Red HP bars on screen (enemies in combat, PvE monsters).
         pub enemies: u32,
+        /// The other player whose units are on screen: the scouted board's owner, or my combat
+        /// opponent (their name plate, as in the player list).
+        pub viewing: Option<String>,
+        /// Units with red HP bars (my combat opponent's, PvE monsters), read while `viewing` is known.
+        pub foes: Vec<SeenUnit>,
     }
 }
 
@@ -246,8 +251,23 @@ data! {
         pub unit: Api,
         pub buy: bool,
         pub reason: String,
-        /// Other players hold it (scouted).
+        /// Other players hold it (scouted, or fought).
         pub contested: u32,
+        /// Copies other players hold (units named on their boards and benches).
+        pub held: u32,
+        /// Copies left in the pool once theirs and mine are out (None: the unit has no pool).
+        pub left: Option<u32>,
+    }
+
+    /// A unit other players hold.
+    pub struct Contest {
+        pub unit: Api,
+        /// Players holding it: named among their units, or guessed from their trait panel.
+        pub boards: u32,
+        /// Copies they hold (★1 1, ★2 3, ★3 9; bench included), named units only.
+        pub held: u32,
+        /// Copies left in the pool once theirs and mine are out (None: no pool).
+        pub left: Option<u32>,
     }
 
     pub struct EconAdvice {
@@ -299,8 +319,8 @@ data! {
         pub econ: Option<EconAdvice>,
         pub items: Vec<ItemAdvice>,
         pub augments: Vec<AugmentRank>,
-        /// Units of my target comp seen on other boards, with how many boards.
-        pub contested: Vec<(Api, u32)>,
+        /// Units of my target comp other players hold, most held first.
+        pub contested: Vec<Contest>,
         pub calls: Vec<TftCall>,
         pub choncc: Option<ChonccAdvice>,
     }

@@ -2,11 +2,12 @@
 //! board and bench (`board`) are what I own. Without them (or before the first quiet read):
 //! shop purchases (a slot empties while gold drops by that unit's cost), best-effort sells,
 //! ★ from copies, corrected by the trait panel.
-//! Other boards seen while scouting are kept as trait panels and forgotten when unseen.
+//! Other players' units (scouted boards, my fights' opponents) are kept by `scout`.
 //! Every snapshot field may be unreadable on any tick: None never counts as 0.
 
 use crate::board;
 use crate::library::Library;
+use crate::scout::Scout;
 use std::collections::{HashSet, VecDeque};
 use tft_model::*;
 
@@ -22,12 +23,6 @@ pub const STAR3_COPIES: u32 = 9;
 pub const XP_COST: u32 = 4;
 /// XP buys tried when matching a gold drop to emptied shop slots.
 const MAX_XP_BUYS: u32 = 3;
-/// A scouted board is forgotten after this many rounds unseen.
-pub const SCOUT_DECAY: u32 = 2;
-/// Two trait panels sharing this share of their traits (of the union) are the same board.
-const SAME_BOARD: f32 = 0.5;
-/// Opponents' boards kept at most.
-const MAX_BOARDS: usize = 7;
 /// HP readings kept, one per round.
 const HP_ROUNDS: usize = 8;
 /// Units owned up to this stage count as starting units (Choncc's 4/5-cost).
@@ -66,14 +61,6 @@ pub struct Tracked {
     pub off_panel: u32,
 }
 
-/// Another player's board as its trait panel read while scouting.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Board {
-    pub traits: Vec<(Api, u32)>,
-    /// `round_index` when last seen.
-    pub seen: u32,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct Tracker {
     units: Vec<Tracked>,
@@ -83,7 +70,8 @@ pub struct Tracker {
     panel: Vec<(Api, u32)>,
     first_panel: Option<(Stage, Vec<TraitCount>)>,
     items: Vec<Api>,
-    boards: Vec<Board>,
+    /// Other players' units.
+    scout: Scout,
     stage: Option<(u32, u32)>,
     /// Last tick where gold and shop were both readable: the baseline buys compare to.
     gold: Option<u32>,
@@ -117,16 +105,15 @@ impl Tracker {
             let (library, single) = (std::mem::take(&mut self.library), self.board.single_reads);
             *self = Tracker::default();
             self.library = library;
-            self.board.single_reads = single;
+            (self.board.single_reads, self.scout.single_reads) = (single, single);
         }
         let same_stage = snap.stage.is_some() && snap.stage == self.stage;
         if snap.stage.is_some() {
             self.stage = snap.stage;
         }
         let round = self.round();
-        self.boards.retain(|b| b.seen + SCOUT_DECAY >= round);
+        self.scout.observe(snap, set, &self.library, round, &self.panel);
         if snap.viewing_other {
-            self.scout(&snap.traits, round);
             return;
         }
         if let Some(hp) = snap.hp {
@@ -303,36 +290,6 @@ impl Tracker {
         self.unknown = unknown;
     }
 
-    fn scout(&mut self, traits: &[(Api, u32)], round: u32) {
-        if traits.is_empty() {
-            return;
-        }
-        let names: HashSet<&Api> = traits.iter().map(|t| &t.0).collect();
-        let similar = |b: &Board| {
-            let theirs: HashSet<&Api> = b.traits.iter().map(|t| &t.0).collect();
-            names.intersection(&theirs).count() as f32 / names.union(&theirs).count().max(1) as f32
-        };
-        let same = self
-            .boards
-            .iter()
-            .enumerate()
-            .map(|(i, b)| (i, similar(b)))
-            .filter(|&(_, s)| s >= SAME_BOARD)
-            .max_by(|a, b| a.1.total_cmp(&b.1))
-            .map(|(i, _)| i);
-        match same {
-            Some(i) => self.boards[i] = Board { traits: traits.to_vec(), seen: round },
-            None => {
-                self.boards.push(Board { traits: traits.to_vec(), seen: round });
-                if self.boards.len() > MAX_BOARDS
-                    && let Some(i) = self.boards.iter().enumerate().min_by_key(|(_, b)| b.seen).map(|(i, _)| i)
-                {
-                    self.boards.remove(i);
-                }
-            }
-        }
-    }
-
     /// My pieces when the board is being read (unnamed ones with `api` ""); else tracked units
     /// (★ from copies), then unknown units as `star: 0` with the trait as `api`.
     pub fn owned(&self) -> Vec<OwnedUnit> {
@@ -352,6 +309,7 @@ impl Tracker {
     /// Replays of sparse captures: use every quiet read.
     pub fn single_reads(mut self) -> Tracker {
         self.board.single_reads = true;
+        self.scout.single_reads = true;
         self
     }
 
@@ -395,9 +353,9 @@ impl Tracker {
         &self.items
     }
 
-    /// Scouted boards seen within SCOUT_DECAY rounds.
-    pub fn boards(&self) -> &[Board] {
-        &self.boards
+    /// Other players' units and trait panels, seen within SCOUT_DECAY rounds.
+    pub fn scout(&self) -> &Scout {
+        &self.scout
     }
 
     /// The last stage read.

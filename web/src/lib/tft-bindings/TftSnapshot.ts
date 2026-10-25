@@ -56,4 +56,13 @@ units: Array<SeenUnit>,
 /**
  * Red HP bars on screen (enemies in combat, PvE monsters).
  */
-enemies: number, };
+enemies: number, 
+/**
+ * The other player whose units are on screen: the scouted board's owner, or my combat
+ * opponent (their name plate, as in the player list).
+ */
+viewing: string | null, 
+/**
+ * Units with red HP bars (my combat opponent's, PvE monsters), read while `viewing` is known.
+ */
+foes: Array<SeenUnit>, };

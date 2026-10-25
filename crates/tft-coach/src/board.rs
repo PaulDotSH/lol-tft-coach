@@ -236,6 +236,25 @@ impl Board {
         self.updated = snap.stage.map(round_index).or(self.updated);
     }
 
+    /// One read of another player's board (scouting), named as mine is but never learnt from
+    /// (the library only grows from my own pieces). True when the read was used: every bar
+    /// full, no fight on, and still (or `single_reads`).
+    pub fn observe_other(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library) -> bool {
+        if snap.enemies > 0 || snap.units.is_empty() || !snap.units.iter().all(|u| u.full) {
+            self.last.clear();
+            return false;
+        }
+        let ready = self.single_reads || still(&self.last, &snap.units);
+        self.last = snap.units.clone();
+        if !ready {
+            return false;
+        }
+        self.update(&snap.units, set, lib);
+        self.solve(&snap.traits, snap.traits_hidden, &[], set, lib);
+        self.updated = snap.stage.map(round_index).or(self.updated);
+        true
+    }
+
     /// Match this read's bars to the pieces: same place, then moved (by looks), then new.
     fn update(&mut self, units: &[SeenUnit], set: &TftSetData, lib: &Library) {
         let mut old: Vec<Option<Piece>> = std::mem::take(&mut self.pieces).into_iter().map(Some).collect();
@@ -518,7 +537,7 @@ struct Group {
 }
 
 /// The unit a look matches, when one stands out (and is in the set).
-fn by_looks(lib: &Library, emb: &[f32], set: &TftSetData) -> Option<Api> {
+pub(crate) fn by_looks(lib: &Library, emb: &[f32], set: &TftSetData) -> Option<Api> {
     if emb.is_empty() {
         return None;
     }

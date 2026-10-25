@@ -2,6 +2,7 @@
 import type { AugmentRank } from "./AugmentRank";
 import type { ChonccAdvice } from "./ChonccAdvice";
 import type { CompPick } from "./CompPick";
+import type { Contest } from "./Contest";
 import type { EconAdvice } from "./EconAdvice";
 import type { ItemAdvice } from "./ItemAdvice";
 import type { OwnedUnit } from "./OwnedUnit";
@@ -15,6 +16,6 @@ export type TftAdvice = { mode: TftMode, stage: [number, number] | null, owned: 
  */
 comps: Array<CompPick>, shop: Array<ShopAdvice>, econ: EconAdvice | null, items: Array<ItemAdvice>, augments: Array<AugmentRank>, 
 /**
- * Units of my target comp seen on other boards, with how many boards.
+ * Units of my target comp other players hold, most held first.
  */
-contested: Array<[string, number]>, calls: Array<TftCall>, choncc: ChonccAdvice | null, };
+contested: Array<Contest>, calls: Array<TftCall>, choncc: ChonccAdvice | null, };

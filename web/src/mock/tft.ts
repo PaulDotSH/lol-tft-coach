@@ -362,11 +362,11 @@ const standardAdvice: TftAdvice = {
     pick('426020', ['DA_18_Shen']),
   ],
   shop: [
-    { slot: 0, unit: 'DA_18_Ahri', buy: true, reason: 'Second Ahri: your carry', contested: 2 },
-    { slot: 1, unit: 'DA_18_Rammus', buy: false, reason: 'Not in Spellweaver Ahri', contested: 0 },
-    { slot: 2, unit: 'DA_18_Morgana', buy: true, reason: 'For Spellweaver Ahri (4 Spellweaver)', contested: 0 },
-    { slot: 3, unit: 'DA_Karma18', buy: true, reason: 'Makes ★2 Karma', contested: 0 },
-    { slot: 4, unit: 'DA_18_Varus', buy: false, reason: 'Not in your comp; sell value only', contested: 1 },
+    { slot: 0, unit: 'DA_18_Ahri', buy: true, reason: 'Second Ahri: your carry, 4 held by others, 7 left', contested: 2, held: 4, left: 7 },
+    { slot: 1, unit: 'DA_18_Rammus', buy: false, reason: 'Not in Spellweaver Ahri', contested: 0, held: 0, left: null },
+    { slot: 2, unit: 'DA_18_Morgana', buy: true, reason: 'For Spellweaver Ahri (4 Spellweaver)', contested: 0, held: 0, left: null },
+    { slot: 3, unit: 'DA_Karma18', buy: true, reason: 'Makes ★2 Karma', contested: 0, held: 0, left: null },
+    { slot: 4, unit: 'DA_18_Varus', buy: false, reason: 'Not in your comp; sell value only', contested: 1, held: 2, left: 16 },
   ],
   econ: { action: 'level', text: 'Level to 6 now (3-2): 34 gold, keep 30 for interest' },
   items: [
@@ -391,12 +391,12 @@ const standardAdvice: TftAdvice = {
     { augment: 'DA_Augment_ClimbTheLadder', score: 0.41, reason: 'Econ; weak while you are losing HP' },
   ],
   contested: [
-    ['DA_18_Ahri', 2],
-    ['DA_18_Kennen', 1],
+    { unit: 'DA_18_Ahri', boards: 2, held: 4, left: 7 },
+    { unit: 'DA_18_Kennen', boards: 1, held: 0, left: 16 },
   ],
   calls: [
     { key: 'aug-3-2', text: 'Take Jeweled Lotus II', say: 'Take Jeweled Lotus' },
-    { key: 'contested-DA_18_Ahri', text: 'Ahri is contested by 2 boards', say: 'Ahri is contested by two' },
+    { key: 'contested-DA_18_Ahri', text: 'Ahri: 4 held by others, 7 left: consider a pivot from Spellweaver Ahri', say: 'Ahri is contested: 7 left.' },
   ],
   choncc: null,
 };
@@ -420,10 +420,10 @@ const chonccAdvice: TftAdvice = {
     pick('426003', ['DA_18_Veigar', 'DA_Karma18', 'DA_18_Cassiopeia', 'DA_18_Soraka', 'DA_18_Kennen']),
   ],
   shop: [
-    { slot: 0, unit: 'DA_18_Kennen', buy: true, reason: 'Second Kennen: your starter carry', contested: 0 },
-    { slot: 1, unit: 'DA_18_Soraka', buy: true, reason: 'For Invoker Kennen (4 Invoker)', contested: 1 },
-    { slot: 2, unit: 'DA_18_Hecarim', buy: false, reason: 'Not in Invoker Kennen', contested: 0 },
-    { slot: 4, unit: 'DA_18_Ornn', buy: true, reason: 'Makes ★2 Ornn (frontline)', contested: 0 },
+    { slot: 0, unit: 'DA_18_Kennen', buy: true, reason: 'Second Kennen: your starter carry', contested: 0, held: 0, left: null },
+    { slot: 1, unit: 'DA_18_Soraka', buy: true, reason: 'For Invoker Kennen (4 Invoker), contested by 1 board', contested: 1, held: 0, left: 24 },
+    { slot: 2, unit: 'DA_18_Hecarim', buy: false, reason: 'Not in Invoker Kennen', contested: 0, held: 0, left: null },
+    { slot: 4, unit: 'DA_18_Ornn', buy: true, reason: 'Makes ★2 Ornn (frontline)', contested: 0, held: 0, left: null },
   ],
   econ: { action: 'roll', text: "Roll down to 10 gold for ★2 Kennen: 9 slots with Choncc's Crown" },
   items: [
@@ -443,7 +443,7 @@ const chonccAdvice: TftAdvice = {
     },
   ],
   augments: [],
-  contested: [['DA_18_Soraka', 1]],
+  contested: [{ unit: 'DA_18_Soraka', boards: 1, held: 0, left: 24 }],
   calls: [{ key: 'roll-4-1', text: 'Roll down now', say: 'Roll down now' }],
   choncc: {
     starter: 'DA_18_Kennen',

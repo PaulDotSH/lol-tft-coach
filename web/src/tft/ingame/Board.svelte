@@ -1,13 +1,14 @@
 <script lang="ts">
   // My units: recognised on my board and bench (or tracked from purchases; ★ from copies,
   // copies toward the next star), pieces not recognised yet, and the units of my target comp
-  // seen on other boards while scouting.
+  // other players hold (copies seen on their boards, copies left in the pool).
+  import type { Contest } from '../../lib/tft-bindings/Contest';
   import type { OwnedUnit } from '../../lib/tft-bindings/OwnedUnit';
   import { tft } from '../../lib/tft-store.svelte';
   import { stars, tftName, unitCost } from '../../lib/tft';
   import TftIcon from '../TftIcon.svelte';
 
-  let { owned, contested }: { owned: OwnedUnit[]; contested: [string, number][] } = $props();
+  let { owned, contested }: { owned: OwnedUnit[]; contested: Contest[] } = $props();
 
   const sorted = $derived(
     owned
@@ -52,11 +53,16 @@
   {#if contested.length}
     <h3>Contested</h3>
     <ul class="contested">
-      {#each contested as [api, boards] (api)}
-        <li>
-          <TftIcon kind="unit" api={api} size={28} />
-          <span class="name">{tftName(tft.set, 'unit', api)}</span>
-          <span class="boards num">{boards} board{boards > 1 ? 's' : ''}</span>
+      {#each contested as c (c.unit)}
+        <li title="{c.boards} other board{c.boards > 1 ? 's' : ''}">
+          <TftIcon kind="unit" api={c.unit} size={28} />
+          <span class="name">{tftName(tft.set, 'unit', c.unit)}</span>
+          {#if c.held}
+            <span class="boards num">{c.held} held</span>
+            {#if c.left !== null}<span class="left num" class:low={c.left <= 3}>{c.left} left</span>{/if}
+          {:else}
+            <span class="boards num">{c.boards} board{c.boards > 1 ? 's' : ''}</span>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -143,5 +149,12 @@
   .boards {
     color: var(--threat);
     font-size: 15px;
+  }
+  .left {
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .left.low {
+    color: var(--threat);
   }
 </style>
