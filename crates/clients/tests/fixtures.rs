@@ -4,7 +4,8 @@
 //! (old single-player format: `summonerName` only, no `riotId`).
 
 use clients::{lcu, live};
-use model::{ChampSelect, Champion, GameEvent, Lane, Mode, StaticData, Team};
+use model_game::{ChampSelect, GameEvent, Lane, Mode, Team};
+use model_static::{Champion, StaticData};
 use serde_json::Value;
 
 fn fixture(name: &str) -> Value {

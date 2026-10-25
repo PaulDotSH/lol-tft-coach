@@ -2,7 +2,7 @@
 //! from the documented LCU schema, except the recorded `*_flex.json` game (see `_fixture`).
 
 use clients::history;
-use model::{DeathSpot, Lane, MAP_END, Mode, PastGame, TeamObjectives};
+use model_game::{DeathSpot, Lane, MAP_END, Mode, PastGame, TeamObjectives};
 use serde_json::Value;
 
 const ME: &str = "8f2c1d4e-me00-4a6b-9c1d-000000000000";
@@ -193,10 +193,10 @@ fn death_spots_are_seen_from_blue_side() {
 
 #[test]
 fn red_side_lanes_stay_put_and_bases_swap() {
-    use model::MapZone::*;
+    use model_game::MapZone::*;
     let seen = |x, y| {
-        let (a, b) = model::MapZone::from_blue(x, y, false);
-        model::MapZone::at(a, b)
+        let (a, b) = model_game::MapZone::from_blue(x, y, false);
+        model_game::MapZone::at(a, b)
     };
     // Red top lane (near the top-left corner) is still top; red bot still bot.
     assert_eq!(seen(1200, 13600), Top);

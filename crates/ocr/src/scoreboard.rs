@@ -7,7 +7,7 @@
 //! Pure: works on captured frames positioned in client coordinates.
 
 use crate::Frame;
-use model::{AugmentId, ItemId, Rarity, Team};
+use model_core::{AugmentId, ItemId, Rarity, Team};
 use std::collections::HashMap;
 
 const SRC_W: f32 = 1600.0;

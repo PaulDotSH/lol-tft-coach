@@ -1,7 +1,7 @@
 //! Data Dragon items/champions + bundled `traits.toml` → [`StaticData`].
 
 use anyhow::Context;
-use model::{BaseStats, ChampClass, ChampKey, Champion, Item, ItemId, ItemStats, Profile, RuneId, RuneInfo, StaticData, Traits};
+use model_static::{BaseStats, ChampClass, ChampKey, Champion, Item, ItemId, ItemStats, Profile, RuneId, RuneInfo, StaticData, Traits};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;

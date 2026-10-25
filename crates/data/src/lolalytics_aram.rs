@@ -6,7 +6,7 @@
 //! champion), so the 30-day window is used until the median reaches MIN_MEDIAN.
 
 use crate::lolalytics::parse_tier_list;
-use model::{Lane, TierEntry};
+use model_static::{Lane, TierEntry};
 use std::time::Duration;
 
 const MEGA: &str = "https://a1.lolalytics.com/mega/";

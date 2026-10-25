@@ -3,7 +3,7 @@
 use crate::id;
 use anyhow::{Context, Result, bail};
 use base64::Engine;
-use model::{ChampKey, ChampSelect, EogStats, Lane, Mode, RankSnapshot};
+use model_game::{ChampKey, ChampSelect, EogStats, Lane, Mode, RankSnapshot};
 use reqwest::{StatusCode, header::AUTHORIZATION};
 use serde_json::Value;
 use std::time::Duration;

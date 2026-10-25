@@ -1,6 +1,6 @@
 //! Fuzzy matching of OCR text against augment names.
 
-use model::AugmentId;
+use model_core::AugmentId;
 use std::collections::HashMap;
 
 const MAX_OFFERS: usize = 4;

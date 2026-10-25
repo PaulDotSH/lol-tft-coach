@@ -1,7 +1,7 @@
 //! One-per-inventory item groups (Last Whisper, Lifeline, Boots, …) from the
 //! game's own item data on CommunityDragon. Data Dragon has no such field.
 
-use model::ItemId;
+use model_static::ItemId;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;

@@ -1,7 +1,8 @@
 //! Live Client Data API (`https://127.0.0.1:2999/liveclientdata/allgamedata`).
 
 use crate::id;
-use model::{ChampionStats, GameEvent, GameSnapshot, Lane, Mode, Player, StaticData, Team};
+use model_game::{ChampionStats, GameEvent, GameSnapshot, Lane, Mode, Player, Team};
+use model_static::StaticData;
 use serde_json::Value;
 use std::time::Duration;
 

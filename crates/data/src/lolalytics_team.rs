@@ -12,7 +12,7 @@
 
 use crate::lolalytics::{MIN_GAMES, parse_counters};
 use crate::num;
-use model::{ChampStats, Champion, Lane, Mode, TeamSynergy, Teammate};
+use model_static::{ChampStats, Champion, Lane, Mode, TeamSynergy, Teammate};
 use serde_json::Value;
 use std::time::Duration;
 
@@ -95,7 +95,7 @@ pub async fn lane_stats(
 }
 
 /// Pure parser for `ep=build-team`; columns are located by `team_h`.
-pub fn parse_team(json: &str, champ: model::ChampKey, lane: Lane, patch: &str) -> anyhow::Result<TeamSynergy> {
+pub fn parse_team(json: &str, champ: model_static::ChampKey, lane: Lane, patch: &str) -> anyhow::Result<TeamSynergy> {
     let root: Value = serde_json::from_str(json)?;
     let head: Vec<&str> = root
         .get("team_h")

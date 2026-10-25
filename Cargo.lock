@@ -532,7 +532,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
- "model",
+ "model-game",
+ "model-static",
  "reqwest",
  "serde",
  "serde_json",
@@ -766,7 +767,7 @@ name = "data"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "model",
+ "model-static",
  "reqwest",
  "serde",
  "serde_json",
@@ -2278,6 +2279,68 @@ dependencies = [
 name = "model"
 version = "0.1.0"
 dependencies = [
+ "model-core",
+ "model-draft",
+ "model-game",
+ "model-live",
+ "model-review",
+ "model-static",
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "model-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "model-draft"
+version = "0.1.0"
+dependencies = [
+ "model-core",
+ "model-static",
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "model-game"
+version = "0.1.0"
+dependencies = [
+ "model-core",
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "model-live"
+version = "0.1.0"
+dependencies = [
+ "model-core",
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "model-review"
+version = "0.1.0"
+dependencies = [
+ "model-core",
+ "model-game",
+ "model-static",
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "model-static"
+version = "0.1.0"
+dependencies = [
+ "model-core",
  "serde",
  "ts-rs",
 ]
@@ -2586,7 +2649,7 @@ name = "ocr"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "model",
+ "model-core",
  "png",
  "serde_json",
  "strsim",

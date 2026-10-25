@@ -1,0 +1,21 @@
+[package]
+name = "model-review"
+edition.workspace = true
+version.workspace = true
+
+[features]
+# TypeScript bindings (ts-rs derive); on for this crate's own tests regardless.
+ts = ["dep:ts-rs", "model-core/ts", "model-static/ts", "model-game/ts"]
+
+[dependencies]
+model-core.workspace = true
+model-static.workspace = true
+model-game.workspace = true
+serde.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+model-core = { workspace = true, features = ["ts"] }
+model-static = { workspace = true, features = ["ts"] }
+model-game = { workspace = true, features = ["ts"] }
+ts-rs.workspace = true

@@ -8,6 +8,12 @@ version = "0.1.0"
 
 [workspace.dependencies]
 model = { path = "crates/model" }
+model-core = { path = "crates/model-core" }
+model-static = { path = "crates/model-static" }
+model-game = { path = "crates/model-game" }
+model-live = { path = "crates/model-live" }
+model-draft = { path = "crates/model-draft" }
+model-review = { path = "crates/model-review" }
 data = { path = "crates/data" }
 clients = { path = "crates/clients" }
 coach = { path = "crates/coach" }
