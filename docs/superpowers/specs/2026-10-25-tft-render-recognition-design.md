@@ -1,6 +1,6 @@
 # TFT unit recognition from 3D renders
 
-Date: 2026-10-25. Status: approach 1 built and measured: **fails the gate** (see Measured). Seed not shipped (empty placeholder).
+Date: 2026-10-25. Status: approaches 1 and 2 built and measured: **both fail the gate** (see Measured). Seed not shipped (empty placeholder).
 
 ## Goal
 
@@ -114,6 +114,30 @@ alone reached top-1 0.37–0.45, so most of the loss is the larger candidate set
 composites: bind pose (arms out, tails fanned), shader colours missing (Ahri's tails), unit scale
 unknown per unit, and enemies in combat partly covered by effects. Tools: `seed_looks` (compositor),
 `tools/tft-render/calibrate.py`, `tools/tft-render/gate.py`.
+
+### Approach 2: classifier head (2026-10-25)
+
+`tools/tft-render/head.py`: linear or MLP (512 hidden) head on the same 54 000 composite features,
+with or without per-side alignment (centred / standardised by each side's own statistics, the real
+side's from all 178 real crops, labelled or not).
+
+| head | combat top-1 | top-3 | named right at ≤ 5 % wrong | mine top-1 |
+|---|---|---|---|---|
+| best (MLP, no alignment) | 0.36 | 0.54 | 0.12 | 0.69 |
+| range over the 12 variants | 0.30–0.37 | 0.46–0.55 | 0.05–0.12 | 0.56–0.69 |
+
+A head on render features alone doesn't close the gap: the renders' features are off, not the
+matching. **Real crops are the lever**: leave-one-game-out (train on two games' labelled real
+crops, test on the third):
+
+| training data | combat top-1 | top-3 | named right at ≤ 5 % wrong |
+|---|---|---|---|
+| renders only (MLP) | 0.36 | 0.54 | 0.12 |
+| real crops only (~70 per fold) | 0.37 | 0.55 | 0.12 |
+| renders + real crops | **0.53** | **0.70** | **0.24** |
+
+Each alone is weak; together top-1 rises by half. More labelled real crops should keep raising it:
+Riot API final boards (`docs/riot-api-key.md`) can label each game's last fights automatically.
 
 ## Later comparison (not built now)
 
