@@ -11,6 +11,7 @@ mod selfcoach;
 mod settings;
 mod state;
 mod tab;
+mod tft;
 
 use state::Shared;
 use std::sync::{Arc, Mutex};
@@ -22,6 +23,7 @@ fn main() {
     init_logging();
     let http = data::Http::new(settings::local_dir("cache")).expect("http client");
     let shared = Arc::new(Shared::new(http, settings::load()));
+    let tft_shared = Arc::new(tft::TftShared::default());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
@@ -32,13 +34,16 @@ fn main() {
                 .build(),
         )
         .manage(shared.clone())
+        .manage(tft_shared.clone())
         .invoke_handler(tauri::generate_handler![
             commands::get_state,
             commands::get_static,
             commands::set_settings,
             commands::lookup,
             commands::analyze_game,
-            commands::log_frontend
+            commands::log_frontend,
+            tft::get_tft,
+            tft::get_tft_static
         ])
         .setup(move |app| {
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -62,6 +67,7 @@ fn main() {
 
             orchestrator::spawn_ocr(shared.clone());
             tauri::async_runtime::spawn(orchestrator::run(app.handle().clone(), shared.clone()));
+            tauri::async_runtime::spawn(tft::run(app.handle().clone(), shared.clone(), tft_shared.clone()));
             Ok(())
         })
         .on_window_event(|window, event| {
