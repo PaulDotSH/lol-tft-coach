@@ -122,7 +122,8 @@ impl Tracker {
             self.stage = snap.stage;
         }
         let round = self.round();
-        self.scout.observe(snap, set, &self.library, round, &self.panel);
+        let owned: Vec<(Api, u32)> = self.owned().into_iter().map(|o| (o.api, o.copies)).collect();
+        self.scout.observe(snap, set, &self.library, round, &self.panel, &owned);
         if snap.viewing_other {
             return;
         }

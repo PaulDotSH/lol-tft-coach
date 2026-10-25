@@ -187,3 +187,78 @@ fn away_from_my_board_looks_are_compared_without_the_floor() {
     assert_eq!(held(&t, "Bob"), vec![(RENGAR.into(), 3), (TARIC.into(), 1)]);
     assert_eq!(t.scout().players()[0].held().iter().filter(|h| h.api.is_none()).count(), 1);
 }
+
+/// A library whose only looks are the built-in seed's (one per unit).
+fn seeded(units: &[&str]) -> Library {
+    Library::default().with_seed(&library(units).to_bytes())
+}
+
+/// Looks between units, weighted.
+fn mix(parts: &[(&str, f32)]) -> Vec<f32> {
+    let mut v = [0.0; DIM];
+    for (u, w) in parts {
+        v.iter_mut().zip(look(u)).for_each(|(a, b)| *a += w * b);
+    }
+    let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    v.iter().map(|x| x / n).collect()
+}
+
+fn last(t: &Tracker) -> Vec<(Option<Api>, &'static str)> {
+    t.scout().last_read().into_iter().map(|h| (h.api, h.how)).collect()
+}
+
+#[test]
+fn seed_looks_name_other_boards_but_not_mine() {
+    let s = set();
+    let mut t = Tracker::default().with_library(seeded(&[VI, LUX]));
+    // My bench Vi: no purchase, no learnt looks, so unnamed as before.
+    let mine = TftSnapshot { units: vec![bench(1, VI)], ..snap((3, 1), 30) };
+    read(&mut t, &s, &mine);
+    assert!(t.board().pieces().iter().all(|p| p.api.is_none()), "{:?}", t.board().pieces());
+    // Bob's bench Lux: named by the seed's looks, and still nothing is learnt.
+    read(&mut t, &s, &scouting((3, 2), Some("Bob"), vec![bench(2, LUX)], &[]));
+    assert_eq!(held(&t, "Bob"), vec![(LUX.into(), 1)]);
+    assert_eq!((t.library().len(), t.library().seeded()), (0, (2, 2)));
+}
+
+#[test]
+fn a_red_bar_is_named_by_the_seed_vote_over_the_fights_still_reads() {
+    let s = set();
+    let seed = seeded(&[RENGAR, VI, TARIC, LUX]);
+    let foes = |emb: Vec<f32>| vec![hex(1000.0, 300.0, emb, 1)];
+    let unsure = mix(&[(RENGAR, 1.0), (VI, 1.1)]);
+    // One still read leaning to Vi: Vi.
+    let mut alone = Tracker::default().with_library(seed.clone());
+    read(&mut alone, &s, &fight((4, 1), "Bob", foes(unsure.clone())));
+    assert_eq!(last(&alone), vec![(Some(VI.into()), "\u{2248}")]);
+    // After a clear Rengar read of the same bar, the vote stays with Rengar.
+    let mut t = Tracker::default().with_library(seed.clone());
+    read(&mut t, &s, &fight((4, 1), "Bob", foes(look(RENGAR))));
+    t.observe(&fight((4, 1), "Bob", foes(unsure.clone())), &s);
+    assert_eq!(last(&t), vec![(Some(RENGAR.into()), "\u{2248}")]);
+    // Next round's fight starts over.
+    t.observe(&fight((4, 2), "Bob", foes(unsure.clone())), &s);
+    t.observe(&fight((4, 2), "Bob", foes(unsure)), &s);
+    assert_eq!(last(&t), vec![(Some(VI.into()), "\u{2248}")]);
+}
+
+#[test]
+fn the_seed_vote_keeps_to_their_trait_panel_and_the_pool() {
+    let s = set();
+    let tie = mix(&[(RENGAR, 1.0), (TARIC, 1.0)]);
+    let foes = || vec![hex(1000.0, 300.0, tie.clone(), 1), SeenUnit { y: 120.0, bench: Some(0), ..hex(485.0, 120.0, tie.clone(), 1) }];
+    // Rengar or Taric: nobody's panel known, nothing stands out.
+    let mut t = Tracker::default().with_library(seeded(&[RENGAR, TARIC, LUX]));
+    read(&mut t, &s, &fight((4, 1), "Bob", foes()));
+    assert_eq!(last(&t), vec![(None, "?"), (None, "?")]);
+    // Bob's panel has no Greenfather: his board unit is Rengar; his bench can be anything.
+    t.observe(&scouting((4, 2), Some("Bob"), vec![], &[(DEFENDER, 2), (DUELIST, 2)]), &s);
+    read(&mut t, &s, &fight((4, 2), "Bob", foes()));
+    assert_eq!(last(&t), vec![(Some(RENGAR.into()), "\u{2248}"), (None, "?")]);
+    // Ann holds all 9 Tarics: Cid's (no panel known) are Rengars, bench too.
+    let ann = vec![hex(1000.0, 500.0, stranger(), 3)];
+    read(&mut t, &s, &scouting((4, 3), Some("Ann"), ann, &[(GREENFATHER, 1), (DEFENDER, 1)]));
+    assert_eq!(held(&t, "Ann"), vec![(TARIC.into(), 9)]);
+    read(&mut t, &s, &fight((4, 3), "Cid", foes()));
+    assert_eq!(last(&t), vec![(Some(RENGAR.into()), "\u{2248}"), (Some(RENGAR.into()), "\u{2248}")]);
+}

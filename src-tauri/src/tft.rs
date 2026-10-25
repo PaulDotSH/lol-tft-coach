@@ -24,6 +24,8 @@ const HISTORY_TRIES: u32 = 10;
 const HISTORY_COUNT: u32 = 30;
 /// The learnt looks are written this often while reading (and when the game ends).
 const LOOKS_SAVE: Duration = Duration::from_secs(120);
+/// Built-in looks of every unit from 3D renders (TFL2; empty: no seed yet).
+const LOOKS_SEED: &[u8] = include_bytes!("../../fixtures/tft/looks_seed.bin");
 /// The image model download may take a while (88 MB).
 const MODEL_TIMEOUT: Duration = Duration::from_secs(600);
 
@@ -145,8 +147,9 @@ fn start_reader(
             }
         });
         let mut vision = tft_vision::Reader::new(&set).with_me(me).with_embedder(embedder);
-        let library = std::fs::read(looks_path()).ok().and_then(|b| tft_coach::Library::from_bytes(&b)).unwrap_or_default();
-        tracing::info!("tft: {} looks of {} units known", library.len(), library.units());
+        let library = std::fs::read(looks_path()).ok().and_then(|b| tft_coach::Library::from_bytes(&b)).unwrap_or_default().with_seed(LOOKS_SEED);
+        let seed = library.seeded();
+        tracing::info!("tft: {} looks of {} units known, seed {} looks of {} units", library.len(), library.units(), seed.0, seed.1);
         let mut tracker = tft_coach::Tracker::default().with_library(library);
         let (mut saved, mut saved_len) = (Instant::now(), tracker.library().len());
         let mut keep: Option<String> = None;
