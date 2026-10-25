@@ -1,0 +1,7 @@
+[package]
+name = "tft-coach"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+tft-model.workspace = true

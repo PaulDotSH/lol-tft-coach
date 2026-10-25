@@ -1,0 +1,8 @@
+[package]
+name = "tft-model"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+serde.workspace = true
+ts-rs.workspace = true

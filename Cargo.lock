@@ -4139,6 +4139,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "tft-choncc"
+version = "0.1.0"
+dependencies = [
+ "tft-coach",
+ "tft-model",
+]
+
+[[package]]
+name = "tft-coach"
+version = "0.1.0"
+dependencies = [
+ "tft-model",
+]
+
+[[package]]
+name = "tft-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "data",
+ "serde",
+ "serde_json",
+ "tft-model",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "tft-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "ts-rs",
+]
+
+[[package]]
+name = "tft-vision"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ocr",
+ "tft-model",
+ "tracing",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"

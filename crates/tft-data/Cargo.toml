@@ -1,0 +1,13 @@
+[package]
+name = "tft-data"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+tft-model.workspace = true
+data.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+tracing.workspace = true

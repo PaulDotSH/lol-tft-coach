@@ -1,0 +1,10 @@
+[package]
+name = "tft-vision"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+tft-model.workspace = true
+ocr.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
