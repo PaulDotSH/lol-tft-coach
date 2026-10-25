@@ -5,15 +5,21 @@
   import Idle from './components/idle/Idle.svelte';
   import { isTauri } from './lib/api';
   import { store } from './lib/store.svelte';
+  import { tft } from './lib/tft-store.svelte';
+  import Tft from './tft/Tft.svelte';
 
   const s = $derived(store.state);
+  // In a TFT queue the LoL coach goes quiet and the TFT screens take over (header stays).
+  const t = $derived(tft.state && tft.state.phase !== 'none' ? tft.state : null);
   const DevSwitcher = isTauri ? null : import('./components/DevSwitcher.svelte');
 </script>
 
 {#if s}
   <Header state={s} />
   <main>
-    {#if s.phase === 'ingame' && s.game}
+    {#if t}
+      <Tft state={t} />
+    {:else if s.phase === 'ingame' && s.game}
       <InGame game={s.game} />
     {:else if s.phase === 'champselect' && s.champ_select}
       <ChampSelect cs={s.champ_select} />
