@@ -13,6 +13,8 @@ use tft_model::{Api, TftSetData, TftSnapshot};
 const BASE_W: f32 = 2560.0;
 /// "2-3" at the top centre, read at 2×.
 const STAGE: (u32, u32, u32, u32) = (990, 0, 120, 50);
+/// Just the "4-6" digits, for the thresholded retry.
+const STAGE_TIGHT: (u32, u32, u32, u32) = (1020, 8, 60, 36);
 /// Trait panel names, read at 2×, thresholded to dark-on-white.
 const PANEL: (u32, u32, u32, u32) = (130, 340, 300, 780);
 const PANEL_THRESHOLD: u8 = 150;
@@ -62,6 +64,72 @@ fn threshold(f: &mut Frame, t: u8) {
         let v = if p[0].max(p[1]).max(p[2]) >= t { 0 } else { 255 };
         (p[0], p[1], p[2]) = (v, v, v);
     }
+}
+
+/// A trait-count digit as a bitmap (bright pixels set), at base-resolution size.
+pub struct Mask {
+    pub w: u32,
+    pub h: u32,
+    pub bits: Vec<bool>,
+}
+
+/// Count box relative to the trait name's top edge, in base pixels.
+const MASK: (u32, i32, u32, u32) = (146, -4, 34, 42);
+/// Digit templates cut from real captures (`examples/digits.rs`): "digit w h bits".
+const DIGITS: &str = include_str!("digits.txt");
+/// Overlap (lit pixels in both / lit in either) a template match needs.
+const DIGIT_MATCH: f32 = 0.6;
+
+/// The count box of the trait row whose name starts at `top` (client pixels), scaled to base size.
+pub fn count_mask(f: &Frame, scale: f32, top: u32) -> Mask {
+    let (bx, dy, w, h) = MASK;
+    let mut bits = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let sx = ((bx + x) as f32 * scale) as u32;
+            let sy = (top as i32 + ((dy + y as i32) as f32 * scale) as i32).max(0) as u32;
+            let i = ((sy.min(f.height - 1) * f.width + sx.min(f.width - 1)) * 4) as usize;
+            bits.push(f.bgra[i].max(f.bgra[i + 1]).max(f.bgra[i + 2]) >= PANEL_THRESHOLD);
+        }
+    }
+    Mask { w, h, bits }
+}
+
+fn templates() -> &'static [(u32, Mask)] {
+    static T: std::sync::OnceLock<Vec<(u32, Mask)>> = std::sync::OnceLock::new();
+    T.get_or_init(|| {
+        DIGITS
+            .lines()
+            .filter_map(|l| {
+                let mut p = l.split_whitespace();
+                let (d, w, h, b) = (p.next()?.parse().ok()?, p.next()?.parse().ok()?, p.next()?.parse().ok()?, p.next()?);
+                Some((d, Mask { w, h, bits: b.bytes().map(|c| c == b'1').collect() }))
+            })
+            .collect()
+    })
+}
+
+/// The digit whose template agrees best with `m` (shifted up to 2 px), if close enough.
+fn match_digit(m: &Mask) -> Option<u32> {
+    let agree = |t: &Mask, dx: i32, dy: i32| {
+        let (mut both, mut either) = (0u32, 0u32);
+        for y in 0..m.h as i32 {
+            for x in 0..m.w as i32 {
+                let (tx, ty) = (x + dx, y + dy);
+                let tb = tx >= 0 && ty >= 0 && tx < t.w as i32 && ty < t.h as i32 && t.bits[(ty * t.w as i32 + tx) as usize];
+                let mb = m.bits[(y * m.w as i32 + x) as usize];
+                (both, either) = (both + (tb && mb) as u32, either + (tb || mb) as u32);
+            }
+        }
+        both as f32 / either.max(1) as f32
+    };
+    templates()
+        .iter()
+        .filter(|(_, t)| (t.w, t.h) == (m.w, m.h))
+        .map(|(d, t)| (*d, (-2..=2).flat_map(|dx| (-2..=2).map(move |dy| (dx, dy))).map(|(dx, dy)| agree(t, dx, dy)).fold(0.0, f32::max)))
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .filter(|(_, s)| *s >= DIGIT_MATCH)
+        .map(|(d, _)| d)
 }
 
 fn tile(f: &Frame, k: u32) -> Frame {
@@ -170,7 +238,13 @@ pub fn read_frame(f: &Frame, set: &TftSetData, at: u64) -> Option<TftSnapshot> {
 fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
     let g = Geo(f.width as f32 / BASE_W);
     let boxes = ocr::recognize_boxes(f).ok()?;
-    let stage = ocr_crop(f, g.r(STAGE), 2).iter().find_map(|b| stage(&b.text));
+    let stage = ocr_crop(f, g.r(STAGE), 2).iter().find_map(|b| stage(&b.text)).or_else(|| {
+        // Coloured stage icons next to it can break the plain read: thresholded and tiled.
+        let (x, y, w, h) = g.r(STAGE_TIGHT);
+        let mut c = crop(f, x, y, w, h, 3);
+        threshold(&mut c, PANEL_THRESHOLD);
+        ocr::recognize_boxes(&tile(&c, 3)).unwrap_or_default().iter().find_map(|b| stage(&b.text))
+    });
     let in_bar = |b: &&TextBox, x: (f32, f32)| g.within(b, x, BAR_Y);
     let level = boxes
         .iter()
@@ -229,8 +303,11 @@ fn read_with(f: &Frame, names: &Names, at: u64) -> Option<TftSnapshot> {
     }
     rows.sort();
     let (cx, _, cw, ch) = g.r((COUNT.0, 0, COUNT.1, COUNT.2));
-    // A thin "1" often reads as nothing at all.
-    let traits = rows.into_iter().map(|(top, api)| (api.clone(), lone_digit(f, (cx, top, cw, ch)).unwrap_or(1))).collect();
+    // Templates first; OCR of a lone digit is the fallback, and a thin "1" often reads as nothing.
+    let traits = rows
+        .into_iter()
+        .map(|(top, api)| (api.clone(), match_digit(&count_mask(f, g.0, top)).or_else(|| lone_digit(f, (cx, top, cw, ch))).unwrap_or(1)))
+        .collect();
 
     let offer_lines: Vec<String> = boxes.iter().filter(|b| g.within(b, (0.0, BASE_W), OFFER_Y)).map(|b| b.text.clone()).collect();
     let augment_offer: Vec<Api> = ocr::match_augments(&offer_lines, &names.augments)
