@@ -42,8 +42,8 @@ fn copies_wanted(comp: &MetaComp, item: &str) -> usize {
 }
 
 /// Why to make items now; None to hold the components.
-fn slam(snap: &TftSnapshot, tracker: &Tracker) -> Option<String> {
-    if let Some(hp) = snap.hp.filter(|&h| h < SLAM_HP) {
+fn slam(tracker: &Tracker) -> Option<String> {
+    if let Some(hp) = tracker.hp().filter(|&h| h < SLAM_HP) {
         return Some(format!("{hp} HP"));
     }
     if let Some(d) = tracker.hp_drop(SLAM_ROUNDS).filter(|&d| d >= SLAM_DROP) {
@@ -57,10 +57,10 @@ fn slam(snap: &TftSnapshot, tracker: &Tracker) -> Option<String> {
     SPIKES.iter().find(|&&s| (now..=now + 1).contains(&round_index(s))).map(|s| format!("power spike at {}-{}", s.0, s.1))
 }
 
-pub fn advise(snap: &TftSnapshot, tracker: &Tracker, set: &TftSetData, comp: Option<&MetaComp>) -> Vec<ItemAdvice> {
+pub fn advise(tracker: &Tracker, set: &TftSetData, comp: Option<&MetaComp>) -> Vec<ItemAdvice> {
     let Some(comp) = comp else { return vec![] };
     let held = tracker.items();
-    let why = slam(snap, tracker);
+    let why = slam(tracker);
     let holder_text = |h: &Option<Api>| match h {
         Some(u) => format!("best on {} in {}", unit_name(set, u), comp.name),
         None => format!("one of {}'s most built items", comp.name),

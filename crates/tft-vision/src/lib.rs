@@ -11,6 +11,7 @@
 //!
 //! Items on the bench and under my units' bars, with item icons loaded (`items`).
 
+pub mod glyphs;
 pub mod items;
 pub mod team;
 pub mod units;
@@ -497,7 +498,7 @@ fn viewed(f: &Frame, boxes: &[TextBox], g: &Geo, me: Option<&str>, fight: bool) 
 fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftSnapshot> {
     let g = Geo(f.width as f32 / BASE_W);
     let boxes = ocr::recognize_boxes(f).ok()?;
-    let stage = ocr_crop(f, g.r(STAGE), 2).iter().find_map(|b| stage(&b.text)).or_else(|| {
+    let stage = glyphs::stage(f, g.0).or_else(|| ocr_crop(f, g.r(STAGE), 2).iter().find_map(|b| stage(&b.text))).or_else(|| {
         // Coloured stage icons next to it can break the plain read: thresholded and tiled.
         let (x, y, w, h) = g.r(STAGE_TIGHT);
         let mut c = crop(f, x, y, w, h, 3);
@@ -509,14 +510,21 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         .iter()
         .filter(|b| g.within(b, (250.0, 450.0), BAR_Y))
         .find_map(|b| b.text.split_once("vl").and_then(|(_, n)| digits(n)));
-    if stage.is_none() && level.is_none() {
+    // The augment screen hides the bottom bar: an offer alone is still a TFT frame.
+    let offer_lines: Vec<String> = boxes.iter().filter(|b| g.within(b, (0.0, BASE_W), OFFER_Y)).map(|b| b.text.clone()).collect();
+    let augment_offer: Vec<Api> = ocr::match_augments(&offer_lines, &names.augments)
+        .into_iter()
+        .filter_map(|i| names.augment_api.get(i as usize).cloned())
+        .take(3)
+        .collect();
+    if stage.is_none() && level.is_none() && augment_offer.is_empty() {
         return None;
     }
     let xp = boxes.iter().filter(|b| in_bar(b, XP_X)).find_map(|b| {
         let (a, c) = b.text.split_once('/')?;
         Some((digits(a)?, digits(c)?))
     });
-    let gold = boxes.iter().filter(|b| in_bar(b, GOLD_X)).find_map(|b| digits(&b.text));
+    let gold = glyphs::gold(f, g.0).or_else(|| boxes.iter().filter(|b| in_bar(b, GOLD_X)).find_map(|b| digits(&b.text)));
     let tallest = |bs: &mut dyn Iterator<Item = &TextBox>, min_h: f32| {
         bs.filter(|b| b.h >= min_h && !b.text.is_empty() && b.text.chars().all(|c| c.is_ascii_digit()))
             .max_by(|a, b| a.h.total_cmp(&b.h))
@@ -565,13 +573,6 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
     }
 
     let (traits, traits_hidden) = panel(f, &g, names);
-
-    let offer_lines: Vec<String> = boxes.iter().filter(|b| g.within(b, (0.0, BASE_W), OFFER_Y)).map(|b| b.text.clone()).collect();
-    let augment_offer: Vec<Api> = ocr::match_augments(&offer_lines, &names.augments)
-        .into_iter()
-        .filter_map(|i| names.augment_api.get(i as usize).cloned())
-        .take(3)
-        .collect();
 
     let (units, enemies) = units::read(f, g.0);
     let viewing_other = viewing_other(&boxes, &g, me);
@@ -674,7 +675,7 @@ impl Reader {
 
     /// A trait missing from one read keeps its last count for a couple of reads.
     fn smooth(&mut self, snap: &mut TftSnapshot) {
-        if snap.viewing_other {
+        if snap.viewing_other || !snap.augment_offer.is_empty() {
             return;
         }
         for t in &mut self.traits {

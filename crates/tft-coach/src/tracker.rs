@@ -84,6 +84,8 @@ pub struct Tracker {
     bought: Vec<(usize, Api)>,
     /// (round_index, HP), one per round, oldest first.
     hp: VecDeque<(u32, u32)>,
+    /// The last HP read, confirmed by the next that agrees with it.
+    hp_read: Option<u32>,
     /// Round of the last off-panel check.
     checked: u32,
     /// My pieces by their HP bars, named.
@@ -121,6 +123,10 @@ impl Tracker {
         if snap.stage.is_some() {
             self.stage = snap.stage;
         }
+        // The augment screen covers the board: only the offer is worth reading.
+        if !snap.augment_offer.is_empty() {
+            return;
+        }
         let round = self.round();
         let owned: Vec<(Api, u32)> = self.owned().into_iter().map(|o| (o.api, o.copies)).collect();
         self.scout.observe(snap, set, &self.library, round, &self.panel, &owned);
@@ -139,7 +145,8 @@ impl Tracker {
                 self.team_bonus = cap - l;
             }
         }
-        if let Some(hp) = snap.hp {
+        // One read can be wrong ("4" for 94, another row's 100): it counts once the next agrees.
+        if let Some(hp) = snap.hp.filter(|&h| self.hp_read.replace(h) == Some(h) || self.board.single_reads) {
             match self.hp.back_mut() {
                 Some(last) if last.0 == round => last.1 = hp,
                 _ => self.hp.push_back((round, hp)),
@@ -411,6 +418,16 @@ impl Tracker {
     }
 
     /// HP lost over the last `rounds` rounds (None until two rounds are read).
+    /// My HP, as last confirmed.
+    pub fn hp(&self) -> Option<u32> {
+        self.hp.back().map(|h| h.1)
+    }
+
+    /// Gold this read, or the last read when it's unreadable.
+    pub fn gold(&self, snap: &TftSnapshot) -> Option<u32> {
+        snap.gold.or(self.gold)
+    }
+
     pub fn hp_drop(&self, rounds: u32) -> Option<u32> {
         let &(now, hp) = self.hp.back()?;
         let &(then, was) = self.hp.iter().find(|h| h.0 + rounds >= now)?;

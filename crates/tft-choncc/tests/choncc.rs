@@ -77,6 +77,8 @@ fn team_size_and_golden_orb_notes() {
     let (s, m) = (set(), meta());
     let mut t = panel_at_start(&[(GREENFATHER, 1), (DEFENDER, 1)]);
     let now = TftSnapshot { level: Some(8), team_size: Some((7, 9)), hp: Some(45), ..snap((4, 2), 20) };
+    // HP counts once two reads agree.
+    t.observe(&now, &s);
     t.observe(&now, &s);
     let a = choncc(&now, &t, &s, &m);
     let notes = &a.choncc.as_ref().unwrap().notes;

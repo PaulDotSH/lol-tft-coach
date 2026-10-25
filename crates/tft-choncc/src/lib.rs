@@ -119,7 +119,7 @@ impl ModeHooks for ChonccHooks {
                 });
             }
         }
-        if let Some(hp) = snap.hp.filter(|&h| h < GOLDEN_ORB_HP) {
+        if let Some(hp) = input.tracker.hp().filter(|&h| h < GOLDEN_ORB_HP) {
             notes.push(format!("{hp} HP: the comeback Golden Orb (radiant, reforger, gold) is yours, spend it on your board"));
         }
         notes.push("A loot orb drops after each carousel".into());

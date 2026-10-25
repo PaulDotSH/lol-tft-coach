@@ -32,12 +32,12 @@ fn the_target_is_the_best_fit_and_sticks_within_a_margin() {
     let a = advise_with(&now, &t, &s, &m, None);
     assert_eq!(ids(&a.comps), [TARIC_COMP, RENGAR_COMP, AHRI_COMP]);
     assert_eq!((a.comps[0].fit, a.comps[0].have.len(), a.comps[0].missing.len()), (0.5, 2, 2));
-    // Last tick's target is kept exactly while it is within KEEP_MARGIN of the best.
+    // Last tick's target is kept exactly while it is within the keep margin of the best.
     let input = CoachInput { snap: &now, tracker: &t, set: &s, meta: &m, hooks: &StandardHooks, keep: None };
     let ranked = fit::rank(&input);
     let gap = ranked[0].1 - ranked.iter().find(|c| c.0.id == RENGAR_COMP).unwrap().1;
     let kept = advise_with(&now, &t, &s, &m, Some(RENGAR_COMP)).comps[0].comp == RENGAR_COMP;
-    assert_eq!(kept, gap <= fit::KEEP_MARGIN, "gap {gap}");
+    assert_eq!(kept, gap <= fit::keep_margin(Some((3, 1))), "gap {gap}");
     // Two more Rengar units: it clearly wins, the old target goes.
     own(&mut t, &s, (3, 1), &[RENGAR, GAREN]);
     assert_eq!(advise_with(&now, &t, &s, &m, Some(TARIC_COMP)).comps[0].comp, RENGAR_COMP);
@@ -71,7 +71,7 @@ fn econ(stage: (u32, u32), units: &[&str], f: impl Fn(&mut TftSnapshot)) -> TftA
     let mut t = tracker(stage, units);
     let mut now = snap(stage, 0);
     f(&mut now);
-    tick(&mut t, &s, &m, &now)
+    tick2(&mut t, &s, &m, &now)
 }
 
 #[test]
@@ -97,8 +97,11 @@ fn econ_follows_the_comp_levelling() {
     // Level unread: the team size's cap stands in.
     let a = econ((4, 2), &RENGAR_UNITS, |n| (n.team_size, n.gold) = (Some((7, 7)), Some(50)));
     assert_eq!(keys(&a), ["level-8"]);
-    // Gold unread: no econ advice at all.
+    // Gold unread: the last read stands in; never read, no econ advice at all.
     let a = econ((3, 1), &RENGAR_UNITS, |n| (n.level, n.gold) = (Some(5), None));
+    assert!(a.econ.is_some());
+    let (s, m) = (set(), meta());
+    let a = tick(&mut Tracker::default(), &s, &m, &TftSnapshot { level: Some(5), gold: None, ..snap((3, 1), 0) });
     assert!(a.econ.is_none());
 }
 
@@ -124,25 +127,25 @@ fn items_from_components_with_a_holder() {
     let (s, m) = (set(), meta());
     let mut t = tracker((3, 4), &AHRI_UNITS);
     let bench = |stage, hp, i: &[&str]| TftSnapshot { hp: Some(hp), items: items(i), ..snap(stage, 20) };
-    let a = tick(&mut t, &s, &m, &bench((3, 4), 80, &[ROD, ROD, GLOVE]));
+    let a = tick2(&mut t, &s, &m, &bench((3, 4), 80, &[ROD, ROD, GLOVE]));
     assert_eq!(a.items.len(), 1);
     let it = &a.items[0];
     assert_eq!((it.item.as_str(), it.holder.as_deref(), it.now), (RABADON, Some(AHRI), false));
     assert_eq!(it.from, [ROD, ROD]);
     assert!(it.reason.starts_with("best on Ahri in Sorcerer Ahri"), "{}", it.reason);
     // HP falling over two rounds: slam.
-    tick(&mut t, &s, &m, &bench((3, 5), 70, &[ROD, ROD, GLOVE]));
-    let a = tick(&mut t, &s, &m, &bench((3, 6), 60, &[ROD, ROD, GLOVE]));
+    tick2(&mut t, &s, &m, &bench((3, 5), 70, &[ROD, ROD, GLOVE]));
+    let a = tick2(&mut t, &s, &m, &bench((3, 6), 60, &[ROD, ROD, GLOVE]));
     assert!(a.items[0].now && a.items[0].reason.contains("HP falling"), "{}", a.items[0].reason);
-    let a = tick(&mut t, &s, &m, &bench((3, 6), 40, &[ROD, GLOVE]));
+    let a = tick2(&mut t, &s, &m, &bench((3, 6), 40, &[ROD, GLOVE]));
     assert_eq!(a.items[0].item, JG);
     assert!(a.items[0].reason.ends_with("slam now: 40 HP"), "{}", a.items[0].reason);
     // A Rabadon's already on a unit: the rod goes into the gauntlet instead.
     let mut worn = bench((3, 6), 80, &[ROD, ROD, GLOVE]);
     worn.units = vec![SeenUnit { x: 900.0, y: 500.0, star: 1, bench: None, full: true, items: items(&[RABADON_RADIANT]), emb: vec![] }];
-    assert_eq!(tick(&mut t, &s, &m, &worn).items[0].item, JG);
+    assert_eq!(tick2(&mut t, &s, &m, &worn).items[0].item, JG);
     // A finished (radiant) item from loot just gets a holder.
-    let a = tick(&mut t, &s, &m, &bench((3, 6), 60, &[RABADON_RADIANT]));
+    let a = tick2(&mut t, &s, &m, &bench((3, 6), 60, &[RABADON_RADIANT]));
     let it = &a.items[0];
     assert_eq!((it.item.as_str(), it.holder.as_deref(), it.now, it.from.len()), (RABADON_RADIANT, Some(AHRI), true, 0));
 }

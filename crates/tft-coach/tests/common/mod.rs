@@ -234,6 +234,12 @@ pub fn tick(t: &mut Tracker, s: &TftSetData, m: &TftMeta, snap: &TftSnapshot) ->
     advise_with(snap, t, s, m, None)
 }
 
+/// One screen state read twice, as live reads repeat it (HP counts once two reads agree).
+pub fn tick2(t: &mut Tracker, s: &TftSetData, m: &TftMeta, snap: &TftSnapshot) -> TftAdvice {
+    t.observe(snap, s);
+    tick(t, s, m, snap)
+}
+
 pub fn ids(picks: &[CompPick]) -> Vec<&str> {
     picks.iter().map(|p| p.comp.as_str()).collect()
 }

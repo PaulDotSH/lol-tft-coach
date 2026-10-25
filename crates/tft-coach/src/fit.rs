@@ -1,6 +1,6 @@
 //! Comp fit: how well each MetaTFT comp suits what I hold right now (units by ★, traits on the
 //! panel, components for its carry items, minus units other players hold), tie-broken by its
-//! average placement. The last target stays unless another comp clearly beats it.
+//! average placement. The last target stays unless another comp clearly beats it (more so later).
 
 use crate::CoachInput;
 use crate::tracker::{Tracker, star};
@@ -21,8 +21,15 @@ const PLACE_W: f32 = 0.15;
 pub const PLACE_MID: f32 = 4.5;
 /// Games of PLACE_MID a comp's average is shrunk with, so a few lucky games don't top the list.
 pub const PRIOR_GAMES: f32 = 200.0;
-/// The last target stays first while within this of the best score.
-pub const KEEP_MARGIN: f32 = 0.04;
+/// The last target stays first while within this of the best score: a little early, more once
+/// the board is built around it (one comp unit is worth 1/units, about 0.12).
+pub fn keep_margin(stage: Option<(u32, u32)>) -> f32 {
+    match stage.map_or(1, |s| s.0) {
+        ..=2 => 0.04,
+        3 => 0.1,
+        _ => 0.2,
+    }
+}
 /// Comps shown: the target and two alternatives.
 pub const TOP_COMPS: usize = 3;
 /// Carry builds whose items count for a comp.
@@ -76,12 +83,12 @@ fn trait_share(comp: &MetaComp, tracker: &Tracker) -> f32 {
         / comp.traits.len().max(1) as f32
 }
 
-/// Every comp scored, best first; the last target (`input.keep`) stays first within KEEP_MARGIN.
+/// Every comp scored, best first; the last target (`input.keep`) stays first within `keep_margin`.
 pub fn rank<'m>(input: &CoachInput<'m>) -> Vec<(&'m MetaComp, f32)> {
     let mut v: Vec<(&MetaComp, f32)> = input.meta.comps.iter().map(|c| (c, score(c, input))).collect();
     v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.avg_place.total_cmp(&b.0.avg_place)));
     if let Some(best) = v.first().map(|c| c.1)
-        && let Some(i) = v.iter().position(|(c, s)| Some(c.id.as_str()) == input.keep && *s >= best - KEEP_MARGIN)
+        && let Some(i) = v.iter().position(|(c, s)| Some(c.id.as_str()) == input.keep && *s >= best - keep_margin(input.tracker.stage()))
     {
         let kept = v.remove(i);
         v.insert(0, kept);

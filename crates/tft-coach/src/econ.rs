@@ -60,7 +60,7 @@ fn call(key: String, text: &str, say: &str) -> Option<TftCall> {
 }
 
 pub fn advise(snap: &TftSnapshot, tracker: &Tracker, comp: Option<&MetaComp>) -> (Option<EconAdvice>, Option<TftCall>) {
-    let (Some(stage), Some(gold)) = (tracker.stage(), snap.gold) else { return (None, None) };
+    let (Some(stage), Some(gold)) = (tracker.stage(), tracker.gold(snap)) else { return (None, None) };
     let (lvl, reroll, roll_at) = plan(comp);
     let style = if reroll { format!("reroll comp at {lvl}") } else { format!("lvl {lvl} comp") };
     let advice = |action, text: String| Some(EconAdvice { action, text });
@@ -74,7 +74,7 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, comp: Option<&MetaComp>) ->
             return (advice(EconAction::Level, text.clone()), call(format!("level-{want}"), &text, &format!("Level to {want} now.")));
         }
     }
-    if let Some(hp) = snap.hp.filter(|&h| h <= ROLL_HP)
+    if let Some(hp) = tracker.hp().filter(|&h| h <= ROLL_HP)
         && gold > ROLL_FLOOR
     {
         let text = format!("Roll down now: {hp} HP, stabilize your board");
@@ -93,7 +93,7 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, comp: Option<&MetaComp>) ->
 
     let streak = match snap.streak {
         Some(s) if s >= STREAK_KEEP => format!("; keep the {s}-win streak"),
-        Some(s) if s <= -STREAK_KEEP && snap.hp.is_some_and(|h| h > STREAK_SAFE_HP) => format!("; keep the {}-loss streak", -s),
+        Some(s) if s <= -STREAK_KEEP && tracker.hp().is_some_and(|h| h > STREAK_SAFE_HP) => format!("; keep the {}-loss streak", -s),
         _ => String::new(),
     };
     let soon = !reroll && now < from && from - now <= TIMING_SOON;

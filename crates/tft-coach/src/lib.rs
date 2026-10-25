@@ -91,7 +91,7 @@ pub fn advise(input: &CoachInput) -> TftAdvice {
         comps: comps.iter().map(|c| fit::pick(c, input)).collect(),
         shop: shop::advise(snap, tracker, set, &comps),
         econ,
-        items: items::advise(snap, tracker, set, target),
+        items: items::advise(tracker, set, target),
         augments: augments::rank(&snap.augment_offer, meta, &comps),
         contested,
         calls: vec![],
