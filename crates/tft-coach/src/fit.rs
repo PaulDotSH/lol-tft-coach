@@ -16,7 +16,7 @@ const ITEM_W: f32 = 0.25;
 /// Per scouted board holding a comp unit, spread over the comp's units.
 const CONTEST_W: f32 = 0.3;
 /// Per place the (shrunk) average is better than PLACE_MID.
-const PLACE_W: f32 = 0.25;
+const PLACE_W: f32 = 0.15;
 /// The middle placement: stats are shrunk toward it.
 pub const PLACE_MID: f32 = 4.5;
 /// Games of PLACE_MID a comp's average is shrunk with, so a few lucky games don't top the list.
