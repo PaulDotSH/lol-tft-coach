@@ -189,6 +189,9 @@ fn a_lone_purchase_teaches_its_looks_without_the_panel() {
     let s = set();
     let mut t = Tracker::default();
     start(&mut t, &s);
-    // Vi was the only buy and the only new bench piece: learnt while still on the bench.
+    // Vi was the only buy and the only new bench piece. Its first look may be the landing flash:
+    // nothing is learnt until a second read looks the same.
+    assert!(t.library().classify(&look(VI)).first().is_none_or(|c| c.0 != VI));
+    read(&mut t, &s, screen(8, &[None; 5], vec![hex(1000.0, 600.0, GAREN, 1), bench(0, VI, 1)], &[(DEFENDER, 1), (BRUISER, 1)]));
     assert!(t.library().classify(&look(VI)).first().is_some_and(|c| c.0 == VI), "{:?}", t.library().classify(&look(VI)));
 }

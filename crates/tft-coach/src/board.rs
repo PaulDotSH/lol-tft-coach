@@ -27,6 +27,9 @@ const LOOKS_MARGIN: f32 = 0.04;
 /// Looks kept per piece; a new one is kept when less alike than NEW_LOOK to all kept.
 const PIECE_LOOKS: usize = 6;
 const NEW_LOOK: f32 = 0.93;
+/// A piece looks steady (no spawn flash, nothing passing over it) when two reads in a row are
+/// this alike; only steady looks are learnt.
+const STEADY: f32 = 0.85;
 /// Panel search: at most this many nodes.
 const SEARCH_NODES: usize = 300_000;
 /// Panel search priors: a unit's looks (its best similarity to a free piece), a unit I bought
@@ -85,11 +88,14 @@ pub struct Piece {
     looks: Vec<Vec<f32>>,
     /// Its sure name stood on the board in a read the panel agreed with: safe to learn from.
     confirmed: bool,
+    /// The last read's embedding, and whether it matched the read before.
+    seen: Vec<f32>,
+    steady: bool,
 }
 
 impl Piece {
     fn new(id: u32, u: &SeenUnit) -> Piece {
-        Piece { id, api: None, named: Named::No, star: u.star.max(1), bench: u.bench, x: u.x, y: u.y, looks: vec![], confirmed: false }
+        Piece { id, api: None, named: Named::No, star: u.star.max(1), bench: u.bench, x: u.x, y: u.y, looks: vec![], confirmed: false, seen: u.emb.clone(), steady: false }
     }
 
     pub fn sure(&self) -> bool {
@@ -238,9 +244,9 @@ impl Board {
         self.update(&snap.units, set, lib);
         self.solve(&snap.traits, snap.traits_hidden, hints, set, lib);
         // Only names the panel agreed with are learnt (a purchase can land on the wrong piece).
-        for p in self.pieces.iter().filter(|p| p.sure() && p.confirmed) {
-            if let (Some(api), Some(l)) = (&p.api, p.looks.last()) {
-                lib.learn(api, p.star, l);
+        for p in self.pieces.iter().filter(|p| p.sure() && p.confirmed && p.steady) {
+            if let Some(api) = &p.api {
+                lib.learn(api, p.star, &p.seen);
             }
         }
         self.updated = snap.stage.map(round_index).or(self.updated);
@@ -317,10 +323,17 @@ impl Board {
                 }
                 (p.x, p.y, p.bench) = (u.x, u.y, u.bench);
                 p.star = p.star.max(u.star);
+                // Unlike its looks at the same ★: maybe another unit took its place; keep the name, stop learning.
+                if u.star == p.star && !p.looks.is_empty() && !u.emb.is_empty() && p.alike(&u.emb) < MOVE_SIM {
+                    p.confirmed = false;
+                }
+                p.steady = !p.seen.is_empty() && !u.emb.is_empty() && similarity(&p.seen, &u.emb) >= STEADY;
+                p.seen = u.emb.clone();
                 p.look(&u.emb);
             }
         }
         // Old pieces not seen become ghosts; ghosts not found age out.
+        let vanished = old[..n_old].iter().filter(|p| p.is_some()).count();
         for (j, p) in old.into_iter().enumerate() {
             if let Some(p) = p {
                 let age = if j < n_old { 0 } else { ghosts[j - n_old].1 + 1 };
@@ -332,8 +345,9 @@ impl Board {
         // New pieces: purchases land on the bench left to right; the rest by looks.
         let mut fresh: Vec<usize> = (0..units.len()).filter(|i| now[*i].is_none()).collect();
         fresh.sort_by_key(|&i| (units[i].bench.is_none(), units[i].bench, (units[i].x * 10.0) as i64));
-        // One purchase and one new bench piece: that's it, no panel needed to learn its looks.
-        let lone = bought.len() == 1 && fresh.len() == 1 && fresh.iter().all(|&i| units[i].bench.is_some());
+        // One purchase, one new bench piece and none gone (it isn't a piece moved off the board):
+        // that's it, no panel needed to learn its looks.
+        let lone = bought.len() == 1 && fresh.len() == 1 && vanished == 0 && fresh.iter().all(|&i| units[i].bench.is_some());
         for i in fresh {
             let u = &units[i];
             self.next_id += 1;
