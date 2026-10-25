@@ -13,6 +13,7 @@ mod win;
 pub use matching::match_augments;
 
 /// BGRA8 pixels, top-down.
+#[derive(Clone)]
 pub struct Frame {
     pub width: u32,
     pub height: u32,
@@ -44,6 +45,27 @@ pub fn capture_client(r: scoreboard::Rect) -> Option<Frame> {
     {
         let _ = r;
         None
+    }
+}
+
+/// One OCR line and its box, in frame pixels.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextBox {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+}
+
+/// OCR lines with their boxes.
+pub fn recognize_boxes(frame: &Frame) -> anyhow::Result<Vec<TextBox>> {
+    #[cfg(windows)]
+    return win::recognize_boxes(frame);
+    #[cfg(not(windows))]
+    {
+        let _ = frame;
+        anyhow::bail!("OCR is only available on Windows")
     }
 }
 

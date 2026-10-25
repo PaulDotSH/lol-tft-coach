@@ -4186,6 +4186,9 @@ dependencies = [
  "anyhow",
  "ocr",
  "png",
+ "serde_json",
+ "strsim",
+ "tft-data",
  "tft-model",
  "tracing",
 ]

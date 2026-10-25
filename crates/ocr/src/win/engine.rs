@@ -58,7 +58,29 @@ fn to_bitmap(frame: &Frame, step: u32) -> Result<SoftwareBitmap> {
     Ok(bmp)
 }
 
+/// OCR lines with their boxes in frame pixels.
+pub fn recognize_boxes(frame: &Frame) -> Result<Vec<crate::TextBox>> {
+    let (result, step) = run(frame)?;
+    let s = step as f32;
+    let mut out = vec![];
+    for line in result.Lines()? {
+        let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, 0f32, 0f32);
+        for w in line.Words()? {
+            let r = w.BoundingRect()?;
+            (x0, y0, x1, y1) = (x0.min(r.X), y0.min(r.Y), x1.max(r.X + r.Width), y1.max(r.Y + r.Height));
+        }
+        if x1 > x0 {
+            out.push(crate::TextBox { text: line.Text()?.to_string_lossy(), x: x0 * s, y: y0 * s, w: (x1 - x0) * s, h: (y1 - y0) * s });
+        }
+    }
+    Ok(out)
+}
+
 pub fn recognize(frame: &Frame) -> Result<Vec<String>> {
+    run(frame)?.0.Lines()?.into_iter().map(|l| Ok(l.Text()?.to_string_lossy())).collect()
+}
+
+fn run(frame: &Frame) -> Result<(windows::Media::Ocr::OcrResult, u32)> {
     anyhow::ensure!(
         frame.width > 0
             && frame.height > 0
@@ -73,9 +95,5 @@ pub fn recognize(frame: &Frame) -> Result<Vec<String>> {
         let engine = engine.lock().unwrap_or_else(|e| e.into_inner());
         engine.RecognizeAsync(&bmp)?.join().context("OCR failed")?
     };
-    result
-        .Lines()?
-        .into_iter()
-        .map(|l| Ok(l.Text()?.to_string_lossy()))
-        .collect()
+    Ok((result, step))
 }
