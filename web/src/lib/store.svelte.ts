@@ -4,6 +4,7 @@ import { api } from './api';
 import type { AppState } from './bindings/AppState';
 import type { Settings } from './bindings/Settings';
 import type { UiStatic } from './bindings/UiStatic';
+import { type Anchor, gameTime } from './clock';
 
 let state = $state.raw<AppState | null>(null);
 let ui = $state.raw<UiStatic | null>(null);
@@ -22,11 +23,13 @@ export const store = {
 };
 
 // Game clock that keeps ticking locally between pushes (seconds since game start).
-let anchor = { time: 0, at: 0 };
-let now = $state(performance.now());
+// `tick` only re-renders readers each second; the time itself is read from performance.now().
+let anchor: Anchor = { time: 0, at: 0 };
+let tick = $state(0);
 export const clock = {
   get time() {
-    return anchor.time + (now - anchor.at) / 1000;
+    void tick;
+    return gameTime(anchor, performance.now());
   },
 };
 
@@ -36,7 +39,9 @@ function apply(s: AppState) {
 }
 
 export async function start() {
-  setInterval(() => (now = performance.now()), 1000);
+  setInterval(() => tick++, 1000);
+  // Throttled while hidden behind the game: catch up as soon as the window shows again.
+  document.addEventListener('visibilitychange', () => tick++);
   const a = await api;
   try {
     await a.onState(apply);
