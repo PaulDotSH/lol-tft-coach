@@ -117,7 +117,7 @@ async fn history(lcu: &Lcu) -> anyhow::Result<Vec<TftPastGame>> {
     let puuid = me["puuid"].as_str().ok_or_else(|| anyhow::anyhow!("no puuid"))?;
     let path = format!("/lol-match-history/v1/products/tft/{puuid}/matches?begin=0&count={HISTORY_COUNT}");
     let json = lcu.get(&path).await?.ok_or_else(|| anyhow::anyhow!("no TFT history"))?;
-    Ok(tft_data::parse_history(&json))
+    Ok(tft_data::parse_history(&json, Some(puuid)))
 }
 
 pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShared>) {
