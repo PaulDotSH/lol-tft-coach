@@ -3,9 +3,11 @@
 //! its name while it stays put; a moved one is found again by its looks; a new one on the
 //! bench takes the name of what I just bought; the board's units must add up to my trait
 //! panel, which says which units stand there (and names a piece when only one is left);
-//! looks learnt over games (only from pieces named for sure) pair up the rest.
+//! looks learnt over games (only from pieces named for sure) pair up the rest. Other players'
+//! boards (`seed`) are named the same way, also by the library's built-in seed looks.
 
-use crate::library::{Library, similarity};
+use crate::library::{Library, similarity, standout};
+use crate::scout::{SEED_MARGIN, SEED_SIM};
 use crate::tracker::{STAR2_COPIES, STAR3_COPIES, round_index};
 use std::collections::HashMap;
 use tft_model::*;
@@ -151,6 +153,9 @@ pub struct Board {
     next_id: u32,
     /// Use every quiet read without waiting for a second one (replays of sparse captures).
     pub single_reads: bool,
+    /// Another player's board: seed looks name pieces and weigh in the panel search (mine
+    /// stays on learnt looks).
+    pub(crate) seed: bool,
 }
 
 /// No enemies, every bar full: a planning read of my own board.
@@ -331,7 +336,7 @@ impl Board {
                 // Bought and already moved to the board: the panel has to confirm it.
                 let api = bought.remove(0);
                 p.name(&api, if u.bench.is_some() { Named::Bought } else { Named::Looks });
-            } else if let Some(api) = by_looks(lib, &u.emb, set) {
+            } else if let Some(api) = by_looks(lib, &u.emb, set, self.seed) {
                 p.name(&api, Named::Looks);
             }
             now[i] = Some(p);
@@ -339,8 +344,9 @@ impl Board {
         // Purchases not seen land are dropped (they combined, or the buy was a misread).
         self.pieces = now.into_iter().flatten().collect();
         // Unnamed pieces: try looks again (the library grows during the game).
+        let seed = self.seed;
         for p in self.pieces.iter_mut().filter(|p| p.api.is_none()) {
-            if let Some(api) = p.looks.last().and_then(|l| by_looks(lib, l, set)) {
+            if let Some(api) = p.looks.last().and_then(|l| by_looks(lib, l, set, seed)) {
                 p.name(&api, Named::Looks);
             }
         }
@@ -384,8 +390,11 @@ impl Board {
             .copied()
             .filter(|&i| !fixed_set.contains(&self.pieces[i].id) && !(self.pieces[i].sure() && self.pieces[i].api.as_ref().is_some_and(|a| fixed.contains(a))))
             .collect();
-        let classified: Vec<Vec<(Api, f32)>> =
-            (0..self.pieces.len()).map(|i| self.pieces[i].looks.last().map(|l| lib.classify(l)).unwrap_or_default()).collect();
+        // Learnt looks only on my board; on another's, a unit's seed look too (its best counts).
+        let seed = self.seed;
+        let classified: Vec<Vec<(Api, f32, bool)>> = (0..self.pieces.len())
+            .map(|i| self.pieces[i].looks.last().map(|l| lib.classify(l).into_iter().filter(|c| seed || !c.2).collect()).unwrap_or_default())
+            .collect();
         let looks_of = |i: usize, u: &Api| classified[i].iter().find(|c| &c.0 == u).map_or(0.0, |c| c.1);
         let last_set = self.on_board.clone();
         let run = |free: &[usize], fixed: &[Api]| {
@@ -475,7 +484,7 @@ impl Board {
 
     /// Name each group's pieces with its units: a group of one for sure; a bigger one by looks
     /// (or in order), unsure (when their ★ match, what I own comes out the same either way).
-    fn name_groups(&mut self, classified: &[Vec<(Api, f32)>]) {
+    fn name_groups(&mut self, classified: &[Vec<(Api, f32, bool)>]) {
         for g in self.groups.clone() {
             let idx: Vec<usize> = g.pieces.iter().filter_map(|id| self.pieces.iter().position(|p| p.id == *id)).collect();
             if let ([i], [u]) = (idx.as_slice(), g.units.as_slice()) {
@@ -495,7 +504,7 @@ impl Board {
 
     /// Pair pieces with units, most alike (by looks) first, then in order; pieces left over
     /// (a training dummy, or the panel undercounts) lose their name.
-    fn pair(&mut self, pieces: &[usize], units: &[Api], classified: &[Vec<(Api, f32)>], how: Named) {
+    fn pair(&mut self, pieces: &[usize], units: &[Api], classified: &[Vec<(Api, f32, bool)>], how: Named) {
         let looks_of = |i: usize, u: &Api| classified.get(i).and_then(|c| c.iter().find(|c| &c.0 == u)).map_or(0.0, |c| c.1);
         let mut pairs: Vec<(f32, usize, usize)> = vec![];
         for (k, &i) in pieces.iter().enumerate() {
@@ -537,14 +546,20 @@ struct Group {
 }
 
 /// The unit a look matches, when one stands out (and is in the set).
-pub(crate) fn by_looks(lib: &Library, emb: &[f32], set: &TftSetData) -> Option<Api> {
+pub(crate) fn by_looks(lib: &Library, emb: &[f32], set: &TftSetData, seed: bool) -> Option<Api> {
     if emb.is_empty() {
         return None;
     }
-    let c = lib.classify(emb);
-    let (api, s) = c.first()?;
-    let next = c.get(1).map_or(0.0, |n| n.1);
-    (*s >= LOOKS_SIM && s - next >= LOOKS_MARGIN && set.units.contains_key(api)).then(|| api.clone())
+    by_matches(&lib.classify(emb), set, seed)
+}
+
+/// `Library::classify`'s matches naming a unit: learnt looks first (one standing out, see
+/// LOOKS_SIM), then with `seed` the seed's (SEED_SIM / SEED_MARGIN, among seed looks only).
+/// Learnt and seed similarities aren't compared with each other: they come from different
+/// pictures (my board vs renders), so each kind has its own thresholds and learnt ones win.
+pub(crate) fn by_matches(c: &[(Api, f32, bool)], set: &TftSetData, seed: bool) -> Option<Api> {
+    let real = standout(c, false, LOOKS_SIM, LOOKS_MARGIN).filter(|a| set.units.contains_key(*a));
+    real.or_else(|| standout(c, true, SEED_SIM, SEED_MARGIN).filter(|a| seed && set.units.contains_key(*a))).cloned()
 }
 
 /// A set of units that adds up to the trait panel (with the fixed units).

@@ -4,7 +4,10 @@
 //! are compared with each side's background taken out). Kept per player by name plate (when
 //! none is read: by trait panel likeness, or by the units named), forgotten after SCOUT_DECAY
 //! rounds unseen.
-//! Only my own confirmed pieces teach the library: other boards only read it.
+//! Only my own confirmed pieces teach the library: other boards only read it. Both also use the
+//! library's seed looks (renders) where learnt looks name nothing: on a scouted board as a
+//! piece's name and in the panel search's priors, in a fight by a vote per red bar over the
+//! fight's still reads, among the units that player's last panel and the pool allow.
 
 use crate::board::{self, Named};
 use crate::library::Library;
@@ -28,6 +31,14 @@ const STILL: f32 = 6.0;
 const CENTRED_SIM: f32 = 0.45;
 const CENTRED_MARGIN: f32 = 0.05;
 const CENTRED_UNITS: usize = 8;
+/// Named by seed looks (`Library::with_seed`, best seed look per unit) when no learnt look
+/// names it: best at least SEED_SIM alike and SEED_MARGIN ahead of the next unit's seed match
+/// (in a fight: means over its still reads). Seed and learnt similarities have their own
+/// thresholds and learnt matches win. Placeholders: T8's sweep on the eval set sets them.
+pub(crate) const SEED_SIM: f32 = 0.60;
+pub(crate) const SEED_MARGIN: f32 = 0.03;
+/// A red bar this near (base px) to one in an earlier still read of the fight is the same unit.
+const SAME_BAR: f32 = 14.0;
 /// A scouted board showing this share of a comp's traits plays that comp.
 const CONTEST_SHARE: f32 = 0.5;
 
@@ -59,7 +70,7 @@ pub struct Held {
     pub y: f32,
     /// None: the looks and the panel couldn't name it.
     pub api: Option<Api>,
-    /// How it was named: "=" by the trait panel, "~" by looks, "?" not.
+    /// How it was named: "=" by the trait panel, "~" by looks, "≈" by a fight's seed vote, "?" not.
     pub how: &'static str,
     pub star: u32,
     pub bench: bool,
@@ -71,6 +82,8 @@ pub struct Player {
     /// As their player list entry reads; None until a name plate is read.
     pub name: Option<String>,
     pub traits: Vec<TraitCount>,
+    /// Traits past the last row of that panel.
+    hidden: u32,
     /// `round_index` when last seen.
     pub seen: u32,
     /// Their board as scouted (pieces kept across reads).
@@ -119,6 +132,49 @@ pub struct Scout {
     last: Vec<Held>,
     /// Use every read without waiting for a still one (replays of sparse captures).
     pub single_reads: bool,
+    /// This round's fight: seed votes per red bar.
+    votes: Vec<Vote>,
+    votes_round: u32,
+}
+
+/// One red bar over a fight's still reads: its seed similarity per unit, summed.
+#[derive(Debug, Clone)]
+struct Vote {
+    x: f32,
+    y: f32,
+    bench: Option<u32>,
+    reads: u32,
+    sums: Vec<(Api, f32)>,
+}
+
+impl Vote {
+    fn same(&self, u: &SeenUnit) -> bool {
+        match (self.bench, u.bench) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => (self.x - u.x).abs() <= SAME_BAR && (self.y - u.y).abs() <= SAME_BAR,
+            _ => false,
+        }
+    }
+
+    /// Add one read's matches (`Library::classify`; seed ones count).
+    fn add(&mut self, u: &SeenUnit, c: &[(Api, f32, bool)]) {
+        (self.x, self.y, self.reads) = (u.x, u.y, self.reads + 1);
+        for (api, s, _) in c.iter().filter(|m| m.2) {
+            match self.sums.iter_mut().find(|v| &v.0 == api) {
+                Some(v) => v.1 += s,
+                None => self.sums.push((api.clone(), *s)),
+            }
+        }
+    }
+
+    /// The `allowed` unit whose mean similarity is at least SEED_SIM and SEED_MARGIN ahead of the
+    /// next allowed one.
+    fn named(&self, allowed: impl Fn(&Api) -> bool) -> Option<Api> {
+        let n = self.reads.max(1) as f32;
+        let mut c: Vec<(Api, f32, bool)> = self.sums.iter().filter(|v| allowed(&v.0)).map(|v| (v.0.clone(), v.1 / n, true)).collect();
+        c.sort_by(|a, b| b.1.total_cmp(&a.1));
+        crate::library::standout(&c, true, SEED_SIM, SEED_MARGIN).cloned()
+    }
 }
 
 impl Scout {
@@ -138,8 +194,9 @@ impl Scout {
     }
 
     /// One read of my screen: a scouted board, or my fight's red bars. `round` is `round_index`;
-    /// `mine` my last trait panel (a "scouted" board showing it is mine, my plate unread).
-    pub fn observe(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library, round: u32, mine: &[TraitCount]) {
+    /// `mine` my last trait panel (a "scouted" board showing it is mine, my plate unread);
+    /// `owned` my copies per unit (out of the pool).
+    pub fn observe(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library, round: u32, mine: &[TraitCount], owned: &[(Api, u32)]) {
         self.players.retain(|p| p.seen + SCOUT_DECAY >= round);
         // The carousel shows every tactician's plate over my own panel.
         if snap.stage.is_some_and(carousel) {
@@ -155,11 +212,40 @@ impl Scout {
             let still = self.single_reads || still(&self.last_foes, &snap.foes);
             self.last_foes = snap.foes.clone();
             if still {
-                self.fought(snap, set, lib, round);
+                self.fought(snap, set, lib, round, owned);
             }
         } else {
             self.last_foes.clear();
         }
+    }
+
+    /// The player known by `name`, else the one whose named units overlap `held`'s most
+    /// (SAME_BOARD of the union).
+    fn find(&self, name: Option<&str>, held: &[Held]) -> Option<usize> {
+        if let Some(n) = name {
+            return self.players.iter().position(|p| p.name.as_deref().is_some_and(|m| same_name(m, n)));
+        }
+        let names: HashSet<&Api> = held.iter().filter_map(|h| h.api.as_ref()).collect();
+        let similar = |p: &Player| {
+            let theirs: HashSet<&Api> = p.held.iter().filter_map(|h| h.api.as_ref()).collect();
+            names.intersection(&theirs).count() as f32 / names.union(&theirs).count().max(1) as f32
+        };
+        self.players.iter().enumerate().map(|(i, p)| (i, similar(p))).filter(|&(_, s)| s >= SAME_BOARD).max_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i)
+    }
+
+    /// `api` can be one of `who`'s units: copies of it are left in the pool once other players'
+    /// and mine (`owned`) are out, and on the board (not `bench`) every trait of it shows on
+    /// their last panel (up to its hidden rows off it). Any unit when their panel isn't known.
+    fn allowed(&self, who: Option<usize>, api: &Api, bench: bool, set: &TftSetData, owned: &[(Api, u32)]) -> bool {
+        let Some(def) = set.units.get(api) else { return false };
+        let others: u32 = self.players.iter().enumerate().filter(|(i, _)| Some(*i) != who).map(|(_, p)| p.copies(api)).sum();
+        let mine: u32 = owned.iter().filter(|o| &o.0 == api).map(|o| o.1).sum();
+        if pool(def.cost).is_some_and(|n| n <= others + mine) {
+            return false;
+        }
+        let Some(p) = who.map(|i| &self.players[i]).filter(|p| !p.traits.is_empty() && !bench) else { return true };
+        let off = def.traits.iter().filter(|t| !p.traits.iter().any(|(x, n)| x == *t && *n > 0)).count() as u32;
+        off <= p.hidden
     }
 
     /// The player a read is of: by name, else (or an unnamed entry) by trait panel likeness; new if none.
@@ -189,7 +275,7 @@ impl Scout {
                     self.players.remove(i);
                 }
                 let mut board = board::Board::default();
-                board.single_reads = self.single_reads;
+                (board.single_reads, board.seed) = (self.single_reads, true);
                 self.players.push(Player { board, ..Player::default() });
                 self.players.len() - 1
             }
@@ -203,14 +289,8 @@ impl Scout {
 
     /// The player whose named units overlap `held`'s most (SAME_BOARD of the union); new if none.
     fn player_by_units(&mut self, held: &[Held]) -> &mut Player {
-        let names: HashSet<&Api> = held.iter().filter_map(|h| h.api.as_ref()).collect();
-        let similar = |p: &Player| {
-            let theirs: HashSet<&Api> = p.held.iter().filter_map(|h| h.api.as_ref()).collect();
-            names.intersection(&theirs).count() as f32 / names.union(&theirs).count().max(1) as f32
-        };
-        let best = self.players.iter().enumerate().map(|(i, p)| (i, similar(p))).filter(|&(_, s)| s >= SAME_BOARD).max_by(|a, b| a.1.total_cmp(&b.1));
-        match best {
-            Some((i, _)) => &mut self.players[i],
+        match self.find(None, held) {
+            Some(i) => &mut self.players[i],
             None => self.player(None, &[]),
         }
     }
@@ -222,7 +302,7 @@ impl Scout {
         let p = self.player(snap.viewing.as_deref(), &snap.traits);
         p.seen = round;
         if !snap.traits.is_empty() {
-            p.traits = snap.traits.clone();
+            (p.traits, p.hidden) = (snap.traits.clone(), snap.traits_hidden);
         }
         if !p.board.observe_other(snap, set, lib) {
             return;
@@ -248,26 +328,54 @@ impl Scout {
         self.last = held;
     }
 
-    /// My opponent's red bars, named by looks (as on my board, else centred on this read's mean).
+    /// My opponent's red bars, named by learnt looks (as on my board, else centred on this read's
+    /// mean), else by the seed vote: each bar's seed similarities summed over this fight's still
+    /// reads (a bar is the same across reads by bench slot or SAME_BAR), named among the units
+    /// `allowed` for them (their plate's player, else the one the learnt names point to).
     /// The read naming the most copies stands for the round (units die and hide as the fight goes
     /// on); a scouting read that round stays. Without their plate, the player holding most of
     /// the same units is them.
-    fn fought(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library, round: u32) {
+    fn fought(&mut self, snap: &TftSnapshot, set: &TftSetData, lib: &Library, round: u32, owned: &[(Api, u32)]) {
         let embs: Vec<&Vec<f32>> = snap.units.iter().chain(&snap.foes).map(|u| &u.emb).filter(|e| !e.is_empty()).collect();
         let d = embs.first().map_or(0, |e| e.len());
         let center: Vec<f32> = (0..d).map(|i| embs.iter().map(|e| e.get(i).copied().unwrap_or(0.0)).sum::<f32>() / embs.len() as f32).collect();
-        let held: Vec<Held> = snap
-            .foes
+        let foes: Vec<&SeenUnit> = snap.foes.iter().filter(|u| !u.emb.is_empty()).collect();
+        if foes.is_empty() {
+            return;
+        }
+        let matches: Vec<Vec<(Api, f32, bool)>> = foes.iter().map(|u| lib.classify(&u.emb)).collect();
+        let mut held: Vec<Held> = foes
             .iter()
-            .filter(|u| !u.emb.is_empty())
-            .map(|u| {
-                let api = board::by_looks(lib, &u.emb, set).or_else(|| by_centred_looks(lib, &u.emb, &center, set));
+            .zip(&matches)
+            .map(|(u, c)| {
+                let api = board::by_matches(c, set, false).or_else(|| by_centred_looks(lib, &u.emb, &center, set));
                 Held { x: u.x, y: u.y, how: if api.is_some() { "~" } else { "?" }, api, star: u.star, bench: u.bench.is_some() }
             })
             .collect();
-        if held.is_empty() {
-            return;
+        if self.votes_round != round {
+            (self.votes, self.votes_round) = (vec![], round);
         }
+        let who = self.find(snap.viewing.as_deref(), &held);
+        let mut votes = std::mem::take(&mut self.votes);
+        let mut used = vec![false; votes.len()];
+        for ((u, c), h) in foes.iter().zip(&matches).zip(held.iter_mut()) {
+            let i = match (0..votes.len()).find(|&i| !used[i] && votes[i].same(u)) {
+                Some(i) => i,
+                None => {
+                    votes.push(Vote { x: u.x, y: u.y, bench: u.bench, reads: 0, sums: vec![] });
+                    used.push(false);
+                    votes.len() - 1
+                }
+            };
+            used[i] = true;
+            votes[i].add(u, c);
+            if h.api.is_none()
+                && let Some(api) = votes[i].named(|a| self.allowed(who, a, h.bench, set, owned))
+            {
+                (h.api, h.how) = (Some(api), "≈");
+            }
+        }
+        self.votes = votes;
         self.last = held.clone();
         let p = match &snap.viewing {
             Some(name) => self.player(Some(name), &[]),
