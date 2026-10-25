@@ -1,6 +1,6 @@
 # TFT unit recognition from 3D renders
 
-Date: 2026-10-25. Status: design agreed in a brainstorm with the user; spec awaiting review.
+Date: 2026-10-25. Status: approach 1 built and measured: **fails the gate** (see Measured). Seed not shipped (empty placeholder).
 
 ## Goal
 
@@ -93,6 +93,27 @@ arenas was low. A library seeded with every unit of the set, before any game, re
 - Reports top-1 / top-3, the named rate and the wrong rate at the threshold, per group (mine,
   scouted, combat), and a confusion list per unit.
 - Gate: the target in Decisions. Below it, approach 2 is next.
+
+## Measured (2026-10-25, T8)
+
+Test set: 103 combat-start enemy crops from three games (94 labelled, 9 with no unit visible) and
+16 of my confirmed pieces; no scouted boards (none of the games had a scouting view). Seed: 75
+units rendered at pitch 40/50/60, 5 turns, sizes 1.0/1.2, composited at heights 80/100/120 px,
+bar gaps 5/20, dx −10/0/10: 54 000 looks. Candidates: all 75 units, no panel/pool constraints,
+single reads (the eval set has one read per fight, so no voting).
+
+| rule | combat top-1 | top-3 | named right at ≤ 5 % wrong | mine top-1 | mine named right (0 wrong) |
+|---|---|---|---|---|---|
+| raw, best look | 0.29 | 0.41 | 0.10 | 0.69 | 0.62 |
+| raw, mean of 5 best | 0.29 | 0.51 | 0.12 | 0.75 | 0.62 |
+| centred, best look | 0.28 | 0.46 | 0.13 | 0.44 | 0.19 |
+| centred, mean of 5 best | 0.28 | 0.53 | 0.09 | 0.56 | 0.38 |
+
+Gate (≥ 60 % named, ≤ 5 % wrong on combat) missed by far. Calibration on the 31 labelled units
+alone reached top-1 0.37–0.45, so most of the loss is the larger candidate set. Causes seen in the
+composites: bind pose (arms out, tails fanned), shader colours missing (Ahri's tails), unit scale
+unknown per unit, and enemies in combat partly covered by effects. Tools: `seed_looks` (compositor),
+`tools/tft-render/calibrate.py`, `tools/tft-render/gate.py`.
 
 ## Later comparison (not built now)
 
