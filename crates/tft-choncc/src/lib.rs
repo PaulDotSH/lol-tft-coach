@@ -13,8 +13,9 @@ use tft_model::*;
 
 /// The starting unit costs at least this.
 pub const STARTER_COST: u32 = 4;
-/// Fit bonus for comps that use the starting unit.
-const STARTER_BONUS: f32 = 0.5;
+/// Fit bonus for comps that use the starting unit: about one owned unit's worth, so
+/// the board still decides (the starter is a guess from the first trait panel).
+const STARTER_BONUS: f32 = 0.1;
 /// The comeback Golden Orb drops under this HP.
 pub const GOLDEN_ORB_HP: u32 = 50;
 /// Comps listed for the starter.

@@ -3,7 +3,7 @@
 //! average placement. The last target stays unless another comp clearly beats it.
 
 use crate::CoachInput;
-use crate::tracker::{Board, star};
+use crate::tracker::{Board, Tracker, star};
 use tft_model::*;
 
 /// Each owned comp unit; every ★ above 1 adds STAR_W more.
@@ -16,13 +16,13 @@ const ITEM_W: f32 = 0.25;
 /// Per scouted board holding a comp unit, spread over the comp's units.
 const CONTEST_W: f32 = 0.3;
 /// Per place the (shrunk) average is better than PLACE_MID.
-const PLACE_W: f32 = 0.1;
+const PLACE_W: f32 = 0.25;
 /// The middle placement: stats are shrunk toward it.
 pub const PLACE_MID: f32 = 4.5;
 /// Games of PLACE_MID a comp's average is shrunk with, so a few lucky games don't top the list.
 pub const PRIOR_GAMES: f32 = 200.0;
 /// The last target stays first while within this of the best score.
-pub const KEEP_MARGIN: f32 = 0.15;
+pub const KEEP_MARGIN: f32 = 0.04;
 /// Comps shown: the target and two alternatives.
 pub const TOP_COMPS: usize = 3;
 /// Carry builds whose items count for a comp.
@@ -68,19 +68,23 @@ pub fn score(comp: &MetaComp, input: &CoachInput) -> f32 {
         })
         .sum::<f32>()
         / n;
-    let panel = tracker.panel();
-    let traits = comp
-        .traits
-        .iter()
-        .map(|(t, want)| panel.iter().find(|p| &p.0 == t).map_or(0, |p| p.1).min(*want) as f32 / (*want).max(1) as f32)
-        .sum::<f32>()
-        / comp.traits.len().max(1) as f32;
+    let traits = trait_share(comp, tracker);
     let held: Vec<&Api> = tracker.items().iter().filter(|i| set.items.get(*i).is_some_and(|d| d.component)).collect();
     let builds_from: Vec<&Api> = wanted_items(comp).filter_map(|i| set.items.get(i)).flat_map(|d| &d.components).collect();
     let items = held.iter().filter(|c| builds_from.contains(c)).count() as f32 / held.len().max(1) as f32;
     let contest = comp.units.iter().map(|u| contested(u, comp, set, tracker.boards())).sum::<u32>() as f32 / n;
     let place = PLACE_MID - shrunk(comp.avg_place, comp.games, PRIOR_GAMES);
     units + TRAIT_W * traits + ITEM_W * items - CONTEST_W * contest + PLACE_W * place + hooks.comp_bonus(comp, input)
+}
+
+/// How much of the comp's traits my panel already shows, 0..=1.
+fn trait_share(comp: &MetaComp, tracker: &Tracker) -> f32 {
+    let panel = tracker.panel();
+    comp.traits
+        .iter()
+        .map(|(t, want)| panel.iter().find(|p| &p.0 == t).map_or(0, |p| p.1).min(*want) as f32 / (*want).max(1) as f32)
+        .sum::<f32>()
+        / comp.traits.len().max(1) as f32
 }
 
 /// Every comp scored, best first; the last target (`input.keep`) stays first within KEEP_MARGIN.
@@ -96,13 +100,15 @@ pub fn rank<'m>(input: &CoachInput<'m>) -> Vec<(&'m MetaComp, f32)> {
     v
 }
 
-/// The comp as shown: which of its units I have (fit = share of them) and which are missing.
+/// The comp as shown: which of its units I have and which are missing. Fit is the share of
+/// its units I have, or of its traits my panel shows when that's higher (units bought
+/// before tracking started are only seen through traits).
 pub fn pick(comp: &MetaComp, input: &CoachInput) -> CompPick {
     let (have, missing): (Vec<Api>, Vec<Api>) = comp.units.iter().cloned().partition(|u| input.tracker.copies(u) > 0);
     CompPick {
         comp: comp.id.clone(),
         name: comp.name.clone(),
-        fit: have.len() as f32 / comp.units.len().max(1) as f32,
+        fit: (have.len() as f32 / comp.units.len().max(1) as f32).max(trait_share(comp, input.tracker)),
         avg_place: comp.avg_place,
         have,
         missing,

@@ -49,7 +49,7 @@ fn comps_that_use_the_starter_come_first() {
     assert_eq!(got, [RENGAR_COMP, TARIC_COMP]);
     assert!([RENGAR_COMP, TARIC_COMP].contains(&a.comps[0].comp.as_str()));
     let input = CoachInput { snap: &now, tracker: &t, set: &s, meta: &m, hooks: &ChonccHooks, keep: None };
-    assert_eq!((ChonccHooks.comp_bonus(&m.comps[0], &input), ChonccHooks.comp_bonus(&m.comps[2], &input)), (0.5, 0.0));
+    assert_eq!((ChonccHooks.comp_bonus(&m.comps[0], &input), ChonccHooks.comp_bonus(&m.comps[2], &input)), (0.1, 0.0));
     // The standard coach has no Choncc part.
     assert!(advise_with(&now, &t, &s, &m, None).choncc.is_none());
 }

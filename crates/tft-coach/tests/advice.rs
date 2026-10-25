@@ -32,8 +32,12 @@ fn the_target_is_the_best_fit_and_sticks_within_a_margin() {
     let a = advise_with(&now, &t, &s, &m, None);
     assert_eq!(ids(&a.comps), [TARIC_COMP, RENGAR_COMP, AHRI_COMP]);
     assert_eq!((a.comps[0].fit, a.comps[0].have.len(), a.comps[0].missing.len()), (0.5, 2, 2));
-    // Last tick's target is kept while it is close.
-    assert_eq!(advise_with(&now, &t, &s, &m, Some(RENGAR_COMP)).comps[0].comp, RENGAR_COMP);
+    // Last tick's target is kept exactly while it is within KEEP_MARGIN of the best.
+    let input = CoachInput { snap: &now, tracker: &t, set: &s, meta: &m, hooks: &StandardHooks, keep: None };
+    let ranked = fit::rank(&input);
+    let gap = ranked[0].1 - ranked.iter().find(|c| c.0.id == RENGAR_COMP).unwrap().1;
+    let kept = advise_with(&now, &t, &s, &m, Some(RENGAR_COMP)).comps[0].comp == RENGAR_COMP;
+    assert_eq!(kept, gap <= fit::KEEP_MARGIN, "gap {gap}");
     // Two more Rengar units: it clearly wins, the old target goes.
     own(&mut t, &s, (3, 1), &[RENGAR, GAREN]);
     assert_eq!(advise_with(&now, &t, &s, &m, Some(TARIC_COMP)).comps[0].comp, RENGAR_COMP);
