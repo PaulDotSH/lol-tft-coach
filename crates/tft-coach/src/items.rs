@@ -1,6 +1,7 @@
 //! Items from my bench: the best completed items my components make for the target comp's carry
 //! builds (MetaTFT `builds`, best first) and who holds them; finished items (loot, carousel) get a
-//! holder too. "Slam now" when HP is falling, a power spike is near, or the game is late.
+//! holder too. "Slam now" when HP is falling, a power spike is near, or the game is late. Items my
+//! units already carry are not suggested again unless more carry builds want one.
 
 use crate::fit::BUILDS;
 use crate::tracker::{Tracker, round_index};
@@ -33,6 +34,11 @@ pub fn want(comp: &MetaComp, item: &str) -> Option<(f32, Option<Api>)> {
         Some((BUILD_W / (1 + i) as f32 - POS_W * pos as f32, Some(b.unit.clone())))
     });
     build.or_else(|| comp.items.iter().any(|w| same_item(item, w)).then_some((LIST_W, None)))
+}
+
+/// Copies of the item the comp's carry builds want (at least one).
+fn copies_wanted(comp: &MetaComp, item: &str) -> usize {
+    comp.builds.iter().take(BUILDS).filter(|b| b.items.iter().any(|w| same_item(item, w))).count().max(1)
 }
 
 /// Why to make items now; None to hold the components.
@@ -74,6 +80,7 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, set: &TftSetData, comp: Opt
             .items
             .values()
             .filter(|d| d.components.len() == 2 && !d.radiant && !d.artifact)
+            .filter(|d| tracker.worn().iter().filter(|w| same_item(w, &d.api)).count() < copies_wanted(comp, &d.api))
             .filter(|d| {
                 let (a, b) = (&d.components[0], &d.components[1]);
                 let n = |c: &Api| pool.iter().filter(|p| **p == c).count();

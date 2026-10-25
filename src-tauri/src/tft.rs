@@ -2,7 +2,8 @@
 //! reads my screen in game (tft-vision, on its own thread) and runs the TFT coach.
 //! Pushes `TftState` on the `tft` event. Independent of the LoL orchestrator,
 //! which stays quiet in TFT. Units are told apart by an image model fetched once
-//! (`%LOCALAPPDATA%\lol-coach\models`) and looks learnt over games (`tft\looks.bin`).
+//! (`%LOCALAPPDATA%\lol-coach\models`) and looks learnt over games (`tft\looks.bin`); items by
+//! the Set's item icons (Community Dragon, in the HTTP cache).
 
 use crate::debug;
 use clients::lcu::Lcu;
@@ -31,6 +32,8 @@ pub struct TftShared {
     set: Mutex<Option<Arc<TftSetData>>>,
     /// The image model on disk, once fetched.
     model: Mutex<Option<std::path::PathBuf>>,
+    /// Item icon templates, once fetched; the reader picks them up when they arrive.
+    items: Mutex<Option<Arc<tft_vision::ItemIcons>>>,
 }
 
 impl Default for TftShared {
@@ -49,6 +52,7 @@ impl Default for TftShared {
             }),
             set: Mutex::new(None),
             model: Mutex::new(None),
+            items: Mutex::new(None),
         }
     }
 }
@@ -97,6 +101,16 @@ fn save_looks(lib: &tft_coach::Library) {
     }
 }
 
+/// Item icon templates for the set.
+async fn fetch_items(http: &data::Http, set: &TftSetData) -> anyhow::Result<tft_vision::ItemIcons> {
+    let bodies = tft_data::item_icons(http, set).await;
+    anyhow::ensure!(!bodies.is_empty(), "no item icons");
+    let decoded = tokio::task::spawn_blocking(move || bodies.into_iter().filter_map(|(a, b)| Some((a, ocr::scoreboard::decode_png(&b)?))).collect()).await?;
+    let icons = tokio::task::spawn_blocking(move || tft_vision::ItemIcons::new(decoded)).await?;
+    tracing::info!("tft: {} item icons", icons.len());
+    Ok(icons)
+}
+
 /// The image model, downloaded once.
 async fn fetch_model() -> anyhow::Result<std::path::PathBuf> {
     let path = crate::settings::local_dir("models").join(tft_embed::MODEL_FILE);
@@ -143,6 +157,9 @@ fn start_reader(
         };
         while !flag.load(Ordering::Relaxed) {
             let t = Instant::now();
+            if !vision.has_items() {
+                vision.set_items(tft.items.lock().unwrap().clone());
+            }
             if let Some(snap) = vision.read() {
                 debug::dump("tft-snapshot", Duration::from_secs(5), &snap);
                 tracker.observe(&snap, &set);
@@ -195,6 +212,7 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
     let mut last_json = String::new();
     let mut me: Option<String> = None;
     let mut model_task: Option<tauri::async_runtime::JoinHandle<()>> = None;
+    let mut items_task: Option<tauri::async_runtime::JoinHandle<()>> = None;
     loop {
         if lcu.is_none() {
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
@@ -265,6 +283,19 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
         }
         let model = tft.model.lock().unwrap().clone();
         status.push(("Unit recognition".to_string(), model.is_some()));
+        // Item icons: fetched in the background once the set is known.
+        if let Some(set) = &set
+            && items_task.is_none()
+        {
+            let (tft, http, set) = (tft.clone(), sh.http.clone(), set.clone());
+            items_task = Some(tauri::async_runtime::spawn(async move {
+                match fetch_items(&http, &set).await {
+                    Ok(i) => *tft.items.lock().unwrap() = Some(Arc::new(i)),
+                    Err(e) => tracing::warn!("tft item icons: {e:#}"),
+                }
+            }));
+        }
+        status.push(("Item recognition".to_string(), tft.items.lock().unwrap().is_some()));
         if me.is_none()
             && now != TftPhase::None
             && let Some(c) = &lcu

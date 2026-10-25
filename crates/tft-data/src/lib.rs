@@ -6,7 +6,7 @@ pub mod cdragon;
 pub mod history;
 pub mod metatft;
 
-pub use cdragon::{icon_url, parse_set_data, set_data};
+pub use cdragon::{icon_url, item_icons, parse_set_data, set_data};
 pub use history::parse_history;
 pub use metatft::{augment_tiers, meta};
 

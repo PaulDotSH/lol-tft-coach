@@ -83,6 +83,8 @@ pub struct Tracker {
     panel: Vec<(Api, u32)>,
     first_panel: Option<(Stage, Vec<TraitCount>)>,
     items: Vec<Api>,
+    /// Items on my units as last read.
+    worn: Vec<Api>,
     boards: Vec<Board>,
     stage: Option<(u32, u32)>,
     /// Last tick where gold and shop were both readable: the baseline buys compare to.
@@ -163,6 +165,7 @@ impl Tracker {
             }
         }
         self.items = snap.items.clone();
+        self.worn = snap.units.iter().flat_map(|u| u.items.iter().cloned()).collect();
         let hints: Vec<Api> = self.units.iter().map(|u| u.api.clone()).collect();
         self.board.observe(snap, set, &mut self.library, &hints);
     }
@@ -393,6 +396,11 @@ impl Tracker {
     /// My item bench as last read on my own board.
     pub fn items(&self) -> &[Api] {
         &self.items
+    }
+
+    /// Items my units carry (board and bench) as last read.
+    pub fn worn(&self) -> &[Api] {
+        &self.worn
     }
 
     /// Scouted boards seen within SCOUT_DECAY rounds.

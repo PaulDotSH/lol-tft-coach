@@ -6,13 +6,17 @@
 //! My units come from their HP bars (`units`) and, with the embedder loaded, an image
 //! embedding of each one for telling them apart (tft-coach names them).
 //!
-//! Not read yet: item bench icons, items on units.
+//! Items on the bench and under my units' bars, with item icons loaded (`items`).
 
+pub mod items;
 mod units;
 
 use ocr::{Frame, TextBox};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tft_model::{Api, SeenUnit, TftSetData, TftSnapshot};
+
+pub use items::ItemIcons;
 
 /// Capture width the regions below were measured at.
 const BASE_W: f32 = 2560.0;
@@ -506,11 +510,28 @@ pub struct Reader {
     embedder: Option<tft_embed::Embedder>,
     /// Last read's units with their embeddings, and reads since each was embedded.
     seen: Vec<(SeenUnit, u32)>,
+    /// Item icon templates; items aren't read without them.
+    items: Option<Arc<ItemIcons>>,
 }
 
 impl Reader {
     pub fn new(set: &TftSetData) -> Reader {
-        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![] }
+        Reader { names: Names::new(set), traits: vec![], me: None, embedder: None, seen: vec![], items: None }
+    }
+
+    /// Item icons for reading the item bench and units' items (they may arrive after the reader starts).
+    pub fn set_items(&mut self, icons: Option<Arc<ItemIcons>>) {
+        self.items = icons.filter(|i| !i.is_empty());
+    }
+
+    pub fn has_items(&self) -> bool {
+        self.items.is_some()
+    }
+
+    fn read_items(&self, f: &Frame, snap: &mut TftSnapshot) {
+        if let Some(icons) = &self.items {
+            items::read(f, f.width as f32 / BASE_W, icons, &mut snap.items, &mut snap.units);
+        }
     }
 
     /// My name for telling my board from a scouted one.
@@ -557,6 +578,7 @@ impl Reader {
         let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
         let mut snap = read_with(&f, &self.names, self.me.as_deref(), at)?;
         self.smooth(&mut snap);
+        self.read_items(&f, &mut snap);
         self.embed(&f, &mut snap);
         Some(snap)
     }
@@ -579,9 +601,10 @@ impl Reader {
         snap.traits = self.traits.iter().map(|t| (t.0.clone(), t.1)).collect();
     }
 
-    /// Read a saved frame (calibration, replays); embeds units when the embedder is loaded.
+    /// Read a saved frame (calibration, replays); embeds units and reads items when those are loaded.
     pub fn read_frame(&mut self, f: &Frame, at: u64) -> Option<TftSnapshot> {
         let mut snap = read_with(f, &self.names, self.me.as_deref(), at)?;
+        self.read_items(f, &mut snap);
         self.embed(f, &mut snap);
         Some(snap)
     }

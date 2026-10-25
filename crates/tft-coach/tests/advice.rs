@@ -134,6 +134,10 @@ fn items_from_components_with_a_holder() {
     let a = tick(&mut t, &s, &m, &bench((3, 6), 40, &[ROD, GLOVE]));
     assert_eq!(a.items[0].item, JG);
     assert!(a.items[0].reason.ends_with("slam now: 40 HP"), "{}", a.items[0].reason);
+    // A Rabadon's already on a unit: the rod goes into the gauntlet instead.
+    let mut worn = bench((3, 6), 80, &[ROD, ROD, GLOVE]);
+    worn.units = vec![SeenUnit { x: 900.0, y: 500.0, star: 1, bench: None, full: true, items: items(&[RABADON_RADIANT]), emb: vec![] }];
+    assert_eq!(tick(&mut t, &s, &m, &worn).items[0].item, JG);
     // A finished (radiant) item from loot just gets a holder.
     let a = tick(&mut t, &s, &m, &bench((3, 6), 60, &[RABADON_RADIANT]));
     let it = &a.items[0];
