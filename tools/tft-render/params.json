@@ -1,0 +1,19 @@
+{
+ "pitch": 50,
+ "ortho_scale": 560,
+ "feet_frac": 0.3,
+ "res": 896,
+ "samples": 8,
+ "yaws": [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],
+ "sizes": [1.0, 1.2],
+ "lights": ["warm", "flat"],
+ "light_presets": {
+  "warm": {"emit": 0.6, "sun": 1.6, "sun_color": [1.0, 0.92, 0.8], "sun_el": 55, "sun_az": -40, "world": 0.35, "world_color": [0.6, 0.65, 1.0]},
+  "flat": {"emit": 1.0, "sun": 0.0, "world": 0.0}
+ },
+ "flip_v": true,
+ "alpha_clip": 0.3,
+ "form_frac": 0.3,
+ "form_height": 0.5,
+ "form_modes": ["alone", "add"]
+}

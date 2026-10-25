@@ -110,7 +110,7 @@ def diffuse(mat):
 
 
 def skin_info(d):
-    """{texture, hide, scale, submesh_textures} from a skin0.bin.json (game paths, lowercase .tex)."""
+    """{texture, hide, mesh_folder, scale, submesh_textures} from a skin0.bin.json (game paths, lowercase .tex)."""
     smp, mats = None, {}
     for k, v in d.items():
         if isinstance(v, dict):
@@ -127,6 +127,20 @@ def skin_info(d):
     return {"texture": tex if tex and not tex.startswith(SHARED) else None, "hide": [h for h in re.split(r"[\s,]+", smp.get("initialSubmeshToHide") or "") if h],
             "mesh_folder": m.group(1) if m else None,
             "scale": smp.get("skinScale", 1.0), "submesh_textures": {k: v for k, v in sub.items() if v and not v.startswith(SHARED)}}
+
+
+def idle_info(d):
+    """{idle_hide, idle_show}: submeshes the Idle* clips of an animations/skin0.bin.json hide or show (union over clips)."""
+    hide, show = set(), set()
+    for v in d.values():
+        for name, clip in (v.get("mClipDataMap") or {}).items() if isinstance(v, dict) else ():
+            if not (isinstance(clip, dict) and name.lower().startswith("idle")):
+                continue
+            for e in (clip.get("mEventDataMap") or {}).values():
+                if isinstance(e, dict):
+                    hide |= set(e.get("mHideSubmeshList") or [])
+                    show |= set(e.get("mShowSubmeshList") or [])
+    return {"idle_hide": sorted(hide - show), "idle_show": sorted(show - hide)}
 
 
 def tex_dest(folder, path):
@@ -181,6 +195,11 @@ def main():
             r = get(f"{GAME}data/characters/{data_of[f]}/skins/skin0.bin.json")
             p.write_text(r.text if r is not None else "{}", encoding="utf-8")
         i = skin_info(json.loads(p.read_text(encoding="utf-8")))
+        p = out / f / "anim0.bin.json"
+        if not p.exists() or a.refresh:
+            r = get(f"{GAME}data/characters/{data_of[f]}/animations/skin0.bin.json")
+            p.write_text(r.text if r is not None else "{}", encoding="utf-8")
+        i |= idle_info(json.loads(p.read_text(encoding="utf-8")))
         if not i.get("texture") and f in TEX_FALLBACK:
             i |= {"texture": TEX_FALLBACK[f], "texture_guess": True}
         return i
@@ -217,7 +236,8 @@ def main():
                 for skin, os_ in lists[mf]["skins"].items() for o in os_ if (out / mf / skin / o).exists()]
         have = lambda t: t if t and (out / t).exists() else None
         return {"folder": f, "data": data_of[f], "objs": objs, "textures": [f"{f}/{t}" for t in l["textures"] if (out / f / t).exists()],
-                "texture": have(i.get("texture") and tex_dest(f, i["texture"])), "hide": i.get("hide", []), "scale": i.get("scale", 1.0), "texture_guess": i.get("texture_guess", False),
+                "texture": have(i.get("texture") and tex_dest(f, i["texture"])), "texture_guess": i.get("texture_guess", False),
+                "hide": i.get("hide", []), "idle_hide": i.get("idle_hide", []), "idle_show": i.get("idle_show", []), "scale": i.get("scale", 1.0),
                 "submesh_textures": {k: have(tex_dest(f, v)) for k, v in i.get("submesh_textures", {}).items() if have(tex_dest(f, v))}}
 
     manifest_units, missing, first = [], [], {}
