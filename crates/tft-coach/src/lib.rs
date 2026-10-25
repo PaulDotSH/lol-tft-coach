@@ -98,8 +98,9 @@ pub fn advise(input: &CoachInput) -> TftAdvice {
         contested,
         calls: vec![],
         choncc: None,
+        team_size: snap.team_size.or(tracker.team_size()),
     };
-    advice.calls = calls::calls(&advice, econ_call, set, target);
+    advice.calls = calls::calls(&advice, econ_call, tracker.free_slot(snap), set, target);
     hooks.adjust(&mut advice, input);
     advice
 }

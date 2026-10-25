@@ -17,7 +17,7 @@
 <div class="ingame">
   {#if advice.calls.length}<div class="calls"><Calls calls={advice.calls} stage={advice.stage} /></div>{/if}
   {#if advice.augments.length}<div class="aug"><Augments augments={advice.augments} /></div>{/if}
-  <div class="econ"><Econ econ={advice.econ} stage={advice.stage} /></div>
+  <div class="econ"><Econ econ={advice.econ} stage={advice.stage} team={advice.team_size} /></div>
   <div class="shop"><Shop shop={advice.shop} /></div>
   <div class="comp"><Target comps={advice.comps} /></div>
   <div class="side">

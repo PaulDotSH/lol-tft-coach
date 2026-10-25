@@ -305,6 +305,8 @@ data! {
         pub contested: Vec<(Api, u32)>,
         pub calls: Vec<TftCall>,
         pub choncc: Option<ChonccAdvice>,
+        /// Units on my board and the cap, as last read in planning.
+        pub team_size: Option<(u32, u32)>,
     }
 
     // ---- history, review, trends ----

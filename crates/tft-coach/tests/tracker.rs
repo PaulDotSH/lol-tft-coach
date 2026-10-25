@@ -144,3 +144,18 @@ fn units_off_the_panel_for_rounds_stop_counting() {
     }
     assert_eq!(u.copies(GAREN), 1);
 }
+
+#[test]
+fn the_team_cap_stands_in_for_an_unread_level() {
+    let s = set();
+    let mut t = Tracker::default();
+    // Cap 8 at level 7: one bonus slot (an augment or a crown).
+    t.observe(&TftSnapshot { level: Some(7), team_size: Some((8, 8)), ..snap((4, 1), 30) }, &s);
+    let unread = TftSnapshot { team_size: Some((8, 9)), ..snap((4, 2), 30) };
+    assert_eq!(t.level(&unread), Some(8));
+    t.observe(&unread, &s);
+    // Neither on screen: the higher of the last level and the last cap's.
+    assert_eq!(t.level(&snap((4, 3), 30)), Some(8));
+    assert_eq!(t.level(&TftSnapshot { level: Some(9), ..snap((4, 3), 30) }), Some(9));
+    assert_eq!(t.team_size(), Some((8, 9)));
+}

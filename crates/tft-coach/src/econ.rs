@@ -65,7 +65,8 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, comp: Option<&MetaComp>) ->
     let style = if reroll { format!("reroll comp at {lvl}") } else { format!("lvl {lvl} comp") };
     let advice = |action, text: String| Some(EconAdvice { action, text });
 
-    if let Some(level) = snap.level {
+    let level = tracker.level(snap);
+    if let Some(level) = level {
         let want = wanted(stage, lvl, reroll);
         let xp = snap.xp.map_or(XP_COST, |(have, need)| need.saturating_sub(have).div_ceil(XP_COST).max(1) * XP_COST);
         if level < want && gold >= xp {
@@ -79,7 +80,7 @@ pub fn advise(snap: &TftSnapshot, tracker: &Tracker, comp: Option<&MetaComp>) ->
         let text = format!("Roll down now: {hp} HP, stabilize your board");
         return (advice(EconAction::Roll, text.clone()), call("roll-hp".into(), &text, "Roll down now."));
     }
-    let leveled = snap.level.is_some_and(|l| l >= lvl);
+    let leveled = level.is_some_and(|l| l >= lvl);
     let (now, from) = (round_index(stage), round_index(roll_at));
     if leveled && (from..from + ROLL_ROUNDS).contains(&now) && gold > ROLL_FLOOR {
         let text = format!("Roll down at {lvl}: {} is your comp's spike", at(roll_at));
