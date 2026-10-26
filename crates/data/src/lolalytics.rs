@@ -130,7 +130,9 @@ pub async fn matchup(
     patch: &str,
 ) -> anyhow::Result<MatchupBuild> {
     let (l, vl) = (lane.as_str(), vs_lane.as_str());
-    let url = format!("{SITE}/{}/vs/{}/build/?lane={l}&vslane={vl}&tier={tier}&patch={patch}&region={region}", me.slug, vs.slug);
+    // The page 404s on "region=all" (its default): only a real region goes in.
+    let region = if region == "all" { String::new() } else { format!("&region={region}") };
+    let url = format!("{SITE}/{}/vs/{}/build/?lane={l}&vslane={vl}&tier={tier}&patch={patch}{region}", me.slug, vs.slug);
     http.get_parsed(&url, TTL, |h| parse_matchup_page(h, vs.key)).await
 }
 

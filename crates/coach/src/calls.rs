@@ -20,6 +20,8 @@ const BACK_GOLD: f32 = 1100.0;
 const TAKE_SOON: f32 = 20.0;
 /// Dead players count for fights and objectives with at least this long left (s).
 const DEAD_FOR: f32 = 12.0;
+/// Baron and Elder take longer to kill: their dead must stay dead this long (s).
+const BIG_DEAD_FOR: f32 = 20.0;
 /// Readiness: per dead player, and the score that calls a fight or avoids one.
 const DEAD_W: f32 = 0.7;
 const DECISIVE: f32 = 1.5;
@@ -167,13 +169,11 @@ fn and_list(v: Vec<String>) -> String {
 fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
     let Some(me) = snap.players.get(snap.me) else { return vec![] };
     let mut out = Vec::new();
-    // Enemies dead long enough to count, and the ones about to respawn (named, not counted).
+    // Enemies dead at least `dead_for` (counted) and the ones about to respawn (named, not counted).
     let dead_enemies = || snap.players.iter().filter(|p| p.team != me.team && p.dead);
-    let long: Vec<&Player> = dead_enemies().filter(|p| p.respawn_in >= DEAD_FOR).collect();
-    let short: Vec<&Player> = dead_enemies().filter(|p| p.respawn_in < DEAD_FOR).collect();
-    let enemies_dead = long.len();
-    let jungler_dead = long.iter().any(|p| p.position == Some(Lane::Jungle));
-    let allies_dead = a.deaths.allies.iter().filter(|r| r.in_s >= DEAD_FOR).count() + (me.dead && me.respawn_in >= DEAD_FOR) as usize;
+    let split = |dead_for: f32| -> (Vec<&Player>, Vec<&Player>) { dead_enemies().partition(|p| p.respawn_in >= dead_for) };
+    let allies_dead =
+        |dead_for: f32| a.deaths.allies.iter().filter(|r| r.in_s >= dead_for).count() + (me.dead && me.respawn_in >= dead_for) as usize;
     // One window of enemy deaths: the earliest death among enemies still dead. Keys
     // "take" calls, so each window is spoken once rather than every tick.
     let window = snap
@@ -229,8 +229,12 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
         }
         // Up (or nearly) with enemies dead: take it. Their jungler dead means no smite
         // to contest it: enough on its own for the smaller objectives.
-        let numbers = enemies_dead as i32 - allies_dead as i32;
         let big = matches!(t.name.as_str(), "Baron" | "Elder");
+        let dead_for = if big { BIG_DEAD_FOR } else { DEAD_FOR };
+        let (long, short) = split(dead_for);
+        let enemies_dead = long.len();
+        let jungler_dead = long.iter().any(|p| p.position == Some(Lane::Jungle));
+        let numbers = enemies_dead as i32 - allies_dead(dead_for) as i32;
         let take = if jungler_dead { numbers >= 1 && (!big || enemies_dead >= 2) } else { enemies_dead >= 2 && numbers >= 2 };
         if left.is_none_or(|dt| dt <= TAKE_SOON) && take {
             let when = match left {

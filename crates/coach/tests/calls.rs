@@ -154,3 +154,18 @@ fn a_dead_jungler_is_enough_for_dragon_and_respawning_enemies_are_named() {
     let c = a.calls.iter().find(|c| c.key.starts_with("take-Dragon")).expect("take Dragon");
     assert_eq!(c.text, "Dragon is up: Darius (30 s) and Zed (30 s) dead, Lee Sin back in 7 s. Take it");
 }
+
+#[test]
+fn baron_needs_its_dead_to_stay_dead_longer() {
+    // Darius 26 s and Zed 13 s: enough for Dragon, but Zed is back before Baron falls.
+    let mut p = lobby(STANDARD);
+    for (i, s) in [(5, 26.0), (7, 13.0)] {
+        p[i].dead = true;
+        p[i].respawn_in = s;
+    }
+    let keys = |p: &[Player], time: f32| advise(&GameSnapshot { time, ..snap(p.to_vec(), vec![]) }).calls.into_iter().map(|c| c.key).collect::<Vec<_>>();
+    assert!(keys(&p, 1130.0).iter().any(|k| k.starts_with("take-Dragon")));
+    assert!(!keys(&p, 1320.0).iter().any(|k| k.starts_with("take-Baron")));
+    p[7].respawn_in = 22.0;
+    assert!(keys(&p, 1320.0).iter().any(|k| k.starts_with("take-Baron")));
+}
