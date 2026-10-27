@@ -28,6 +28,11 @@
     </select>
     <label for="audio">Speak in-game calls aloud</label>
     <input id="audio" type="checkbox" checked={settings.audio} onchange={(e) => set('audio', e.currentTarget.checked)} />
+    <label for="overlay">
+      In-game overlay over the game window
+      <small>borderless or windowed; exclusive fullscreen hides it</small>
+    </label>
+    <input id="overlay" type="checkbox" checked={settings.overlay} onchange={(e) => set('overlay', e.currentTarget.checked)} />
     <label for="ocr">Read Mayhem augments from screen</label>
     <input id="ocr" type="checkbox" checked={settings.ocr_enabled} onchange={(e) => set('ocr_enabled', e.currentTarget.checked)} />
     <label for="rec">Record games as test fixtures</label>
@@ -44,6 +49,11 @@
   }
   label {
     color: var(--muted);
+  }
+  small {
+    display: block;
+    color: var(--faint);
+    font-size: 12px;
   }
   select {
     min-width: 140px;

@@ -45,6 +45,38 @@ data! {
         /// Speak in-game calls aloud.
         #[serde(default = "yes")]
         pub audio: bool,
+        /// Draw the click-through overlay over the game window (LoL and TFT).
+        #[serde(default = "yes")]
+        pub overlay: bool,
+    }
+
+    /// One rank badge over an offered augment card. Ranks only, never win rates.
+    pub struct OverlayBadge {
+        /// Card centre, fraction of the game window's width.
+        pub x: f32,
+        /// 0-based place among the cards on offer; None when the coach has no rank for it.
+        pub place: Option<u32>,
+        /// Short reason, e.g. "fits your Nashor's Tooth (on-hit)".
+        pub reason: Option<String>,
+    }
+
+    /// What the in-game overlay draws; pushed as the `overlay` event (None: nothing, hidden).
+    pub struct Overlay {
+        pub tft: bool,
+        /// Badge row, fraction of the window's height from the top.
+        pub badge_y: f32,
+        /// Empty unless the offer cards are on screen.
+        pub badges: Vec<OverlayBadge>,
+        /// LoL: Buy next; TFT: the target comp.
+        pub head: Option<String>,
+        /// LoL: gold missing and ETA; TFT: units still missing.
+        pub detail: Option<String>,
+        /// LoL: the newest call; TFT: the roll / level call.
+        pub call: Option<String>,
+        /// Game time (s) of this view; the timers count down from it.
+        pub time: f32,
+        /// LoL objective timers, as the dashboard has them.
+        pub timers: Vec<ObjectiveTimer>,
     }
 
     pub struct UiChamp {
@@ -97,6 +129,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: true }
     }
 }

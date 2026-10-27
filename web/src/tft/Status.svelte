@@ -1,6 +1,6 @@
 <script lang="ts">
   // One small line of TFT data sources (set data, meta, screen reading) with ok / down dots,
-  // and the shared "speak calls" toggle, since the LoL settings panel is hidden in TFT.
+  // and the shared "speak calls" and overlay toggles, since the LoL settings panel is hidden in TFT.
   import { saveSettings, store } from '../lib/store.svelte';
 
   let { status }: { status: [string, boolean][] } = $props();
@@ -22,6 +22,14 @@
         onchange={(e) => saveSettings({ ...settings, audio: e.currentTarget.checked })}
       />
       Speak calls
+    </label>
+    <label class="next" title="Over the game window; borderless or windowed (exclusive fullscreen hides it)">
+      <input
+        type="checkbox"
+        checked={settings.overlay}
+        onchange={(e) => saveSettings({ ...settings, overlay: e.currentTarget.checked })}
+      />
+      Overlay
     </label>
   {/if}
 </footer>
@@ -60,5 +68,8 @@
     align-items: center;
     gap: 6px;
     cursor: pointer;
+  }
+  label.next {
+    margin-left: 0;
   }
 </style>

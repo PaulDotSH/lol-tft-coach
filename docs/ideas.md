@@ -1,7 +1,7 @@
 # LoL Coach: ideas for future versions
 
 Date: 2026-10-22. Builds on `docs/superpowers/specs/2026-10-22-lol-coach-design.md` (v1).
-Every idea below keeps the v1 rules: read-only, second monitor, no overlay, silent,
+Every idea below keeps the v1 rules: read-only, second monitor, no overlay (since reversed, see R9), silent,
 data only from LCU, the Live Client Data API, lolalytics, u.gg bigbrain JSON, Data
 Dragon / CommunityDragon and Windows OCR of our own screen.
 
@@ -382,7 +382,11 @@ Enemy gold is not in the client (v1's item-value estimate is fine); MMR
 calculators are banned [riot-general]. **Policy: high.**
 
 ### R9. Overlay, sounds, TTS callouts
-Against product decisions (second monitor, silent). **Rejected by design.**
+Against the v1 product decisions (second monitor, silent). *Since reversed:* spoken calls
+shipped, and an optional click-through overlay over the game window (2026-10-27) shows
+augment ranks on the offer cards, Buy next, the newest call and objective timers (TFT: target
+comp, augment ranks, roll/level call). It adds nothing the dashboard doesn't have and never
+shows augment win rates or placement stats.
 
 ### R10. Replay/VOD analysis
 Riot is restricting replay access (26.20, delayed to 26.21) [sheep-replays], and it

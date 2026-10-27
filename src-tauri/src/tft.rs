@@ -36,6 +36,16 @@ pub struct TftShared {
     model: Mutex<Option<std::path::PathBuf>>,
     /// Item icon templates, once fetched; the reader picks them up when they arrive.
     items: Mutex<Option<Arc<tft_vision::ItemIcons>>>,
+    /// Augments on offer in screen order, as last read (the overlay's badges).
+    offer: Mutex<Vec<Api>>,
+}
+
+impl TftShared {
+    /// In a TFT game: the advice so far and the augments on offer in screen order. None outside one.
+    pub fn overlay_input(&self) -> Option<(Option<TftAdvice>, Vec<Api>)> {
+        let st = self.state.lock().unwrap();
+        (st.phase == TftPhase::InGame).then(|| (st.advice.clone(), self.offer.lock().unwrap().clone()))
+    }
 }
 
 impl Default for TftShared {
@@ -55,6 +65,7 @@ impl Default for TftShared {
             set: Mutex::new(None),
             model: Mutex::new(None),
             items: Mutex::new(None),
+            offer: Mutex::new(vec![]),
         }
     }
 }
@@ -163,7 +174,9 @@ fn start_reader(
             if !vision.has_items() {
                 vision.set_items(tft.items.lock().unwrap().clone());
             }
-            if let Some(snap) = vision.read() {
+            let snap = vision.read();
+            *tft.offer.lock().unwrap() = snap.as_ref().map_or(vec![], |s| s.augment_offer.clone());
+            if let Some(snap) = snap {
                 debug::dump("tft-snapshot", Duration::from_secs(5), &snap);
                 tracker.observe(&snap, &set);
                 let advice = tft_coach::advise(&tft_coach::CoachInput {
@@ -314,7 +327,10 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
                 reader = Some(start_reader(tft.clone(), s.clone(), m.clone(), q, me.clone(), model.clone()));
             }
             (TftPhase::InGame, ..) => {}
-            _ => reader = None,
+            _ => {
+                reader = None;
+                tft.offer.lock().unwrap().clear();
+            }
         }
         status.push(("Screen reading".to_string(), reader.is_some()));
         if prev == TftPhase::InGame && now != TftPhase::InGame {

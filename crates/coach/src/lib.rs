@@ -39,6 +39,7 @@ mod trends;
 mod windows;
 
 pub use analysis::{analyze_match, compare_past};
+pub use augments::offer_places;
 pub use bot_lane::{BotLaneInput, plan as bot_lane_plan};
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;

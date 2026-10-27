@@ -403,10 +403,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
 
     // Cards on screen right now; the offer itself stays pending while they are
     // hidden (shop, respawn) until it is replaced, my scoreboard row grows, or it ages out.
-    let seen = {
-        let o = sh.offered.lock().unwrap();
-        if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
-    };
+    let seen = cards_on_screen(sh);
     let mine = memo.tab.mine.len();
     if seen.len() >= 2 {
         for &id in &seen {
@@ -464,6 +461,12 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice
+}
+
+/// Mayhem augment cards on screen right now (OCR, screen order); empty when none.
+pub fn cards_on_screen(sh: &Shared) -> Vec<AugmentId> {
+    let o = sh.offered.lock().unwrap();
+    if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
 }
 
 /// My augments: the Tab scoreboard row when read (an icon shared by several

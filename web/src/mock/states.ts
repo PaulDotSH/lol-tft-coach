@@ -10,7 +10,7 @@ import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoa
 import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: true };
 
 const src = (p: Partial<Sources>): Sources => ({
   client: 'ok',
