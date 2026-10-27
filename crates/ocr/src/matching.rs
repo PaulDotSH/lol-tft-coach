@@ -222,14 +222,10 @@ mod tests {
     fn translated_names_with_misread_accents() {
         // A Romanian client's offer as OCR read it.
         let names: HashMap<AugmentId, String> = [
-            (3116, "Take 'em Down
-Pune-i la pământ"),
-            (1020, "Dawnbringer's Resolve
-Voința întrupării Luminii"),
-            (1336, "Upgrade Infinity Edge
-Îmbunătățire: Sabia infinitului"),
-            (1373, "Shrink Engine
-Motor de micșorare"),
+            (3116, "Take 'em Down\nPune-i la pământ"),
+            (1020, "Dawnbringer's Resolve\nVoința întrupării Luminii"),
+            (1336, "Upgrade Infinity Edge\nÎmbunătățire: Sabia infinitului"),
+            (1373, "Shrink Engine\nMotor de micșorare"),
         ]
         .into_iter()
         .map(|(id, n)| (id, n.to_string()))

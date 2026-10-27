@@ -43,7 +43,7 @@ fn objective_calls_from_timers_gold_and_death_timers() {
     let texts: Vec<&str> = a.calls.iter().map(|c| c.text.as_str()).collect();
     assert!(texts.contains(&"Baron in 1:10: back now, spend 1500 gold, and be there"), "{texts:?}");
     assert_eq!(a.calls.iter().find(|c| c.key == "back-Baron-1200").expect("back call").say, "Baron in 70 seconds. Back and buy now.");
-    assert!(texts.contains(&"Dragon is up: Darius (30 s), Lee Sin (30 s) and Zed (30 s) dead, their jungler can't smite. Take it"), "{texts:?}");
+    assert!(texts.contains(&"Dragon is up: Darius (30 s), Lee Sin (30 s) and Zed (30 s) dead, their jungler can't smite. Take it; Herald up too: Dragon first"), "{texts:?}");
     let r = a.readiness.unwrap();
     assert_eq!(r.verdict, Verdict::Fight);
     assert!(r.reasons.iter().any(|x| x.starts_with("3 enemies dead")), "{:?}", r.reasons);
@@ -141,7 +141,7 @@ fn a_dead_jungler_is_enough_for_dragon_and_respawning_enemies_are_named() {
     p[6].respawn_in = 40.0;
     let a = advise(&GameSnapshot { time: 1130.0, ..snap(p.clone(), vec![]) });
     let c = a.calls.iter().find(|c| c.key.starts_with("take-Dragon")).expect("take Dragon");
-    assert_eq!(c.text, "Dragon is up: Lee Sin (40 s) dead, their jungler can't smite. Take it");
+    assert_eq!(c.text, "Dragon is up: Lee Sin (40 s) dead, their jungler can't smite. Take it; Herald up too: Dragon first");
     assert_eq!(c.say, "Their jungler is dead. Take Dragon.");
 
     // Darius and Zed long dead, Lee Sin back in 7 s: two counted, Lee Sin named.
@@ -152,7 +152,7 @@ fn a_dead_jungler_is_enough_for_dragon_and_respawning_enemies_are_named() {
     }
     let a = advise(&GameSnapshot { time: 1130.0, ..snap(p, vec![]) });
     let c = a.calls.iter().find(|c| c.key.starts_with("take-Dragon")).expect("take Dragon");
-    assert_eq!(c.text, "Dragon is up: Darius (30 s) and Zed (30 s) dead, Lee Sin back in 7 s. Take it");
+    assert_eq!(c.text, "Dragon is up: Darius (30 s) and Zed (30 s) dead, Lee Sin back in 7 s. Take it; Herald up too: Dragon first");
 }
 
 #[test]
@@ -168,4 +168,18 @@ fn baron_needs_its_dead_to_stay_dead_longer() {
     assert!(!keys(&p, 1320.0).iter().any(|k| k.starts_with("take-Baron")));
     p[7].respawn_in = 22.0;
     assert!(keys(&p, 1320.0).iter().any(|k| k.starts_with("take-Baron")));
+}
+
+#[test]
+fn one_take_call_when_baron_and_dragon_are_both_open() {
+    let mut p = lobby(STANDARD);
+    for (i, s) in [(5, 26.0), (7, 22.0)] {
+        p[i].dead = true;
+        p[i].respawn_in = s;
+    }
+    let calls = advise(&GameSnapshot { time: 1320.0, ..snap(p, vec![]) }).calls;
+    let takes: Vec<_> = calls.iter().filter(|c| c.key.starts_with("take-")).collect();
+    assert_eq!(takes.len(), 1, "{takes:?}");
+    assert!(takes[0].key.starts_with("take-Baron"), "{}", takes[0].key);
+    assert!(takes[0].text.ends_with("; Dragon up too: Baron first"), "{}", takes[0].text);
 }

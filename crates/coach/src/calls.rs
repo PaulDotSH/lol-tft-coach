@@ -189,6 +189,8 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
         })
         .fold(None, |w: Option<f32>, t| Some(w.map_or(t, |w| w.min(t))))
         .map_or(0, |t| t as u32);
+    // Take calls (big first): one is said, the others named in it.
+    let mut takes: Vec<(bool, &str, Call)> = Vec::new();
     for t in &a.timers {
         let left = t.next_spawn.map(|s| s - snap.time);
         let at = t.next_spawn.unwrap_or(snap.time) as u32;
@@ -250,7 +252,7 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
                 format!(", {}", and_list(v))
             };
             let jg = if jungler_dead { ", their jungler can't smite" } else { "" };
-            out.push(Call {
+            takes.push((big, &t.name, Call {
                 key: format!("take-{}-{window}", t.name),
                 text: format!("{} {when}: {dead} dead{back}{jg}. Take it", t.name),
                 say: if jungler_dead {
@@ -258,8 +260,17 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
                 } else {
                     format!("{enemies_dead} enemies dead. Take {}.", t.name)
                 },
-            });
+            }));
         }
+    }
+    takes.sort_by_key(|t| !t.0);
+    let mut takes = takes.into_iter();
+    if let Some((_, first, mut call)) = takes.next() {
+        let rest: Vec<String> = takes.map(|t| t.1.to_string()).collect();
+        if !rest.is_empty() {
+            call.text = format!("{}; {} up too: {first} first", call.text, and_list(rest));
+        }
+        out.push(call);
     }
     if let Some(b) = a.bounties.iter().find(|b| b.me && b.streak >= STREAK) {
         out.push(Call {
