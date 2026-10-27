@@ -139,6 +139,22 @@ crops, test on the third):
 Each alone is weak; together top-1 rises by half. More labelled real crops should keep raising it:
 Riot API final boards (`docs/riot-api-key.md`) can label each game's last fights automatically.
 
+### Real labels without a Riot key (2026-10-27)
+
+- **Client match history** (`/lol-match-history/v1/products/tft/<puuid>/matches`) has every
+  player's final board (units, ★, items, name, last round): the Riot API's data, locally.
+  `tools/tft-render/autolabel.py` labels fights by the player whose final board explains them best.
+  89 % of hand-labelled enemy units are on some alive player's final board, but a fight can't be
+  tied to its player (plates read in 18 of 81 fights; when read, the label was on that player's
+  board 10 of 12 times): 24 auto labels, 11 agreeing with the hand labels, 8 not. Not usable yet.
+- **My own confirmed looks** (`tools/tft-render/own_looks.py`: the live library plus the replays'
+  confirmed pieces, kept only when the unit was on my final board): 26 looks of 11 units after four
+  live games (13 of them Fiddlesticks); 11 dropped (Varus, Xayah, Elise: possibly sold before the
+  end). Head on composites + own looks (`head_own.py`): combat top-1 0.35–0.38, named right at
+  ≤ 5 % wrong 0.10–0.11, no change: only 13 of the 94 labelled enemy crops are units I owned.
+
+Own looks help only units I field and need many more games; enemy labels need the fight's player.
+
 ## Later comparison (not built now)
 
 Both reuse the renders, composites and the §5 test set.
