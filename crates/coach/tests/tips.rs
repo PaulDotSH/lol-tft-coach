@@ -70,6 +70,21 @@ fn a_new_item_on_the_lane_opponent_is_called_once_tracked() {
 }
 
 #[test]
+fn items_finished_together_are_one_call() {
+    let sd = sd();
+    let mut t = Tracker::default();
+    let mut p = lobby(STANDARD);
+    t.observe(&GameSnapshot { time: 800.0, ..snap(p.clone(), vec![]) }, &sd);
+    p[ZED_I].items.extend([YOUMUUS, EDGE_OF_NIGHT]);
+    let s = GameSnapshot { time: 850.0, ..snap(p, vec![]) };
+    t.observe(&s, &sd);
+    let a = advise(&s, None, &t);
+    let items: Vec<_> = a.calls.iter().filter(|c| c.key.starts_with(&format!("item-{ZED}-"))).collect();
+    assert_eq!(items.len(), 1, "{items:?}");
+    assert!(items[0].text.contains(" and "), "{}", items[0].text);
+}
+
+#[test]
 fn quiet_tips_for_cs_pace_vision_and_wards() {
     // 15:00, 90 CS against 7.4/min: 21 behind; no Control Ward held.
     let mut p = lobby(STANDARD);

@@ -67,7 +67,8 @@ pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData, tracke
         }
     }
 
-    // Damage items my lane opponent or the top threat just finished (a Locket is no spike).
+    // Damage items my lane opponent or the top threat just finished (a Locket is no spike),
+    // one call for items finished together.
     let damage = |id| {
         sd.items
             .get(&id)
@@ -77,19 +78,17 @@ pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData, tracke
         if !(th.lane_opp || i == 0) {
             continue;
         }
-        for &id in th.new_items.iter().filter(|&&id| damage(id)) {
-            let n = th.legendaries;
-            calls.push(Call {
-                key: format!("item-{}-{id}", th.champ),
-                text: format!(
-                    "{} finished {}: {n} legendary item{} now, respect the spike",
-                    th.name,
-                    sd.item_name(id),
-                    if n == 1 { "" } else { "s" }
-                ),
-                say: format!("{} finished {}.", th.name, sd.item_name(id)),
-            });
+        let ids: Vec<ItemId> = th.new_items.iter().copied().filter(|&id| damage(id)).collect();
+        if ids.is_empty() {
+            continue;
         }
+        let names = ids.iter().map(|&id| sd.item_name(id)).collect::<Vec<_>>().join(" and ");
+        let n = th.legendaries;
+        calls.push(Call {
+            key: format!("item-{}-{}", th.champ, ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join("-")),
+            text: format!("{} finished {names}: {n} legendary item{} now, respect the spike", th.name, if n == 1 { "" } else { "s" }),
+            say: format!("{} finished {names}.", th.name),
+        });
     }
 
     let mut tips = Vec::new();

@@ -37,6 +37,9 @@ pub struct Shared {
     pub augments: Cache<ChampKey, ChampAugments>,
     /// Augment pool names for the OCR thread; None = OCR idle.
     pub ocr_names: Mutex<Option<Arc<HashMap<AugmentId, String>>>>,
+    /// Augment names in the League client's language (LCU), added to `ocr_names` when they
+    /// differ from the English ones.
+    pub local_augment_names: Mutex<Option<Arc<HashMap<AugmentId, String>>>>,
     /// Last OCR offer and when it was seen.
     pub offered: Mutex<(Vec<AugmentId>, Instant)>,
     pub ocr_state: Mutex<SourceState>,
@@ -88,6 +91,7 @@ impl Shared {
             tiers: Mutex::default(),
             augments: Mutex::default(),
             ocr_names: Mutex::new(None),
+            local_augment_names: Mutex::new(None),
             offered: Mutex::new((vec![], Instant::now())),
             ocr_state: Mutex::new(SourceState::Off),
             lola_ok: Mutex::new(None),

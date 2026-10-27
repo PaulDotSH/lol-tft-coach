@@ -5,17 +5,27 @@ use std::collections::HashMap;
 
 const MAX_OFFERS: usize = 4;
 
-/// Lowercase alphanumeric words with common OCR confusions folded; "+" stays, it tells
-/// tiers apart ("Residual Magic" / "Residual Magic +" / "++").
+/// Lowercase alphanumeric words with common OCR confusions and accents folded ("pământ"
+/// reads as "pämånt"); "+" stays, it tells tiers apart ("Residual Magic" / "+" / "++").
 /// Applied to both OCR text and names, so folding is symmetric.
 fn words(s: &str) -> Vec<String> {
     let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
+    for c in s.chars().flat_map(char::to_lowercase) {
         match c {
             '\'' | '\u{2019}' | '`' => {}
             '0' => out.push('o'),
             '1' | '|' => out.push('l'),
             '+' => out.push('+'),
+            'à'..='å' | 'ă' | 'ą' => out.push('a'),
+            'è'..='ë' | 'ę' | 'ě' => out.push('e'),
+            'ì'..='ï' => out.push('i'),
+            'ò'..='ö' | 'ő' => out.push('o'),
+            'ù'..='ü' | 'ű' | 'ů' => out.push('u'),
+            'ș' | 'ş' | 'ś' | 'š' => out.push('s'),
+            'ț' | 'ţ' => out.push('t'),
+            'ç' | 'ć' | 'č' => out.push('c'),
+            'ñ' | 'ń' => out.push('n'),
+            'ž' | 'ź' | 'ż' => out.push('z'),
             c if c.is_alphanumeric() => out.extend(c.to_lowercase()),
             _ => out.push(' '),
         }
@@ -48,7 +58,8 @@ struct Hit {
     score: i64,
 }
 
-/// Augments whose names appear in `lines` (fuzzy), in screen order, deduped.
+/// Augments whose names appear in `lines` (fuzzy), in screen order, deduped. A name may
+/// list translations one per line ("Take 'em Down\nPune-i la pământ"): any of them matches.
 ///
 /// OCR words are concatenated (spaces dropped, so split/merged words don't
 /// matter) over windows of the name's word count ±1, which may span one line
@@ -62,7 +73,8 @@ pub fn match_augments(lines: &[String], names: &HashMap<AugmentId, String>) -> V
         .collect();
     let targets: Vec<Target> = names
         .iter()
-        .filter_map(|(&id, name)| {
+        .flat_map(|(&id, name)| name.lines().map(move |n| (id, n)))
+        .filter_map(|(id, name)| {
             let w = words(name);
             (!w.is_empty()).then(|| Target {
                 id,
@@ -204,6 +216,30 @@ mod tests {
         assert_eq!(m(&["Residual Magic", "Kick Start"]), [1, 4]);
         assert_eq!(m(&["Residual Magic +", "Kick Start"]), [2, 4]);
         assert_eq!(m(&["Residual Magic ++"]), [3]);
+    }
+
+    #[test]
+    fn translated_names_with_misread_accents() {
+        // A Romanian client's offer as OCR read it.
+        let names: HashMap<AugmentId, String> = [
+            (3116, "Take 'em Down
+Pune-i la pământ"),
+            (1020, "Dawnbringer's Resolve
+Voința întrupării Luminii"),
+            (1336, "Upgrade Infinity Edge
+Îmbunătățire: Sabia infinitului"),
+            (1373, "Shrink Engine
+Motor de micșorare"),
+        ]
+        .into_iter()
+        .map(|(id, n)| (id, n.to_string()))
+        .collect();
+        let lines: Vec<String> =
+            ["Pune-i la pämånt", "Daune", "Vointa intrupärii Luminii", "Rezistentä", "imbunätätire: Sabia", "infinitului", "Daune"]
+                .map(String::from)
+                .to_vec();
+        assert_eq!(match_augments(&lines, &names), [3116, 1020, 1336]);
+        assert_eq!(match_augments(&["Shrink Engine".to_string(), "Motor de micsorare".to_string()], &names), [1373]);
     }
 
     #[test]

@@ -91,6 +91,13 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
             if let Some(c) = &lcu {
                 tracing::info!("League client found at {}", c.base);
+                let (c2, sh2) = (c.clone(), sh.clone());
+                tokio::spawn(async move {
+                    match c2.augment_names().await {
+                        Ok(n) => *sh2.local_augment_names.lock().unwrap() = Some(Arc::new(n)),
+                        Err(e) => tracing::warn!("client augment names: {e:#}"),
+                    }
+                });
                 if debug::on() && !probed {
                     probed = true;
                     tokio::spawn(debug::probe_lcu(c.clone()));
@@ -392,7 +399,16 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         (Some((a, m)), true) => {
             let ids: Vec<AugmentId> = crate::tab::pool(sh)
                 .unwrap_or_else(|| a.prismatic.iter().chain(&a.gold).chain(&a.silver).copied().collect());
-            Some(Arc::new(ids.into_iter().filter_map(|id| Some((id, m.augment_names.get(&id)?.clone()))).collect()))
+            let local = sh.local_augment_names.lock().unwrap().clone();
+            let name = |id: AugmentId| {
+                let en = m.augment_names.get(&id)?;
+                Some(match local.as_ref().and_then(|l| l.get(&id)).filter(|n| !n.eq_ignore_ascii_case(en)) {
+                    Some(n) => format!("{en}
+{n}"),
+                    None => en.clone(),
+                })
+            };
+            Some(Arc::new(ids.into_iter().filter_map(|id| Some((id, name(id)?))).collect()))
         }
         _ => None,
     };

@@ -6,6 +6,7 @@ use base64::Engine;
 use model_game::{ChampKey, ChampSelect, EogStats, Lane, Mode, RankSnapshot};
 use reqwest::{StatusCode, header::AUTHORIZATION};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::time::Duration;
 
 const LOCKFILE: &str = r"C:\Riot Games\League of Legends\lockfile";
@@ -132,6 +133,11 @@ impl Lcu {
         Ok(Some(r.json().await.with_context(|| format!("LCU {path} body"))?))
     }
 
+    /// Mayhem / Arena augment names in the client's language, by id.
+    pub async fn augment_names(&self) -> Result<HashMap<u32, String>> {
+        Ok(self.get("/lol-game-data/assets/v1/cherry-augments.json").await?.map(|j| parse_augment_names(&j)).unwrap_or_default())
+    }
+
     /// `/lol-gameflow/v1/gameflow-phase`: "None", "Lobby", "ChampSelect", "InProgress", "EndOfGame", …
     pub async fn phase(&self) -> Result<String> {
         match self.get("/lol-gameflow/v1/gameflow-phase").await? {
@@ -177,6 +183,15 @@ fn arr(v: &Value) -> impl Iterator<Item = &Value> {
 }
 
 /// Pure parser for `/lol-ranked/v1/current-ranked-stats`.
+/// `cherry-augments.json`: `[{"id": 3116, "nameTRA": "Pune-i la pământ", …}]`.
+pub fn parse_augment_names(json: &Value) -> HashMap<u32, String> {
+    json.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|a| Some((a["id"].as_u64()? as u32, a["nameTRA"].as_str().filter(|n| !n.is_empty())?.to_string())))
+        .collect()
+}
+
 pub fn parse_ranked(json: &Value, now: u64) -> Vec<RankSnapshot> {
     [("solo", "RANKED_SOLO_5x5"), ("flex", "RANKED_FLEX_SR")]
         .into_iter()

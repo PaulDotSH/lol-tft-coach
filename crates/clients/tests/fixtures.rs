@@ -268,3 +268,15 @@ fn ranked_stats_keep_solo_and_flex_and_skip_unranked() {
     assert_eq!(s.len(), 1);
     assert_eq!((s[0].time, s[0].queue.as_str(), s[0].tier.as_str(), s[0].division.as_str(), s[0].lp, s[0].wins, s[0].losses), (42, "solo", "GOLD", "II", 7, 11, 1));
 }
+
+#[test]
+fn client_augment_names_by_id() {
+    let j = serde_json::json!([
+        {"id": 3116, "augmentNameId": "TakeemDownDownDown", "nameTRA": "Pune-i la pământ"},
+        {"id": 1, "nameTRA": ""},
+        {"nameTRA": "no id"}
+    ]);
+    let n = clients::lcu::parse_augment_names(&j);
+    assert_eq!(n.len(), 1);
+    assert_eq!(n[&3116], "Pune-i la pământ");
+}
