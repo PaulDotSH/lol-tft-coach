@@ -37,6 +37,15 @@ pub fn league_client() -> Option<(u32, u32)> {
     None
 }
 
+/// The game window's client area in screen pixels (League or TFT). None when the
+/// window is missing or minimised.
+pub fn league_rect() -> Option<scoreboard::Rect> {
+    #[cfg(windows)]
+    return win::client_rect();
+    #[cfg(not(windows))]
+    None
+}
+
 /// Capture a rectangle of the League window's client area.
 pub fn capture_client(r: scoreboard::Rect) -> Option<Frame> {
     #[cfg(windows)]

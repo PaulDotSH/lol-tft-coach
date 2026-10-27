@@ -19,7 +19,7 @@ a glance which enemy is the threat and how you compare to your lane opponent.
 
 | Topic | Decision |
 |---|---|
-| Display | Normal window on a second monitor. Never takes focus, never always-on-top, no overlay. |
+| Display | Normal window on a second monitor. Never takes focus, never always-on-top. *Revised 2026-10-27:* plus an optional click-through overlay over the game window (setting, on by default) that never takes focus: augment ranks on the offer cards, Buy next / gold short / newest call near the minimap, objective timers; TFT: target comp, augment ranks, roll/level call. Only what the dashboard already shows; ranks, never win rates. |
 | Lifecycle | Launched manually, then lives in the tray between games; remembers window position. |
 | Alerts | None. Silent; the user glances when they want. |
 | Layout | One dashboard per phase (champ select / in game / idle), no tabs to click mid-game. |
@@ -298,7 +298,7 @@ cached; if they object or block it, the app degrades to rules-only.
 
 ## Out of scope for v1
 
-Arena; overlay; sounds/toasts; auto-start with Windows; runes and skill order
+Arena; overlay (added later, see Display); sounds/toasts; auto-start with Windows; runes and skill order
 (possible v2: lolalytics has them); LCU websocket; post-game damage graphs;
 multiple accounts.
 

@@ -17,4 +17,8 @@ goals: Array<Goal>,
 /**
  * Speak in-game calls aloud.
  */
-audio: boolean, };
+audio: boolean, 
+/**
+ * Draw the click-through overlay over the game window (LoL and TFT).
+ */
+overlay: boolean, };

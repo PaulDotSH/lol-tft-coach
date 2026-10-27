@@ -3,7 +3,8 @@
 Second-monitor League of Legends coach: what to buy next and why, who the
 threats are, how you compare, champ select picks/bans/build, and ARAM: Mayhem
 augment ranking read off the screen. Read-only (Riot's local APIs + public
-stats sites), silent, never an overlay. Spec: `docs/superpowers/specs/`,
+stats sites), plus an optional click-through overlay over the game window that
+never takes focus. Spec: `docs/superpowers/specs/`,
 future ideas: `docs/ideas.md`.
 
 ## Features
@@ -11,6 +12,7 @@ future ideas: `docs/ideas.md`.
 - **Champ select**: counter-picks (all champions in your role) blended with duo synergy and comp gaps, bans, draft breakdown for both teams, team composition (damage mix, frontline, engage, peel, CC), ARAM/Mayhem bench ranked by tier + team fit, build plan.
 - **In game**: Buy next with threat-aware reasons, gold ETA and back plans, shopping list (emphasised while dead), full path, late-game gold sinks; threat board with R-online/base ult cooldowns, finished-item spikes and enemy Mayhem augments; death windows; item-gold diff (team, lanes, sparkline); self-coach row with goals; effective HP vs the enemy damage mix and pen choice; objective timers.
 - **Mayhem**: augment offers read by OCR and ranked for your champion (ranks only, never win rates), picked-augment detection, augment-aware item scoring, mode rules (`crates/coach/modes.toml`), "hold Tab" hints and enemy augments read from the Tab scoreboard.
+- **Overlay** (Settings, on by default): a click-through, never-activated window over the game window (borderless or windowed; exclusive fullscreen hides it). LoL: rank badges (1st / 2nd / 3rd + short reason) over the Mayhem offer cards, Buy next with gold short / ETA and the newest call above the minimap, objective timers. TFT: target comp, augment ranks on the offer cards, the roll / level call. Only what the dashboard shows; ranks, never win rates.
 - **Between games**: last-game recap with death review, recent-game loss patterns (macro coach), trends and goals, champion lookup, settings.
 
 ## Run
@@ -53,8 +55,8 @@ web\node_modules\.bin\tauri dev                    # hot-reload dev
 | `crates/clients` | League client (lockfile, champ select, end-of-game) and Live Client Data API |
 | `crates/coach` | Pure decisions: threats, needs, item scoring, matchups, self stats, timers, augments, champ select, recap. Tuning in `consts.rs` |
 | `crates/ocr` | GDI capture of the League window → Windows OCR → fuzzy augment matching |
-| `src-tauri` | Phase loop (`orchestrator.rs`), background fetch cache, commands, tray |
-| `web` | Svelte 5 dashboards; mock mode when opened outside Tauri (`npm --prefix web run dev`, `?mock=<fixture>`) |
+| `src-tauri` | Phase loop (`orchestrator.rs`), TFT loop (`tft.rs`), overlay window (`overlay.rs`), background fetch cache, commands, tray |
+| `web` | Svelte 5 dashboards; mock mode when opened outside Tauri (`npm --prefix web run dev`, `?mock=<fixture>`); `overlay.html` is the overlay window's page (a sample outside Tauri) |
 
 Files: settings `%APPDATA%\lol-coach\settings.toml`; cache, logs, recaps and
 recorded fixtures under `%LOCALAPPDATA%\lol-coach\`.
@@ -75,4 +77,5 @@ recorded fixtures under `%LOCALAPPDATA%\lol-coach\`.
 - Mayhem items use lolalytics ARAM data (lolalytics has no Mayhem; u.gg's Mayhem item samples are tiny).
 - No vision benchmark source; per-role constants are used.
 - Match history, Tab scoreboard geometry and augment-pick detection are built from docs, one third-party screenshot and fixtures; check them in real games (`cargo test -p clients --test history -- --ignored --nocapture live_history` with the client open).
+- Overlay badge positions are fixed fractions of the game window (Mayhem cards from the OCR strip, TFT cards guessed) and need a check in real games; a row with a title unread gets no badges.
 - Parallel worktrees: the global cargo `build-dir` is shared, so give each worktree its own `CARGO_BUILD_BUILD_DIR`.

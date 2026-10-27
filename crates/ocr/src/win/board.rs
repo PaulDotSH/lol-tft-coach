@@ -13,6 +13,19 @@ pub fn client_size() -> Option<(u32, u32)> {
     (rc.right > 0 && rc.bottom > 0).then_some((rc.right as u32, rc.bottom as u32))
 }
 
+/// The client area in screen pixels.
+pub fn client_rect() -> Option<Rect> {
+    let hwnd = league_window()?;
+    let (mut rc, mut origin) = (RECT::default(), POINT::default());
+    unsafe {
+        GetClientRect(hwnd, &mut rc).ok()?;
+        if !ClientToScreen(hwnd, &mut origin).as_bool() {
+            return None;
+        }
+    }
+    Some(Rect { x: origin.x, y: origin.y, w: rc.right, h: rc.bottom })
+}
+
 pub fn capture_client(r: Rect) -> Option<Frame> {
     let hwnd = league_window()?;
     let mut origin = POINT::default();
