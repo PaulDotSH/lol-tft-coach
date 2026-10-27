@@ -63,15 +63,21 @@ pub fn pregame(meta: &TftMeta, _set: &TftSetData, starter: Option<&str>) -> Vec<
         .collect()
 }
 
+/// 0 without the comp's main carry: a wide board (Choncc's team size) shares many units with
+/// comps it isn't.
 fn similarity(game: &TftPastGame, comp: &MetaComp) -> f32 {
     let mine: HashSet<&str> = game.units.iter().map(|u| u.api.as_str()).collect();
+    if comp.builds.first().is_some_and(|b| !mine.contains(b.unit.as_str())) {
+        return 0.0;
+    }
     let theirs: HashSet<&str> = comp.units.iter().map(|u| u.as_str()).collect();
     let my_traits: HashSet<&str> = game.traits.iter().filter(|t| t.2 > 0).map(|t| t.0.as_str()).collect();
     let comp_traits: HashSet<&str> = comp.traits.iter().map(|t| t.0.as_str()).collect();
     MATCH_UNITS * jaccard(&mine, &theirs) + (1.0 - MATCH_UNITS) * jaccard(&my_traits, &comp_traits)
 }
 
-/// The nearest MetaTFT comp to a past board (units, then active traits), if any is close enough.
+/// The nearest MetaTFT comp to a past board (units, then active traits) that has its main carry,
+/// if any is close enough.
 pub fn match_comp(game: &TftPastGame, meta: &TftMeta) -> Option<String> {
     meta.comps
         .iter()
@@ -90,7 +96,12 @@ fn comp_of<'m>(game: &TftPastGame, meta: &'m TftMeta) -> Option<&'m MetaComp> {
 /// build, final level against its levelling, and units it wants upgraded that weren't.
 pub fn review(game: &TftPastGame, meta: &TftMeta, set: &TftSetData) -> TftReview {
     let Some(comp) = comp_of(game, meta) else {
-        let takeaways = vec![format!("{} with a board no meta comp matches: try a listed comp next game", ordinal(game.placement))];
+        let p = ordinal(game.placement);
+        let takeaways = vec![if game.placement <= TOP4 {
+            format!("{p} with your own board: no meta comp matches it")
+        } else {
+            format!("{p} with a board no meta comp matches: try a listed comp next game")
+        }];
         return TftReview { game: game.clone(), comp: None, takeaways };
     };
     let on_board = |u: &str| game.units.iter().find(|x| x.api == u);

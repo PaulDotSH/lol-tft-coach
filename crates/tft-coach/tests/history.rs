@@ -51,6 +51,10 @@ fn a_past_board_matches_the_nearest_comp() {
     let m = meta();
     assert_eq!(match_comp(&rengar_board(3, TftMode::Standard), &m).as_deref(), Some(RENGAR_COMP));
     assert_eq!(match_comp(&off_meta(3, TftMode::Standard), &m), None);
+    // Most of Defender Rengar without Rengar is the Vi comp it still has the carry of.
+    let mut no_carry = rengar_board(3, TftMode::Standard);
+    no_carry.units.remove(0);
+    assert_eq!(match_comp(&no_carry, &m).as_deref(), Some(DUEL_COMP));
 }
 
 #[test]
@@ -73,7 +77,9 @@ fn review_compares_placement_items_and_level_with_the_comp() {
     let r = review(&won, &m, &s);
     assert_eq!(r.takeaways, ["1st with Defender Rengar: better than its 4.0 average", "Rengar had the best build"]);
     let r = review(&off_meta(7, TftMode::Standard), &m, &s);
-    assert!(r.comp.is_none() && r.takeaways.len() == 1);
+    assert_eq!((r.comp, r.takeaways), (None, vec!["7th with a board no meta comp matches: try a listed comp next game".to_string()]));
+    let r = review(&off_meta(1, TftMode::Choncc), &m, &s);
+    assert_eq!(r.takeaways, ["1st with your own board: no meta comp matches it"]);
 }
 
 #[test]
