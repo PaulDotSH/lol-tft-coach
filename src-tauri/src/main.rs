@@ -25,21 +25,17 @@ fn main() {
     let http = data::Http::new(settings::local_dir("cache")).expect("http client");
     let shared = Arc::new(Shared::new(http, settings::load()));
     let tft_shared = Arc::new(tft::TftShared::default());
-    let overlay_shared = Arc::new(overlay::OverlayShared::default());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
         // Size and position only: a window closed to the tray must not come back hidden.
-        // The overlay follows the game window instead.
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(tauri_plugin_window_state::StateFlags::all() - tauri_plugin_window_state::StateFlags::VISIBLE)
-                .with_denylist(&[overlay::LABEL, overlay::CARDS_LABEL])
                 .build(),
         )
         .manage(shared.clone())
         .manage(tft_shared.clone())
-        .manage(overlay_shared.clone())
         .invoke_handler(tauri::generate_handler![
             commands::get_state,
             commands::get_static,
@@ -48,8 +44,7 @@ fn main() {
             commands::analyze_game,
             commands::log_frontend,
             tft::get_tft,
-            tft::get_tft_static,
-            overlay::get_overlay
+            tft::get_tft_static
         ])
         .setup(move |app| {
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -71,11 +66,7 @@ fn main() {
                 })
                 .build(app)?;
 
-            // Hidden until a game runs; created now so it never appears mid-game.
-            if let Err(e) = overlay::create(app.handle()) {
-                tracing::warn!("overlay window: {e:#}");
-            }
-            overlay::spawn(app.handle().clone(), shared.clone(), tft_shared.clone(), overlay_shared.clone());
+            overlay::spawn(shared.clone(), tft_shared.clone());
             orchestrator::spawn_ocr(shared.clone());
             tauri::async_runtime::spawn(orchestrator::run(app.handle().clone(), shared.clone()));
             tauri::async_runtime::spawn(tft::run(app.handle().clone(), shared.clone(), tft_shared.clone()));

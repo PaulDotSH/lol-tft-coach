@@ -55,8 +55,8 @@ web\node_modules\.bin\tauri dev                    # hot-reload dev
 | `crates/clients` | League client (lockfile, champ select, end-of-game) and Live Client Data API |
 | `crates/coach` | Pure decisions: threats, needs, item scoring, matchups, self stats, timers, augments, champ select, recap. Tuning in `consts.rs` |
 | `crates/ocr` | GDI capture of the League window → Windows OCR → fuzzy augment matching |
-| `src-tauri` | Phase loop (`orchestrator.rs`), TFT loop (`tft.rs`), overlay window (`overlay.rs`), background fetch cache, commands, tray |
-| `web` | Svelte 5 dashboards; mock mode when opened outside Tauri (`npm --prefix web run dev`, `?mock=<fixture>`); `overlay.html` is the overlay window's page (a sample outside Tauri) |
+| `src-tauri` | Phase loop (`orchestrator.rs`), TFT loop (`tft.rs`), overlay windows (`overlay/`, drawn natively), background fetch cache, commands, tray |
+| `web` | Svelte 5 dashboards; mock mode when opened outside Tauri (`npm --prefix web run dev`, `?mock=<fixture>`) |
 
 Files: settings `%APPDATA%\lol-coach\settings.toml`; cache, logs, recaps and
 recorded fixtures under `%LOCALAPPDATA%\lol-coach\`.

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AppState } from '../lib/bindings/AppState';
   import type { SourceState } from '../lib/bindings/SourceState';
-  import { clock } from '../lib/store.svelte';
+  import { clock, saveSettings } from '../lib/store.svelte';
   import { clockText, MODE_NAMES } from '../lib/ui';
 
   let { state }: { state: AppState } = $props();
@@ -33,6 +33,17 @@
   {#if state.phase === 'ingame' && state.game}
     <span class="clock num">{clockText(clock.time)}</span>
   {/if}
+  {#if state.phase === 'ingame'}
+    <!-- In game the settings panel is hidden: the overlay toggle stays reachable here. -->
+    <label class="overlay" title="Over the game window; borderless or windowed (exclusive fullscreen hides it)">
+      <input
+        type="checkbox"
+        checked={state.settings.overlay}
+        onchange={(e) => saveSettings({ ...state.settings, overlay: e.currentTarget.checked })}
+      />
+      Overlay
+    </label>
+  {/if}
   <ul class="sources" title={tip} aria-label="Data sources">
     {#each dots as [name, st] (name)}
       <li class={st} title={tip ? `${name}: ${st}. ${tip}` : `${name}: ${st}`}>{name}</li>
@@ -59,6 +70,14 @@
   .clock {
     font-size: 17px;
     color: var(--muted);
+  }
+  .overlay {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .overlay + .sources {
+    margin-left: 0;
   }
   .sources {
     margin: 0 0 0 auto;

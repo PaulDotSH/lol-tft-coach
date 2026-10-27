@@ -52,7 +52,7 @@ data! {
 
     /// One rank badge over an offered augment card. Ranks only, never win rates.
     pub struct OverlayBadge {
-        /// Card centre, fraction of the card band's width (the overlay window over the cards).
+        /// Card centre, fraction of the game window's width.
         pub x: f32,
         /// 0-based place among the cards on offer; None when the coach has no rank for it.
         pub place: Option<u32>,
@@ -63,7 +63,7 @@ data! {
     /// What the in-game overlay draws; pushed as the `overlay` event (None: nothing, hidden).
     pub struct Overlay {
         pub tft: bool,
-        /// Badge row (the card band's top), fraction of the game window's height.
+        /// Badge row (the badges' top), fraction of the game window's height.
         pub badge_y: f32,
         /// Empty unless the offer cards are on screen.
         pub badges: Vec<OverlayBadge>,
