@@ -125,3 +125,21 @@ fn gold_held_with_buy_next_affordable_is_a_back_tip() {
     fresh.observe(&at(895.0, 3500.0), &sd);
     assert!(advise(&at(900.0, 3500.0), None, &fresh).tips.iter().all(|t| t.key != "back"));
 }
+
+#[test]
+fn an_enchanter_item_is_no_spike() {
+    const SHURELYAS: ItemId = 2065;
+    let mut sd = sd();
+    let mut it = sd.items[&YOUMUUS].clone();
+    (it.id, it.name, it.stats) = (SHURELYAS, "Shurelya's Battlesong".into(), ItemStats { ap: 50.0, ..Default::default() });
+    sd.items.insert(SHURELYAS, it);
+    let mut t = Tracker::default();
+    let mut p = lobby(STANDARD);
+    t.observe(&GameSnapshot { time: 800.0, ..snap(p.clone(), vec![]) }, &sd);
+    p[ZED_I].items.push(SHURELYAS);
+    let s = GameSnapshot { time: 850.0, ..snap(p, vec![]) };
+    t.observe(&s, &sd);
+    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
+    live_extras(&mut a, &LiveInput { snap: &s, sd: &sd, tracker: &t, ults: &HashMap::new() });
+    assert!(!a.calls.iter().any(|c| c.key.starts_with(&format!("item-{ZED}-"))), "{:?}", a.calls);
+}

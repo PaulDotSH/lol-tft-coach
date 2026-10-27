@@ -6,6 +6,9 @@ use crate::tracker::Tracker;
 use model::*;
 
 const CONTROL_WARD: ItemId = 2055;
+/// AP-only items below this are enchanter support items (Shurelya's 50, Redemption 30,
+/// Moonstone 25), not a damage spike; mage items start around Liandry's 60.
+const SPIKE_AP: f32 = 60.0;
 const STEALTH_WARD: ItemId = 3340;
 const LEVEL_SPIKES: [u32; 3] = [6, 11, 16];
 /// A level race is called this long (s) after the level-up; later it is old news.
@@ -67,12 +70,12 @@ pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData, tracke
         }
     }
 
-    // Damage items my lane opponent or the top threat just finished (a Locket is no spike),
+    // Damage items my lane opponent or the top threat just finished (a Locket or a Shurelya's is no spike),
     // one call for items finished together.
     let damage = |id| {
         sd.items
             .get(&id)
-            .is_some_and(|it| it.stats.ad + it.stats.ap + it.stats.attack_speed + it.stats.crit > 0.0)
+            .is_some_and(|it| it.stats.ad + it.stats.attack_speed + it.stats.crit > 0.0 || it.stats.ap >= SPIKE_AP)
     };
     for (i, th) in a.threats.iter().enumerate() {
         if !(th.lane_opp || i == 0) {

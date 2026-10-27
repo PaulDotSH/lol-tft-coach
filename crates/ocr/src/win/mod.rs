@@ -5,5 +5,5 @@ mod engine;
 mod tests;
 
 pub use board::{capture_client, client_rect, client_size};
-pub use capture::capture_league;
+pub use capture::{capture_league, league_foreground};
 pub use engine::{recognize, recognize_boxes};

@@ -1,7 +1,13 @@
-//! In-game overlay: a click-through window over the game window that never takes focus.
+//! In-game overlay: click-through windows over the game window that never take focus.
 //! It shows only what the dashboard already has: augment ranks on the offer cards (ranks
 //! only, never win rates or placement stats), Buy next with the gold missing, the newest call
 //! and the objective timers (LoL); the target comp, augment ranks and the roll / level call (TFT).
+//!
+//! Shown only while the game window has focus (hidden on alt-tab), like other overlay tools.
+//! Two small windows, each only as big as what it draws and hidden while empty: a window
+//! covering the whole game made Windows compose every game frame with it (FPS drop). The strip
+//! (Buy next, call, timers) sits above the minimap (LoL) or top left (TFT); the card band shows
+//! only while an offer is up.
 //!
 //! Created hidden at startup (never while a game runs), then only ever shown with
 //! SWP_NOACTIVATE / hidden with SW_HIDE: Tauri's own `show()` activates the window.
@@ -16,8 +22,17 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, WebviewUrl, WebviewWindowBuilder};
 
 pub const LABEL: &str = "overlay";
-/// The game window is followed at this rate.
-const TRACK_EVERY: Duration = Duration::from_secs(1);
+pub const CARDS_LABEL: &str = "overlay-cards";
+/// The strip's window, as shares of the game window: right edge 0.6 % in and bottom 27 % up
+/// (above a default-size minimap) for LoL, 1 % / 9 % from the top left for TFT.
+const STRIP_W: f32 = 0.22;
+const STRIP_H: f32 = 0.16;
+/// The card band: across the cards, from the badge row down.
+const BAND_X: f32 = 0.15;
+const BAND_W: f32 = 0.7;
+const BAND_H: f32 = 0.06;
+/// The game window and its focus are followed at this rate.
+const TRACK_EVERY: Duration = Duration::from_millis(500);
 /// Offer cards per row, LoL Mayhem and TFT alike. A row with a title unread isn't placed:
 /// the screen order no longer says which card is which.
 const CARDS: usize = 3;
@@ -41,9 +56,15 @@ pub fn get_overlay(ov: tauri::State<Arc<OverlayShared>>) -> Option<Overlay> {
     ov.view.lock().unwrap().clone()
 }
 
-/// The overlay window, hidden. Called once from setup, before any game.
+/// The overlay windows, hidden. Called once from setup, before any game. The page draws its
+/// part in units of the game window's height: `h` is the window's share of it.
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("overlay.html".into()))
+    window(app, LABEL, &format!("overlay.html?part=strip&h={STRIP_H}"))?;
+    window(app, CARDS_LABEL, &format!("overlay.html?part=cards&h={BAND_H}"))
+}
+
+fn window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<()> {
+    let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
         .title("LoL Coach overlay")
         .visible(false)
         .focused(false)
@@ -64,14 +85,14 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
 /// Follows the game window and pushes the view, on its own thread.
 pub fn spawn(app: AppHandle, sh: Arc<Shared>, tft: Arc<TftShared>, ov: Arc<OverlayShared>) {
     #[cfg(windows)]
-    let hwnd = {
+    let hwnds = {
         use tauri::Manager;
-        app.get_webview_window(LABEL).and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize)
+        [LABEL, CARDS_LABEL].map(|l| app.get_webview_window(l).and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize))
     };
     std::thread::Builder::new()
         .name("overlay".into())
         .spawn(move || {
-            let mut placed: Option<Option<Rect>> = None;
+            let mut placed: [Option<Option<Rect>>; 2] = [None, None];
             loop {
                 let view = match tft.overlay_input() {
                     Some((advice, offer)) => Some(tft_view(advice.as_ref(), &offer)),
@@ -81,23 +102,28 @@ pub fn spawn(app: AppHandle, sh: Arc<Shared>, tft: Arc<TftShared>, ov: Arc<Overl
                         st.game.as_ref().filter(|_| st.phase == Phase::InGame).map(|g| lol_view(g, &seen))
                     }
                 };
-                let rect = placement(sh.settings().overlay, view.is_some(), ocr::league_rect());
-                let view = view.filter(|_| rect.is_some());
+                let client = placement(sh.settings().overlay, view.is_some() && ocr::league_foreground(), ocr::league_rect());
+                let view = view.filter(|_| client.is_some());
+                let rects = windows(client, view.as_ref());
                 {
                     let mut last = ov.view.lock().unwrap();
                     if *last != view {
-                        let _ = app.emit_to(LABEL, "overlay", &view);
+                        for label in [LABEL, CARDS_LABEL] {
+                            let _ = app.emit_to(label, "overlay", &view);
+                        }
                         *last = view;
                     }
                 }
-                // Re-checked every tick (cheap): the window library may hide it or rewrite its style.
+                // Re-checked every tick (cheap): the window library may hide one or rewrite its style.
                 #[cfg(windows)]
-                if let Some(h) = hwnd
-                    && (rect.is_some() || placed != Some(None))
-                {
-                    let _ = app.run_on_main_thread(move || win::place(h, rect));
+                for ((h, rect), was) in hwnds.iter().zip(rects).zip(placed) {
+                    if let Some(h) = *h
+                        && (rect.is_some() || was != Some(None))
+                    {
+                        let _ = app.run_on_main_thread(move || win::place(h, rect));
+                    }
                 }
-                placed = Some(rect);
+                placed = rects.map(Some);
                 std::thread::sleep(TRACK_EVERY);
             }
         })
@@ -112,6 +138,23 @@ fn placement(enabled: bool, in_game: bool, client: Option<Rect>) -> Option<Rect>
     (r.w > 0 && r.h > 0 && r.x > -32000 && r.y > -32000).then_some(r)
 }
 
+/// [strip, card band] over the game's client area; None hides one (nothing to draw).
+fn windows(client: Option<Rect>, view: Option<&Overlay>) -> [Option<Rect>; 2] {
+    let (Some(r), Some(v)) = (client, view) else { return [None, None] };
+    let share = |x: f32, w: f32, y: f32, h: f32| Rect {
+        x: r.x + (r.w as f32 * x).round() as i32,
+        y: r.y + (r.h as f32 * y).round() as i32,
+        w: (r.w as f32 * w).round() as i32,
+        h: (r.h as f32 * h).round() as i32,
+    };
+    let strip = (v.head.is_some() || v.call.is_some() || !v.timers.is_empty()).then(|| match v.tft {
+        true => share(0.01, STRIP_W, 0.09, STRIP_H),
+        false => share(1.0 - 0.006 - STRIP_W, STRIP_W, 1.0 - 0.27 - STRIP_H, STRIP_H),
+    });
+    let band = (!v.badges.is_empty()).then(|| share(BAND_X, BAND_W, v.badge_y, BAND_H));
+    [strip, band]
+}
+
 /// Centres of `n` cards side by side around the middle, `pitch` apart (fractions of the width).
 fn card_centres(n: usize, pitch: f32) -> Vec<f32> {
     (0..n).map(|i| 0.5 + (i as f32 - (n as f32 - 1.0) / 2.0) * pitch).collect()
@@ -122,7 +165,11 @@ fn badges(cards: Vec<(Option<u32>, Option<String>)>, pitch: f32) -> Vec<OverlayB
     if cards.len() != CARDS {
         return vec![];
     }
-    card_centres(CARDS, pitch).into_iter().zip(cards).map(|(x, (place, reason))| OverlayBadge { x, place, reason }).collect()
+    card_centres(CARDS, pitch)
+        .into_iter()
+        .zip(cards)
+        .map(|(x, (place, reason))| OverlayBadge { x: (x - BAND_X) / BAND_W, place, reason })
+        .collect()
 }
 
 /// LoL: the advice's offer, while those same cards are on screen.
@@ -268,6 +315,32 @@ mod tests {
     }
 
     #[test]
+    fn small_windows_only_for_what_is_drawn() {
+        let view = |tft: bool, badges: usize, timers: bool| Overlay {
+            tft,
+            badge_y: LOL_BADGE_Y,
+            badges: (0..badges).map(|_| OverlayBadge { x: 0.5, place: None, reason: None }).collect(),
+            head: None,
+            detail: None,
+            call: None,
+            time: 0.0,
+            timers: if timers { vec![ObjectiveTimer { name: "Dragon".into(), next_spawn: Some(300.0) }] } else { vec![] },
+        };
+        // LoL strip above the minimap, right edge 0.6 % in; nothing to draw, nothing shown.
+        let [strip, band] = windows(Some(R), Some(&view(false, 0, true)));
+        let s = strip.unwrap();
+        assert_eq!((s.w, s.h), (563, 230));
+        assert_eq!((s.x + s.w, s.y + s.h), (2544, 1051));
+        assert_eq!(band, None);
+        assert_eq!(windows(Some(R), Some(&view(false, 0, false))), [None, None]);
+        assert_eq!(windows(None, Some(&view(false, 3, true))), [None, None]);
+        // Cards up: a band across them from the badge row; TFT strip top left.
+        let [strip, band] = windows(Some(R), Some(&view(true, 3, true)));
+        assert_eq!(strip.map(|s| (s.x, s.y)), Some((26, 130)));
+        assert_eq!(band, Some(Rect { x: 384, y: 475, w: 1792, h: 86 }));
+    }
+
+    #[test]
     fn cards_are_centred() {
         let c = card_centres(3, LOL_PITCH);
         assert!((c[0] - 0.3133).abs() < 1e-3 && (c[1] - 0.5).abs() < 1e-6 && (c[2] - 0.6867).abs() < 1e-3);
@@ -293,6 +366,8 @@ mod tests {
         assert_eq!(b[1].reason, None);
         assert_eq!(b[2].reason.as_deref(), Some("fits your Rabadon's Deathcap (AP)"));
         assert!(b[0].x < b[1].x && b[1].x < b[2].x);
+        // Centres as shares of the card band.
+        assert!((b[1].x - 0.5).abs() < 1e-6 && b[0].x > 0.0 && b[2].x < 1.0);
         // Cards gone (shop open), replaced, or a title unread: no badges.
         assert!(lol_badges(Some(&advice), &[]).is_empty());
         assert!(lol_badges(Some(&advice), &[7, 8, 10]).is_empty());

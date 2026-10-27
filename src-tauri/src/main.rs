@@ -34,7 +34,7 @@ fn main() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(tauri_plugin_window_state::StateFlags::all() - tauri_plugin_window_state::StateFlags::VISIBLE)
-                .with_denylist(&[overlay::LABEL])
+                .with_denylist(&[overlay::LABEL, overlay::CARDS_LABEL])
                 .build(),
         )
         .manage(shared.clone())

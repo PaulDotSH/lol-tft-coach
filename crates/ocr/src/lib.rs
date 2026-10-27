@@ -46,6 +46,15 @@ pub fn league_rect() -> Option<scoreboard::Rect> {
     None
 }
 
+/// The game window has focus. Overlays show only then, as overlay tools do: drawn over
+/// whatever else is in front, they cost the game frames for nothing.
+pub fn league_foreground() -> bool {
+    #[cfg(windows)]
+    return win::league_foreground();
+    #[cfg(not(windows))]
+    false
+}
+
 /// Capture a rectangle of the League window's client area.
 pub fn capture_client(r: scoreboard::Rect) -> Option<Frame> {
     #[cfg(windows)]

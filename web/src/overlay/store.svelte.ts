@@ -24,7 +24,8 @@ function apply(v: Overlay | null) {
 }
 
 export async function startOverlay() {
-  setInterval(() => tick++, 1000);
+  // Only the strip counts timers down; the card band redraws on pushes alone.
+  if (new URLSearchParams(location.search).get('part') !== 'cards') setInterval(() => tick++, 1000);
   if (!('__TAURI_INTERNALS__' in window)) return apply(sample);
   const [{ invoke }, { listen }] = await Promise.all([import('@tauri-apps/api/core'), import('@tauri-apps/api/event')]);
   await listen<Overlay | null>('overlay', (e) => apply(e.payload));
