@@ -7,6 +7,11 @@
 //! empty or while the game isn't the foreground window: the strip (Buy next, call, timers)
 //! above the minimap (LoL) or top left (TFT), and the rank badges while an offer is up.
 //! Exclusive fullscreen draws over every overlay; borderless or windowed only.
+//!
+//! The strip only flashes up for a few seconds when what it says changes. Measured with
+//! PresentMon (2026-10-28): any window over League, even an opaque box, cuts it from 165 to
+//! ~90–130 FPS while it shows, MPO on or off; overlays without that cost draw inside the game
+//! (Overwolf), which an app outside Overwolf can't do under Vanguard.
 
 #[cfg(windows)]
 mod native;
@@ -27,6 +32,10 @@ const BADGE_W: f32 = 0.17;
 const TRACK_EVERY: Duration = Duration::from_millis(500);
 /// The timers count on from the last view for at most this long (a stalled feed stops them).
 const COUNT_ON: f32 = 5.0;
+/// The strip shows this long after what it says changes.
+const FLASH: Duration = Duration::from_secs(6);
+/// A timer this close (s), or up, is news for the strip.
+const TIMER_SOON: f32 = 60.0;
 /// Offer cards per row, LoL Mayhem and TFT alike. A row with a title unread isn't placed:
 /// the screen order no longer says which card is which.
 const CARDS: usize = 3;
@@ -93,6 +102,8 @@ pub fn spawn(sh: Arc<Shared>, tft: Arc<TftShared>) {
             };
             // The view's game time and when it was taken: the timers count on between views.
             let mut clock = (f32::NAN, Instant::now());
+            // What the strip last said, and until when it shows.
+            let (mut said, mut until) = (None, Instant::now());
             loop {
                 let view = match tft.overlay_input() {
                     Some((advice, offer)) => Some(tft_view(advice.as_ref(), &offer)),
@@ -110,7 +121,17 @@ pub fn spawn(sh: Arc<Shared>, tft: Arc<TftShared>) {
                     }
                     _ => clock.0 + clock.1.elapsed().as_secs_f32().min(COUNT_ON),
                 };
-                let scenes = scenes(client, view.as_ref(), now);
+                let news = view.as_ref().map(|v| strip_news(v, now));
+                if news != said {
+                    if news.is_some() {
+                        until = Instant::now() + FLASH;
+                    }
+                    said = news;
+                }
+                let mut scenes = scenes(client, view.as_ref(), now);
+                if Instant::now() >= until {
+                    scenes[0] = None;
+                }
                 #[cfg(windows)]
                 {
                     for (w, s) in wins.iter_mut().zip(&scenes) {
@@ -187,6 +208,20 @@ fn scenes(client: Option<Rect>, view: Option<&Overlay>, now: f32) -> [Option<Sce
         unit,
     });
     [strip, badges]
+}
+
+/// What the strip says that's worth flashing it for: Buy next, the call, and which timers are
+/// close or up. Not the counting parts (gold short, the clocks), or it would never hide.
+fn strip_news(v: &Overlay, now: f32) -> (Option<String>, Option<String>, Vec<(String, bool)>) {
+    let timers = v
+        .timers
+        .iter()
+        .filter_map(|t| {
+            let left = t.next_spawn.map_or(0.0, |s| s - now);
+            (left <= TIMER_SOON).then(|| (t.name.clone(), left <= 0.0))
+        })
+        .collect();
+    (v.head.clone(), v.call.clone(), timers)
 }
 
 /// m:ss, as the dashboard's clockText.
@@ -332,6 +367,29 @@ mod tests {
         let Some(Scene::Badges { badges, y, .. }) = badges else { panic!() };
         assert_eq!(y, 475);
         assert_eq!(badges.iter().map(|b| (b.0, b.1.runs[0].text.as_str(), b.2)).collect::<Vec<_>>(), [(768, "1st", true), (1280, "2nd", false), (1792, "3rd", false)]);
+    }
+
+    #[test]
+    fn the_strip_flashes_for_news_not_for_counting() {
+        let v = |head: &str, detail: &str, spawn: f32| Overlay {
+            tft: false,
+            badge_y: LOL_BADGE_Y,
+            badges: vec![],
+            head: Some(head.into()),
+            detail: Some(detail.into()),
+            call: None,
+            time: 0.0,
+            timers: vec![ObjectiveTimer { name: "Dragon".into(), next_spawn: Some(spawn) }],
+        };
+        let base = strip_news(&v("Buy Sunfire", "450 g short", 300.0), 100.0);
+        // Gold and clocks counting: no news.
+        assert_eq!(strip_news(&v("Buy Sunfire", "300 g short", 300.0), 150.0), base);
+        // A new item, a timer within a minute, then up: news each time.
+        assert_ne!(strip_news(&v("Buy Thornmail", "450 g short", 300.0), 100.0), base);
+        let soon = strip_news(&v("Buy Sunfire", "450 g short", 300.0), 250.0);
+        assert_ne!(soon, base);
+        assert_eq!(strip_news(&v("Buy Sunfire", "450 g short", 300.0), 260.0), soon);
+        assert_ne!(strip_news(&v("Buy Sunfire", "450 g short", 300.0), 300.0), soon);
     }
 
     #[test]
