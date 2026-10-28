@@ -8,8 +8,10 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const LABEL: &str = "coachless";
 
+/// Async: a window built inside a sync command (main thread) deadlocks WebView2 on Windows
+/// and stays white.
 #[tauri::command]
-pub fn coachless_sign_in(app: AppHandle) -> Result<(), String> {
+pub async fn coachless_sign_in(app: AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(LABEL) {
         return w.set_focus().map_err(|e| e.to_string());
     }
