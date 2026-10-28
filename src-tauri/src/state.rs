@@ -27,6 +27,9 @@ pub struct StatsKey {
     pub mode: Mode,
 }
 
+/// Coachless build for my champion: lane, lane opponent, my first two completed items.
+pub type CoachlessKey = (ChampKey, Lane, Option<ChampKey>, Option<ItemId>, Option<ItemId>);
+
 pub struct Shared {
     pub http: data::Http,
     pub ui: Mutex<AppState>,
@@ -57,6 +60,10 @@ pub struct Shared {
     /// Data Dragon R cooldowns per champion, and the last fetch outcome.
     pub ults: Cache<ChampKey, UltCooldowns>,
     pub ddragon_ok: Mutex<Option<bool>>,
+    /// Coachless sign-in, my champion's Coachless builds and the last fetch outcome.
+    pub coachless_auth: data::coachless::Auth,
+    pub coachless: Cache<CoachlessKey, ChampStats>,
+    pub coachless_ok: Mutex<Option<bool>>,
     /// Mayhem Tab scoreboard reader.
     pub tab: crate::tab::TabShared,
 }
@@ -73,6 +80,8 @@ impl Shared {
                     lolalytics: SourceState::Off,
                     ugg: SourceState::Off,
                     ocr: SourceState::Off,
+                    coachless: SourceState::Off,
+                    coachless_premium: false,
                     message: None,
                 },
                 champ_select: None,
@@ -103,6 +112,9 @@ impl Shared {
             aram_tiers: Mutex::default(),
             ults: Mutex::default(),
             ddragon_ok: Mutex::new(None),
+            coachless_auth: data::coachless::Auth::load(crate::settings::local_dir("").join("coachless.json")),
+            coachless: Mutex::default(),
+            coachless_ok: Mutex::new(None),
             tab: Default::default(),
         }
     }
@@ -130,6 +142,8 @@ impl Shared {
         self.team.lock().unwrap().clear();
         self.vs_counters.lock().unwrap().clear();
         self.matchups.lock().unwrap().clear();
+        self.coachless.lock().unwrap().clear();
+        *self.coachless_ok.lock().unwrap() = None;
     }
 }
 

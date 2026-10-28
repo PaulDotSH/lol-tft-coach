@@ -2,11 +2,11 @@
   import type { ItemPick } from '../../lib/bindings/ItemPick';
   import Icon from '../Icon.svelte';
 
-  let { owned, path }: { owned: number[]; path: ItemPick[] } = $props();
+  let { owned, path, source }: { owned: number[]; path: ItemPick[]; source: string } = $props();
 </script>
 
 <section class="panel">
-  <h2>Full build</h2>
+  <h2>Full build <span class="src">{source}</span></h2>
   <ol>
     {#each owned as id, i (`o${i}-${id}`)}
       <li class="owned"><Icon kind="item" {id} size={40} /></li>
@@ -18,6 +18,11 @@
 </section>
 
 <style>
+  .src {
+    margin-left: 6px;
+    font: 500 12px/1 var(--sans);
+    color: var(--faint);
+  }
   ol {
     margin: 0;
     padding: 0;

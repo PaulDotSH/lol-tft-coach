@@ -21,6 +21,7 @@
     ['Game', state.sources.game],
     ['lolalytics', state.sources.lolalytics],
     ['u.gg', state.sources.ugg],
+    ['Coachless', state.sources.coachless],
     ['OCR', state.sources.ocr],
   ]);
   const tip = $derived(state.sources.message ?? '');

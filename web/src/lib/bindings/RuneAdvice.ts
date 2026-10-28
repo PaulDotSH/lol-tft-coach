@@ -14,4 +14,12 @@ win_rate: number, games: number,
 /**
  * Highest win rate page when its keystone differs: keystone, win rate, games.
  */
-alt: RuneAlt | null, };
+alt: RuneAlt | null, 
+/**
+ * Summoner spells to take (Coachless only), e.g. ["Flash", "Ignite"].
+ */
+summoners: Array<string>, 
+/**
+ * Where the page came from: "Coachless 16.20", "lolalytics 16.21".
+ */
+source: string, };

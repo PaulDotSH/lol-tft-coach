@@ -18,6 +18,9 @@ data! {
         pub upgrade: Option<ItemPick>,
         pub core: Vec<ItemPick>,
         pub boots: Option<ItemPick>,
+        /// Where the item stats came from: "Coachless 16.20", "lolalytics 16.21".
+        #[serde(default)]
+        pub source: String,
     }
 
     pub struct RunePick {
@@ -39,6 +42,12 @@ data! {
         pub games: u32,
         /// Highest win rate page when its keystone differs: keystone, win rate, games.
         pub alt: Option<RuneAlt>,
+        /// Summoner spells to take (Coachless only), e.g. ["Flash", "Ignite"].
+        #[serde(default)]
+        pub summoners: Vec<String>,
+        /// Where the page came from: "Coachless 16.20", "lolalytics 16.21".
+        #[serde(default)]
+        pub source: String,
     }
 
     pub struct RuneAlt {

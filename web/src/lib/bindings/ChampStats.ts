@@ -23,4 +23,13 @@ slots: Array<Array<ItemStat>>, boots: Array<ItemStat>, early: Array<EarlySet>, c
 /**
  * Build page rune pages and per-rune stats; None when the page had none.
  */
-runes: RuneData | null, };
+runes: RuneData | null, 
+/**
+ * Coachless patch ("16.20") when the item slots, boots, runes and summoners came
+ * from Coachless (Rift, signed in); None = lolalytics.
+ */
+coachless: string | null, 
+/**
+ * Summoner spell ids to take (Coachless); empty without Coachless.
+ */
+summoners: Array<number>, };

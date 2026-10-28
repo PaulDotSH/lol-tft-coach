@@ -61,6 +61,15 @@ export async function start() {
   }
 }
 
+export async function coachless(signIn: boolean) {
+  try {
+    const a = await api;
+    await (signIn ? a.coachlessSignIn() : a.coachlessSignOut());
+  } catch (e) {
+    error = String(e);
+  }
+}
+
 export async function saveSettings(settings: Settings) {
   try {
     apply(await (await api).setSettings(settings));

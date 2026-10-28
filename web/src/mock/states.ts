@@ -18,6 +18,8 @@ const src = (p: Partial<Sources>): Sources => ({
   lolalytics: 'ok',
   ugg: 'ok',
   ocr: 'off',
+  coachless: 'off',
+  coachless_premium: false,
   message: null,
   ...p,
 });
@@ -81,6 +83,7 @@ const base = {
 
 const riftGame: GameAdvice = {
   time: 1112,
+  build_source: 'Coachless 16.20',
   mode: 'rift',
   my_champ: 134,
   buy_next: {
@@ -187,6 +190,7 @@ const riftGame: GameAdvice = {
 
 const mayhemGame: GameAdvice = {
   time: 412,
+  build_source: 'lolalytics 16.21',
   mode: 'mayhem',
   my_champ: 103,
   buy_next: {
@@ -329,6 +333,7 @@ export const fixtures = {
         { champ: 4, score: 0.44, reason: 'Beats Syndra 52.9%' },
       ],
       build: {
+        source: 'Coachless 16.20',
         start: [1056, 2003, 2003],
         upgrade: null,
         core: [
@@ -339,6 +344,8 @@ export const fixtures = {
         boots: { item: 3020, name: 'Sorcerer’s Shoes', cost: 1100, score: 0.6, reason: 'No heavy CC revealed yet', component_now: null },
       },
       runes: {
+        summoners: ['Flash', 'Ignite'],
+        source: 'Coachless 16.20',
         primary: [
           { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
           { id: 8139, name: 'Taste of Blood', icon: 'perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png', reason: null },
@@ -470,6 +477,7 @@ export const fixtures = {
       picks: [],
       bans: [],
       build: {
+        source: 'lolalytics 16.21',
         start: [1052, 2003],
         upgrade: null,
         core: [

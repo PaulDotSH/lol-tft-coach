@@ -69,6 +69,16 @@ pub fn map_ok(item: &Item, mode: Mode) -> bool {
     }
 }
 
+/// "Coachless 16.20", "lolalytics 16.21", "lolalytics, last 30 days"; empty without stats.
+pub fn build_source(stats: Option<&ChampStats>) -> String {
+    match stats {
+        Some(ChampStats { coachless: Some(p), .. }) => format!("Coachless {p}"),
+        Some(s) if s.patch.contains('.') => format!("lolalytics {}", s.patch),
+        Some(s) => format!("lolalytics, last {} days", s.patch),
+        None => String::new(),
+    }
+}
+
 pub fn fmt_games(n: u64) -> String {
     match n {
         0..1000 => n.to_string(),

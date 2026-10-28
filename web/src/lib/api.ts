@@ -13,6 +13,9 @@ export interface Api {
   getState(): Promise<AppState>;
   getStatic(): Promise<UiStatic>;
   setSettings(settings: Settings): Promise<AppState>;
+  /** Open the Coachless login window; the app signs in when the site answers the login. */
+  coachlessSignIn(): Promise<void>;
+  coachlessSignOut(): Promise<void>;
   lookup(champ: number, lane: Lane | null, mode: Mode): Promise<ChampStats>;
   /** Review one game from the match history (needs the League client). */
   analyzeGame(gameId: number): Promise<MatchAnalysis>;
@@ -34,6 +37,8 @@ async function tauriApi(): Promise<Api> {
     getState: () => invoke('get_state'),
     getStatic: () => invoke('get_static'),
     setSettings: (settings) => invoke('set_settings', { settings }),
+    coachlessSignIn: () => invoke('coachless_sign_in'),
+    coachlessSignOut: () => invoke('coachless_sign_out'),
     lookup: (champ, lane, mode) => invoke('lookup', { champ, lane, mode }),
     analyzeGame: (gameId) => invoke('analyze_game', { gameId }),
     onState: (cb) => listen<AppState>('state', (e) => cb(e.payload)),

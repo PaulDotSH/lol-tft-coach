@@ -31,7 +31,7 @@
     {/if}
   </div>
   <div>
-    <h2>Core</h2>
+    <h2>Core <span class="src">{plan.source}</span></h2>
     <ol>
       {#each plan.core as p (p.item)}{@render pick(p)}{/each}
     </ol>
@@ -45,6 +45,11 @@
 </section>
 
 <style>
+  .src {
+    margin-left: 6px;
+    font: 500 12px/1 var(--sans);
+    color: var(--faint);
+  }
   .plan {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.6fr);

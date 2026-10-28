@@ -1,6 +1,7 @@
-//! Remote static and statistical data: Data Dragon, lolalytics, u.gg (Mayhem).
+//! Remote static and statistical data: Data Dragon, lolalytics, u.gg (Mayhem), Coachless.
 //! Every fetch goes through [`Http`], which keeps a disk cache.
 
+pub mod coachless;
 pub mod ddragon;
 pub mod icons;
 pub mod item_groups;
@@ -51,7 +52,38 @@ impl Http {
         ttl: Duration,
         parse: impl Fn(&str) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        let path = self.cache_path(url);
+        self.cached(url, url, ttl, self.fetch(url), parse).await
+    }
+
+    /// POST `body` as JSON with a bearer token; cached like [`Http::get_parsed`], keyed by
+    /// the URL and body (not the token).
+    pub async fn post_parsed<T>(
+        &self,
+        url: &str,
+        body: &serde_json::Value,
+        bearer: &str,
+        ttl: Duration,
+        parse: impl Fn(&str) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let fetch = async {
+            let t = std::time::Instant::now();
+            let resp = self.client.post(url).bearer_auth(bearer).json(body).send().await?;
+            tracing::debug!("POST {url} {body} → {} in {:?}", resp.status(), t.elapsed());
+            Ok(resp.error_for_status()?.text().await?)
+        };
+        self.cached(&format!("{url}\n{body}"), url, ttl, fetch, parse).await
+    }
+
+    /// `fetch` runs only on a cache miss; `label` names the request in errors.
+    async fn cached<T>(
+        &self,
+        key: &str,
+        label: &str,
+        ttl: Duration,
+        fetch: impl std::future::Future<Output = anyhow::Result<String>>,
+        parse: impl Fn(&str) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let path = self.cache_path(key);
         let cached = read_cache(&path).await;
         if let Some((body, age)) = &cached
             && *age < ttl
@@ -59,7 +91,7 @@ impl Http {
         {
             return Ok(v);
         }
-        let fresh = self.fetch(url).await.and_then(|body| parse(&body).map(|v| (body, v)));
+        let fresh = fetch.await.and_then(|body| parse(&body).map(|v| (body, v)));
         match fresh {
             Ok((body, v)) => {
                 if let Err(e) = write_cache(&path, &body).await {
@@ -69,10 +101,10 @@ impl Http {
             }
             Err(e) => match cached.and_then(|(body, _)| parse(&body).ok()) {
                 Some(v) => {
-                    tracing::warn!("{url}: {e:#}; serving stale cache");
+                    tracing::warn!("{label}: {e:#}; serving stale cache");
                     Ok(v)
                 }
-                None => Err(e.context(url.to_owned())),
+                None => Err(e.context(label.to_owned())),
             },
         }
     }

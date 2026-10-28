@@ -575,6 +575,8 @@ mod tests {
             counters: vec![],
             benchmarks: Default::default(),
             runes: None,
+            coachless: None,
+            summoners: vec![],
         };
         let mut ctx = Ctx::new(&sd, Some(&stats), &thresh, Mode::Rift);
         assert!(support_upgrade(&ctx, &[]).is_none(), "not a support");

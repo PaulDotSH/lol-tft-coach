@@ -34,6 +34,8 @@ struct Memo {
     /// The running game is not League (TFT): no live coaching.
     not_lol: bool,
     recommended: Vec<ItemId>,
+    /// My completed items in the order they showed up (Coachless asks for the next item after them).
+    built: Vec<ItemId>,
     /// Last tick's Buy next, kept while still about as good.
     last_buy: Option<ItemId>,
     last_champ: Option<ChampKey>,
@@ -272,6 +274,12 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             lolalytics: flag(*sh.lola_ok.lock().unwrap()),
             ugg: flag(*sh.ugg_ok.lock().unwrap()),
             ocr: *sh.ocr_state.lock().unwrap(),
+            coachless: match (sh.coachless_auth.signed_in(), *sh.coachless_ok.lock().unwrap()) {
+                (false, _) => SourceState::Off,
+                (true, Some(false)) => SourceState::Degraded,
+                (true, _) => SourceState::Ok,
+            },
+            coachless_premium: sh.coachless_auth.premium(),
             message: debug::dir().map(|d| format!("Debug mode: logging to {}", d.display())),
         };
         let recap = memo.recap.clone();
@@ -337,6 +345,30 @@ pub fn stats(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<La
     })
 }
 
+/// My champion's stats: on the Rift, signed in to Coachless, its item slots, boots, runes and
+/// summoners replace lolalytics' (`vs` = lane opponent, `built` = my completed items in order).
+/// While a narrower answer is on its way, a broader one already fetched stands in.
+fn my_stats(sh: &Arc<Shared>, base: Option<Arc<ChampStats>>, lane: Option<Lane>, vs: Option<ChampKey>, built: &[ItemId]) -> Option<Arc<ChampStats>> {
+    let base = base?;
+    let (Mode::Rift, Some(lane), true) = (base.mode, lane, sh.coachless_auth.signed_in()) else { return Some(base) };
+    // A support's first slot is the quest item: Coachless gets no item conditions.
+    let built = if lane == Lane::Support { &[][..] } else { built };
+    let (first, second) = (built.first().copied(), built.get(1).copied());
+    let champ = base.champ;
+    for key in [(champ, lane, vs, first, second), (champ, lane, vs, first, None), (champ, lane, vs, None, None)] {
+        let (sh2, b) = (sh.clone(), base.clone());
+        let found = ensure(sh, |s| &s.coachless, |s| &s.coachless_ok, key, move || async move {
+            let s = sh2.settings();
+            let q = data::coachless::Query { champ, lane, vs, tier: &s.tier, region: &s.region, first: key.3, second: key.4 };
+            data::coachless::champ_stats(&sh2.http, &sh2.coachless_auth, q, &b).await
+        });
+        if found.is_some() {
+            return found;
+        }
+    }
+    Some(base)
+}
+
 fn tier_list(sh: &Arc<Shared>, lane: Lane) -> Option<Arc<Vec<TierEntry>>> {
     let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
     ensure(sh, |s| &s.tiers, |s| &s.lola_ok, lane, move || async move {
@@ -359,7 +391,7 @@ pub fn augments(sh: &Arc<Shared>, champ: ChampKey, patch: &str) -> Option<Arc<Ch
 fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> ChampSelectAdvice {
     let lane = cs.my_lane;
     let me = cs.my_pick.or(cs.my_hover);
-    let mine = me.and_then(|c| stats(sh, sd, c, lane, cs.mode));
+    let mine = me.and_then(|c| my_stats(sh, stats(sh, sd, c, lane, cs.mode), lane, None, &[]));
     // Enemy stats in my lane: their counters give their win rate vs each candidate.
     let enemies: Vec<ChampStats> =
         cs.enemies.iter().filter_map(|&e| stats(sh, sd, e, lane, cs.mode)).map(|s| (*s).clone()).collect();
@@ -385,7 +417,14 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
 fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mut Memo) -> GameAdvice {
     let me = &snap.players[snap.me];
     let lane = if snap.mode == Mode::Rift { me.position.or(memo.my_lane) } else { None };
-    let my_stats = stats(sh, sd, me.champ, lane, snap.mode);
+    let base = stats(sh, sd, me.champ, lane, snap.mode);
+    let vs = coach::lane_opponent(snap, base.as_deref()).map(|i| snap.players[i].champ);
+    for &id in &me.items {
+        if sd.items.get(&id).is_some_and(|i| i.completed && !i.boots) && !memo.built.contains(&id) {
+            memo.built.push(id);
+        }
+    }
+    let my_stats = my_stats(sh, base, lane, vs, &memo.built);
 
     let mut pool = None;
     if snap.mode == Mode::Mayhem

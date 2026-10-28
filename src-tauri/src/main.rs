@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod coachless;
 mod commands;
 mod debug;
 mod draft;
@@ -43,6 +44,8 @@ fn main() {
             commands::lookup,
             commands::analyze_game,
             commands::log_frontend,
+            coachless::coachless_sign_in,
+            coachless::coachless_sign_out,
             tft::get_tft,
             tft::get_tft_static
         ])

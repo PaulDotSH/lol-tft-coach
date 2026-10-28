@@ -86,5 +86,22 @@ pub fn advice(sd: &StaticData, stats: &ChampStats, foes: &[Foe]) -> Option<RuneA
         win_rate: p.win_rate,
         games: p.games,
         alt,
+        summoners: stats.summoners.iter().filter_map(|&id| spell_name(id)).map(str::to_owned).collect(),
+        source: crate::common::build_source(Some(stats)),
+    })
+}
+
+fn spell_name(id: u32) -> Option<&'static str> {
+    Some(match id {
+        1 => "Cleanse",
+        3 => "Exhaust",
+        4 => "Flash",
+        6 => "Ghost",
+        7 => "Heal",
+        11 => "Smite",
+        12 => "Teleport",
+        14 => "Ignite",
+        21 => "Barrier",
+        _ => return None,
     })
 }

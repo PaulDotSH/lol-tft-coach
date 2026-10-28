@@ -29,6 +29,11 @@ data! {
         pub lolalytics: SourceState,
         pub ugg: SourceState,
         pub ocr: SourceState,
+        /// Off while signed out of Coachless.
+        pub coachless: SourceState,
+        /// The Coachless account has Premium (current patch).
+        #[serde(default)]
+        pub coachless_premium: bool,
         pub message: Option<String>,
     }
 

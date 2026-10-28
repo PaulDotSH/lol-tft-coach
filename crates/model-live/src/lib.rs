@@ -89,6 +89,9 @@ data! {
         pub support_upgrade: Option<ItemPick>,
         /// Remaining late-game path (excludes owned items).
         pub path: Vec<ItemPick>,
+        /// Where the item stats came from: "Coachless 16.20", "lolalytics 16.21".
+        #[serde(default)]
+        pub build_source: String,
         pub owned: Vec<ItemId>,
         pub threats: Vec<Threat>,
         pub matchups: Vec<MatchupTip>,

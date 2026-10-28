@@ -15,7 +15,7 @@
 {/snippet}
 
 <section class="panel runes">
-  <h2>Runes <span class="num">· {pct(runes.win_rate)} over {gold(runes.games)} games</span></h2>
+  <h2>Runes <span class="num">· {pct(runes.win_rate)} over {gold(runes.games)} games</span> <span class="src">{runes.source}</span></h2>
   <div class="page">
     <ol class="primary">
       {#each runes.primary as r, i (`${i}-${r.id}`)}{@render rune(r, i === 0 ? 48 : 30)}{/each}
@@ -27,6 +27,9 @@
       {#each runes.shards as r, i (`${i}-${r.id}`)}{@render rune(r, 22)}{/each}
     </ol>
   </div>
+  {#if runes.summoners.length}
+    <p class="spells muted">Summoners: <span class="name">{runes.summoners.join(' + ')}</span></p>
+  {/if}
   {#each swapped as r, i (`${i}-${r.id}`)}
     <p class="why"><span class="name">{r.name}</span> <span class="muted">{r.reason}</span></p>
   {/each}
@@ -43,6 +46,14 @@
 <style>
   h2 .num {
     font-weight: 500;
+  }
+  .src {
+    float: right;
+    font: 500 12px/1.6 var(--sans);
+    color: var(--faint);
+  }
+  .spells {
+    margin: 10px 0 0;
   }
   .page {
     display: grid;

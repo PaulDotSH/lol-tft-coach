@@ -169,6 +169,13 @@ data! {
         /// Build page rune pages and per-rune stats; None when the page had none.
         #[serde(default)]
         pub runes: Option<RuneData>,
+        /// Coachless patch ("16.20") when the item slots, boots, runes and summoners came
+        /// from Coachless (Rift, signed in); None = lolalytics.
+        #[serde(default)]
+        pub coachless: Option<String>,
+        /// Summoner spell ids to take (Coachless); empty without Coachless.
+        #[serde(default)]
+        pub summoners: Vec<u32>,
     }
 
     /// One full rune page from lolalytics.

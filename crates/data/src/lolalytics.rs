@@ -99,6 +99,8 @@ pub async fn champ_stats(
         counters,
         benchmarks: page.benchmarks,
         runes: page.runes,
+        coachless: None,
+        summoners: vec![],
     })
 }
 

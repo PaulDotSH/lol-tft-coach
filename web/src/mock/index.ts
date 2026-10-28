@@ -85,6 +85,8 @@ function lookup(champ: number, lane: ChampStats['lane'], mode: ChampStats['mode'
     lane,
     mode,
     patch: r() > 0.3 ? '16.21' : '30',
+    coachless: null,
+    summoners: [],
     win_rate: 47 + r() * 7,
     pick_rate: 1 + r() * 12,
     games: Math.round(20000 + r() * 200000),
@@ -111,6 +113,8 @@ export const mockApi: Api = {
     settings = s;
     return delay(snapshot());
   },
+  coachlessSignIn: () => delay(undefined),
+  coachlessSignOut: () => delay(undefined),
   lookup: (champ, lane, mode) => delay(lookup(champ, lane, mode), 300),
   analyzeGame: (id) => delay(analysisFor(id), 400),
   async onState(cb) {

@@ -476,5 +476,7 @@ pub fn ahri_stats() -> ChampStats {
             vision_per_min: None,
         },
         runes: None,
+        coachless: None,
+        summoners: vec![],
     }
 }

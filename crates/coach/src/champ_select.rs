@@ -186,6 +186,7 @@ fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> 
     let b = items::build(&ctx, &[], &needs);
     let pick = |s: &items::Scored| items::to_pick(&ctx, s, &needs, &foes, None);
     Some(BuildPlan {
+        source: crate::common::build_source(Some(mine)),
         upgrade: items::support_upgrade(&ctx, &[]),
         start,
         core: b.path.iter().filter(|s| !is_boots(s.id)).take(CORE_ITEMS).map(pick).collect(),

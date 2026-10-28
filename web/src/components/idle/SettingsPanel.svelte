@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { Settings } from '../../lib/bindings/Settings';
-  import { saveSettings } from '../../lib/store.svelte';
+  import type { Sources } from '../../lib/bindings/Sources';
+  import { coachless, saveSettings } from '../../lib/store.svelte';
 
-  let { settings }: { settings: Settings } = $props();
+  let { settings, sources }: { settings: Settings; sources: Sources } = $props();
+  const signedIn = $derived(sources.coachless !== 'off');
 
   const TIERS = [
     'all', 'iron', 'bronze', 'silver', 'gold', 'platinum', 'platinum_plus', 'emerald', 'emerald_plus',
@@ -26,6 +28,15 @@
     <select id="region" value={settings.region} onchange={(e) => set('region', e.currentTarget.value)}>
       {#each REGIONS as r (r)}<option value={r}>{regionName(r)}</option>{/each}
     </select>
+    <label for="coachless">
+      Coachless builds
+      <small>
+        {#if !signedIn}Rift items, runes and summoners from coachless.gg; lolalytics until you sign in
+        {:else if sources.coachless_premium}Signed in, Premium: current patch
+        {:else}Signed in, free account: the patch before the newest{/if}
+      </small>
+    </label>
+    <button id="coachless" onclick={() => coachless(!signedIn)}>{signedIn ? 'Sign out' : 'Sign in'}</button>
     <label for="audio">Speak in-game calls aloud</label>
     <input id="audio" type="checkbox" checked={settings.audio} onchange={(e) => set('audio', e.currentTarget.checked)} />
     <label for="overlay">
@@ -61,6 +72,15 @@
     border: 1px solid var(--line);
     border-radius: 4px;
     background: var(--raised);
+  }
+  button {
+    justify-self: end;
+    padding: 3px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--raised);
+    color: inherit;
+    cursor: pointer;
   }
   input[type='checkbox'] {
     justify-self: end;

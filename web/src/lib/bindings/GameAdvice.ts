@@ -27,7 +27,11 @@ support_upgrade: ItemPick | null,
 /**
  * Remaining late-game path (excludes owned items).
  */
-path: Array<ItemPick>, owned: Array<number>, threats: Array<Threat>, matchups: Array<MatchupTip>, me: SelfStats, timers: Array<ObjectiveTimer>, augments: AugmentAdvice | null, gold: GoldDiff, 
+path: Array<ItemPick>, 
+/**
+ * Where the item stats came from: "Coachless 16.20", "lolalytics 16.21".
+ */
+build_source: string, owned: Array<number>, threats: Array<Threat>, matchups: Array<MatchupTip>, me: SelfStats, timers: Array<ObjectiveTimer>, augments: AugmentAdvice | null, gold: GoldDiff, 
 /**
  * What my gold buys right now (the card to look at while dead).
  */

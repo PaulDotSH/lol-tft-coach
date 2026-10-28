@@ -50,6 +50,7 @@ pub use trends::trends;
 pub use picks::AugmentTracker;
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
+pub use threat::lane_opponent;
 pub use tracker::Tracker;
 
 pub use draft::{DraftData, Lineup, lineups as draft_lineups};
@@ -125,6 +126,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         alternatives: b.alts.iter().map(|s| pick(s, gold)).collect(),
         support_upgrade: items::support_upgrade(&ctx, owned),
         path: b.path.iter().map(|s| pick(s, None)).collect(),
+        build_source: common::build_source(stats),
         owned: owned.to_vec(),
         matchups: matchups::matchups(snap, stats, a.lane_opp),
         me: me_stats,

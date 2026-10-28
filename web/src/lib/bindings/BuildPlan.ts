@@ -5,4 +5,8 @@ export type BuildPlan = { start: Array<number>,
 /**
  * Supports: the World Atlas upgrade to take when its quest completes.
  */
-upgrade: ItemPick | null, core: Array<ItemPick>, boots: ItemPick | null, };
+upgrade: ItemPick | null, core: Array<ItemPick>, boots: ItemPick | null, 
+/**
+ * Where the item stats came from: "Coachless 16.20", "lolalytics 16.21".
+ */
+source: string, };

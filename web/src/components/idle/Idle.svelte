@@ -44,7 +44,7 @@
       {:else}
         <section class="panel"><h2>Last game</h2><p class="empty">Play a game to see a recap here.</p></section>
       {/if}
-      <SettingsPanel settings={app.settings} />
+      <SettingsPanel settings={app.settings} sources={app.sources} />
     </div>
     <div class="right">
       {#if app.trends?.session}<Session session={app.trends.session} games={app.history} />{/if}
