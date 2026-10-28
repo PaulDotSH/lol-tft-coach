@@ -7,10 +7,12 @@
 //! - `GET /api/ChampionWinprob/GetPatches` is public, oldest first. A free account gets the
 //!   newest patch but one; Premium (`isSubscribed: "1"` in the access JWT) the newest.
 //! - Everything else is a POST with `commonFilters` (patch, championIds,
-//!   matchupChampionIds, leagueTiers 3 gold … 7 master+, regions, role 0 top … 4 support)
-//!   and answers `[]` without a valid token.
-//! - Rows are `{itemId | rune | summonerSpell | tree, wpaOverall, occurrence}`. WPA is taken
-//!   as win-rate points on top of the champion's win rate.
+//!   matchupChampionIds, leagueTiers 3 gold … 7 master, 8 grandmaster, 9 challenger (nothing
+//!   below Gold), regions, role 0 top … 4 support)
+//!   and answers `[]` without a valid token. Items need `itemSlots`, boots too (`[]` gets
+//!   nothing); a support's legendary slot 1 is the support item.
+//! - Rows are `{itemId | rune | summonerSpell | tree, wpaOverall, occurrence}`. WPA is in
+//!   win-rate points (winrateObserved - winrateExpected), added to the champion's win rate.
 
 use model_static::{ChampKey, ChampStats, ItemId, ItemStat, Lane, RuneData, RuneId, RunePage, RuneStat};
 use serde::{Deserialize, Serialize};
@@ -217,12 +219,14 @@ fn tiers(t: &str) -> Vec<u8> {
         "platinum" => 4,
         "emerald" => 5,
         "diamond" => 6,
-        "master" | "grandmaster" | "challenger" => 7,
+        "master" => 7,
+        "grandmaster" => 8,
+        "challenger" => 9,
         _ => 3,
     };
     match t.strip_suffix("_plus") {
-        Some(base) => (rank(base)..=7).collect(),
-        None if t == "all" => (3..=7).collect(),
+        Some(base) => (rank(base)..=9).collect(),
+        None if t == "all" => (3..=9).collect(),
         None => vec![rank(t)],
     }
 }
@@ -415,7 +419,7 @@ pub async fn champ_stats(http: &crate::Http, auth: &Auth, q: Query<'_>, base: &C
         api.items(&f, LEGENDARY, &[2], first, None),
         api.items(&f, LEGENDARY, &[3], first, second),
         api.items(&f, LEGENDARY, &[4, 5, 6], first, second),
-        api.items(&f, BOOTS, &[], None, None),
+        api.items(&f, BOOTS, &[1], None, None),
         api.runes(&f, base.win_rate),
         api.spells(&f),
     );
@@ -485,8 +489,9 @@ mod tests {
 
     #[test]
     fn filters_map_settings() {
-        assert_eq!(tiers("emerald_plus"), vec![5, 6, 7]);
-        assert_eq!(tiers("all"), vec![3, 4, 5, 6, 7]);
+        assert_eq!(tiers("emerald_plus"), vec![5, 6, 7, 8, 9]);
+        assert_eq!(tiers("all"), vec![3, 4, 5, 6, 7, 8, 9]);
+        assert_eq!(tiers("master_plus"), vec![7, 8, 9]);
         assert_eq!(tiers("diamond"), vec![6]);
         assert_eq!(tiers("silver"), vec![3]);
         assert_eq!((region("euw"), region("vn"), region("all")), (Some(2), Some(16), None));
