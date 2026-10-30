@@ -301,7 +301,9 @@ impl StaticData {
     pub fn champ_by_name(&self, name: &str) -> Option<&Champion> {
         let norm = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_lowercase();
         let n = norm(name);
-        self.champs.values().find(|c| norm(&c.name) == n || norm(&c.id) == n || c.slug == n)
+        // The champions' side compared char by char: no two Strings per champion per lookup.
+        let same = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).eq(n.chars());
+        self.champs.values().find(|c| same(&c.name) || same(&c.id) || c.slug == n)
     }
 }
 

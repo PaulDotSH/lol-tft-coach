@@ -18,6 +18,8 @@ pub struct Tracker {
     held: VecDeque<(f32, f32)>,
     /// (player index, level, game time first seen); None = reached before tracking began.
     levels: Vec<(usize, u32, Option<f32>)>,
+    /// Highest level in `levels` per player index (each player's levels run 1 to it).
+    max_level: Vec<u32>,
 }
 
 const HOLD_STEP: f32 = 5.0;
@@ -51,11 +53,13 @@ impl Tracker {
                     self.seen.push((i, id, self.started.then_some(snap.time)));
                 }
             }
-            for l in 1..=p.level {
-                if !self.levels.iter().any(|s| s.0 == i && s.1 == l) {
-                    self.levels.push((i, l, self.started.then_some(snap.time)));
-                }
+            if self.max_level.len() <= i {
+                self.max_level.resize(i + 1, 0);
             }
+            for l in self.max_level[i] + 1..=p.level {
+                self.levels.push((i, l, self.started.then_some(snap.time)));
+            }
+            self.max_level[i] = self.max_level[i].max(p.level);
         }
         self.started = true;
         self.last_time = snap.time;

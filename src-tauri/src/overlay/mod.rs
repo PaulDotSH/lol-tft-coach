@@ -113,7 +113,8 @@ pub fn spawn(sh: Arc<Shared>, tft: Arc<TftShared>) {
                         st.game.as_ref().filter(|_| st.phase == Phase::InGame).map(|g| lol_view(g, &seen))
                     }
                 };
-                let client = placement(sh.settings().overlay, view.is_some() && ocr::league_foreground(), ocr::league_rect());
+                let enabled = sh.ui.lock().unwrap().settings.overlay;
+                let client = placement(enabled, view.is_some() && ocr::league_foreground(), ocr::league_rect());
                 let now = match &view {
                     Some(v) if v.time != clock.0 => {
                         clock = (v.time, Instant::now());

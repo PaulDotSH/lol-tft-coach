@@ -220,7 +220,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                         if settings.record_fixtures {
                             record(&mut memo, raw);
                         }
-                        game = Some(game_advice(&sh, &sd, &snap, &mut memo));
+                        game = Some(game_advice(&sh, &sd, &snap, &settings, &mut memo));
                     }
                     LiveState::Loading => game_src = SourceState::Degraded,
                     LiveState::Unavailable => {
@@ -330,7 +330,10 @@ fn push(app: &AppHandle, sh: &Shared, last: &mut String, f: impl FnOnce(&mut App
     f(&mut st);
     let json = serde_json::to_string(&*st).unwrap_or_default();
     if json != *last {
-        let _ = app.emit("state", &*st);
+        // The JSON just built is the payload: no second serialization.
+        if !json.is_empty() {
+            let _ = app.emit_str("state", json.clone());
+        }
         *last = json;
     }
 }
@@ -338,10 +341,11 @@ fn push(app: &AppHandle, sh: &Shared, last: &mut String, f: impl FnOnce(&mut App
 /// Stats for a champion, fetched in the background on first use.
 pub fn stats(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<Lane>, mode: Mode) -> Option<Arc<ChampStats>> {
     let lane = if mode == Mode::Rift { lane } else { None };
-    let c = sd.champs.get(&champ)?.clone();
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
-    ensure(sh, |s| &s.stats, |s| &s.lola_ok, StatsKey { champ, lane, mode }, move || async move {
-        data::lolalytics::champ_stats(&http, &c, lane, mode, &s.tier, &s.region, &patch).await
+    let (c, patch) = (sd.champs.get(&champ)?, sh.patch()?);
+    // Cloned only on a cache miss.
+    ensure(sh, |s| &s.stats, |s| &s.lola_ok, StatsKey { champ, lane, mode }, move || {
+        let (http, s, c) = (sh.http.clone(), sh.settings(), c.clone());
+        async move { data::lolalytics::champ_stats(&http, &c, lane, mode, &s.tier, &s.region, &patch).await }
     })
 }
 
@@ -370,9 +374,10 @@ fn my_stats(sh: &Arc<Shared>, base: Option<Arc<ChampStats>>, lane: Option<Lane>,
 }
 
 fn tier_list(sh: &Arc<Shared>, lane: Lane) -> Option<Arc<Vec<TierEntry>>> {
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
-    ensure(sh, |s| &s.tiers, |s| &s.lola_ok, lane, move || async move {
-        data::lolalytics::tier_list(&http, lane, &s.tier, &s.region, &patch).await
+    let patch = sh.patch()?;
+    ensure(sh, |s| &s.tiers, |s| &s.lola_ok, lane, move || {
+        let (http, s) = (sh.http.clone(), sh.settings());
+        async move { data::lolalytics::tier_list(&http, lane, &s.tier, &s.region, &patch).await }
     })
 }
 
@@ -414,7 +419,7 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
     })
 }
 
-fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mut Memo) -> GameAdvice {
+fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings: &Settings, memo: &mut Memo) -> GameAdvice {
     let me = &snap.players[snap.me];
     let lane = if snap.mode == Mode::Rift { me.position.or(memo.my_lane) } else { None };
     let base = stats(sh, sd, me.champ, lane, snap.mode);
@@ -434,7 +439,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
             }
     // OCR matches card titles against every Mayhem augment (game data), not just
     // the champion's u.gg list, which misses newer augments.
-    *sh.ocr_names.lock().unwrap() = match (&pool, sh.settings().ocr_enabled) {
+    *sh.ocr_names.lock().unwrap() = match (&pool, settings.ocr_enabled) {
         (Some((a, m)), true) => {
             let ids: Vec<AugmentId> = crate::tab::pool(sh)
                 .unwrap_or_else(|| a.prismatic.iter().chain(&a.gold).chain(&a.silver).copied().collect());
@@ -512,7 +517,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, memo: &mu
         && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);
         }
-    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &sh.settings().goals);
+    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &settings.goals);
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice

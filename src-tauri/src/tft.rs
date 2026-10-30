@@ -223,6 +223,9 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
     let mut metas: HashMap<i64, (Arc<TftMeta>, Instant)> = HashMap::new();
     let mut reader: Option<Reader> = None;
     let mut games: Vec<TftPastGame> = vec![];
+    // Bumped when `games` is replaced; with the set and meta it keys the derived state below.
+    let mut games_gen = 0u64;
+    let mut derived_from: Option<(Arc<TftSetData>, Arc<TftMeta>, u64)> = None;
     let (mut want_history, mut tries, mut last_try) = (true, 0u32, None::<Instant>);
     let mut prev = TftPhase::None;
     let mut last_json = String::new();
@@ -355,6 +358,7 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
                         want_history = false;
                     }
                     games = g;
+                    games_gen += 1;
                 }
                 Err(e) => tracing::warn!("tft history: {e:#}"),
             }
@@ -370,7 +374,14 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
             if matches!(now, TftPhase::Lobby | TftPhase::None) {
                 st.advice = None;
             }
-            if let (Some(set), Some(meta)) = (&set, &meta) {
+            let fresh = |d: &(Arc<TftSetData>, Arc<TftMeta>, u64), set: &Arc<TftSetData>, meta: &Arc<TftMeta>| {
+                Arc::ptr_eq(&d.0, set) && Arc::ptr_eq(&d.1, meta) && d.2 == games_gen
+            };
+            // Recomputed only when the set, the meta or the history changed.
+            if let (Some(set), Some(meta)) = (&set, &meta)
+                && !derived_from.as_ref().is_some_and(|d| fresh(d, set, meta))
+            {
+                derived_from = Some((set.clone(), meta.clone(), games_gen));
                 st.meta = tft_coach::pregame(meta, set, None);
                 let mut hist = games.clone();
                 for g in &mut hist {
@@ -382,7 +393,10 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
             }
             let json = serde_json::to_string(&*st).unwrap_or_default();
             if json != last_json {
-                let _ = app.emit("tft", &*st);
+                // The JSON just built is the payload: no second serialization.
+                if !json.is_empty() {
+                    let _ = app.emit_str("tft", json.clone());
+                }
                 last_json = json;
             }
         }

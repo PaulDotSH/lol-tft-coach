@@ -72,6 +72,8 @@ pub struct Ctx<'a> {
     pub champ: &'a Champion,
     /// Completed, map-legal items with their fit to my build direction, sorted by id.
     pool: Vec<(&'a Item, f32, bool)>,
+    /// Every component somewhere in each pool item's recipe (`parts`), in pool order.
+    pool_parts: Vec<Vec<ItemId>>,
     /// Item → (wins, games) over all slots.
     agg: HashMap<ItemId, (u32, u32)>,
     /// stats_score of an item my champion does not build.
@@ -105,6 +107,7 @@ impl<'a> Ctx<'a> {
             })
             .collect();
         pool.sort_unstable_by_key(|p| p.0.id);
+        let pool_parts = pool.iter().map(|p| parts(sd, p.0)).collect();
         let mut agg = HashMap::new();
         for r in stats.iter().flat_map(|s| s.slots.iter().flatten()) {
             let e = agg.entry(r.id).or_insert((0, 0));
@@ -115,7 +118,7 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None, keep: None }
+        Ctx { sd, stats, champ, pool, pool_parts, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None, keep: None }
     }
 }
 
@@ -146,30 +149,43 @@ pub(crate) enum Decision {
     Boots,
 }
 
+/// Every id somewhere in `it`'s recipe (following components the item data knows).
+fn parts(sd: &StaticData, it: &Item) -> Vec<ItemId> {
+    let (mut out, mut todo) = (vec![], vec![it]);
+    while let Some(x) = todo.pop() {
+        for &c in &x.from {
+            out.push(c);
+            todo.extend(sd.items.get(&c));
+        }
+    }
+    out
+}
+
 /// Unique-ish groups the model does not encode: one Last Whisper, one %magic pen, one anti-heal.
-/// `part` is somewhere in `it`'s recipe.
-fn part_of(sd: &StaticData, part: ItemId, it: &Item) -> bool {
-    it.from.iter().any(|&c| c == part || sd.items.get(&c).is_some_and(|ci| part_of(sd, part, ci)))
+fn groups(i: &Item) -> [bool; 3] {
+    [i.stats.armor_pen_pct > 0.0, i.stats.magic_pen_pct > 0.0, i.answers.anti_heal >= 0.5]
+}
+
+/// A held item, looked up once per `score_all`: its game groups and `groups` (None: unknown item).
+type Held<'a> = (ItemId, Option<&'a Vec<u32>>, Option<[bool; 3]>);
+
+fn held<'a>(sd: &'a StaticData, have: &[ItemId]) -> Vec<Held<'a>> {
+    have.iter().map(|&h| (h, sd.item_groups.get(&h), sd.items.get(&h).map(groups))).collect()
 }
 
 /// A held item rules `it` out when they share a one-per-inventory group, unless
-/// it is a component `it` consumes (Bramble Vest into Thornmail).
-fn conflicts(sd: &StaticData, it: &Item, have: &[ItemId]) -> bool {
-    let groups = |i: &Item| {
-        [
-            i.stats.armor_pen_pct > 0.0,
-            i.stats.magic_pen_pct > 0.0,
-            i.answers.anti_heal >= 0.5,
-        ]
-    };
+/// it is a component `it` consumes (Bramble Vest into Thornmail). `parts`: `it`'s recipe.
+fn conflicts(sd: &StaticData, it: &Item, parts: &[ItemId], held: &[Held]) -> bool {
     let g = groups(it);
-    // The game's own one-per-inventory groups (e.g. Black Cleaver vs Lord Dominik's).
-    let shared = |h: &ItemId| match (sd.item_groups.get(&it.id), sd.item_groups.get(h)) {
-        (Some(a), Some(b)) => a.iter().any(|x| b.contains(x)),
-        _ => false,
-    };
-    let held: Vec<&ItemId> = have.iter().filter(|h| !part_of(sd, **h, it)).collect();
-    held.iter().any(|h| shared(h)) || held.iter().filter_map(|h| sd.items.get(*h)).any(|h| groups(h).iter().zip(g).any(|(a, b)| *a && b))
+    let mine = sd.item_groups.get(&it.id);
+    held.iter().filter(|h| !parts.contains(&h.0)).any(|(_, hg, hk)| {
+        // The game's own one-per-inventory groups (e.g. Black Cleaver vs Lord Dominik's).
+        let shared = match (mine, hg) {
+            (Some(a), Some(b)) => a.iter().any(|x| b.contains(x)),
+            _ => false,
+        };
+        shared || hk.is_some_and(|k| k.iter().zip(g).any(|(a, b)| *a && b))
+    })
 }
 
 /// Crit chance and attack speed already reached (live stats, else owned items) plus the path so far.
@@ -251,10 +267,11 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         Decision::Slot(k) => SLOT_WEIGHT[k.min(SLOT_WEIGHT.len() - 1)],
         Decision::Boots => BOOTS_WEIGHT,
     };
-    for &(it, fit, defensive) in &ctx.pool {
+    let held = held(ctx.sd, have);
+    for (&(it, fit, defensive), parts) in ctx.pool.iter().zip(&ctx.pool_parts) {
         if it.boots != (dec == Decision::Boots)
             || have.contains(&it.id)
-            || conflicts(ctx.sd, it, have)
+            || conflicts(ctx.sd, it, parts, &held)
             || (!ctx.ahead && SNOWBALL.contains(&it.id))
         {
             continue;
@@ -296,7 +313,7 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         let off_type = (ans[MR] - ans[ARMOR]).max(0.0) * (need[ARMOR] - need[MR]).max(0.0)
             + (ans[ARMOR] - ans[MR]).max(0.0) * (need[MR] - need[ARMOR]).max(0.0);
         // A held component (Bramble Vest) is gold already spent toward it.
-        let held_part = if have.iter().any(|h| part_of(ctx.sd, *h, it)) { HELD_COMPONENT_BONUS } else { 0.0 };
+        let held_part = if have.iter().any(|h| parts.contains(h)) { HELD_COMPONENT_BONUS } else { 0.0 };
         let score = stats_score + sit + aug + held_part - cap_penalty(ctx, it, load) - if no_heal { SELF_HEAL_PENALTY } else { 0.0 }
             - RESIST_MISMATCH * off_type;
         out.push(Scored { id: it.id, score, stats_score, sit, src, need: need_i, aug, aug_src });

@@ -49,6 +49,13 @@ fn to_bitmap(frame: &Frame, step: u32) -> Result<SoftwareBitmap> {
         for y in 0..h as usize {
             let src = &frame.bgra[y * step as usize * src_stride..][..src_stride];
             let row = &mut dst[start + y * stride..][..w as usize];
+            if step == 1 {
+                // Full size (the usual case): no index arithmetic, so it vectorises.
+                for (out, p) in row.iter_mut().zip(src.as_chunks::<4>().0) {
+                    *out = p[0].max(p[1]).max(p[2]);
+                }
+                continue;
+            }
             for (x, out) in row.iter_mut().enumerate() {
                 let p = &src[x * step as usize * 4..][..3];
                 *out = p[0].max(p[1]).max(p[2]);

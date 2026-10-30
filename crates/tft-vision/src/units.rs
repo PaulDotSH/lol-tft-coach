@@ -76,7 +76,7 @@ pub struct Bar {
 }
 
 /// Bars of pixels passing `hit`: rows scanned with small gaps bridged, runs on touching rows joined.
-pub fn bars(f: &Frame, scale: f32, hit: fn(&[u8]) -> bool) -> Vec<Bar> {
+pub fn bars(f: &Frame, scale: f32, hit: impl Fn(&[u8]) -> bool) -> Vec<Bar> {
     let s = |v: f32| (v * scale).round() as u32;
     let (x0, y0) = (s(AREA.0), s(AREA.1));
     let (x1, y1) = (s(AREA.2).min(f.width), s(AREA.3).min(f.height));
@@ -84,13 +84,13 @@ pub fn bars(f: &Frame, scale: f32, hit: fn(&[u8]) -> bool) -> Vec<Bar> {
     // Open bars: (x0, x1, y0, last row).
     let mut open: Vec<(u32, u32, u32, u32)> = vec![];
     let mut done: Vec<(u32, u32, u32, u32)> = vec![];
+    let mut runs: Vec<(u32, u32)> = vec![];
     for y in y0..y1 {
         let row = (y * f.width) as usize * 4;
-        let mut runs: Vec<(u32, u32)> = vec![];
+        let px = if x1 > x0 { &f.bgra[row + x0 as usize * 4..row + x1 as usize * 4] } else { &[][..] };
         let mut run: Option<(u32, u32)> = None;
-        for x in x0..x1 {
-            let i = row + x as usize * 4;
-            if hit(&f.bgra[i..i + 4]) {
+        for (x, p) in (x0..x1).zip(px.as_chunks::<4>().0) {
+            if hit(p) {
                 run = match run {
                     Some((a, b)) if x - b <= gap => Some((a, x)),
                     Some(r) => {
@@ -105,7 +105,7 @@ pub fn bars(f: &Frame, scale: f32, hit: fn(&[u8]) -> bool) -> Vec<Bar> {
         runs.retain(|(a, b)| b - a + 1 >= min_w);
         let (mut keep, mut ended): (Vec<_>, Vec<_>) = open.drain(..).partition(|o| o.3 + 1 == y);
         done.append(&mut ended);
-        for (a, b) in runs {
+        for (a, b) in runs.drain(..) {
             match keep.iter_mut().find(|o| a <= o.1 && b >= o.0) {
                 Some(o) => *o = (o.0.min(a), o.1.max(b), o.2, y),
                 None => keep.push((a, b, y, y)),
@@ -155,7 +155,16 @@ pub fn star(f: &Frame, scale: f32, bar: &Bar) -> u32 {
 
 /// My units (green bars) and the number of red bars.
 pub fn read(f: &Frame, scale: f32) -> (Vec<SeenUnit>, u32) {
-    let units = bars(f, scale, green)
+    (mine(f, scale), bars(f, scale, red).len() as u32)
+}
+
+/// My units (green bars) and the red-bar units ([`foes`]), from one scan for each colour.
+pub fn read_with_foes(f: &Frame, scale: f32) -> (Vec<SeenUnit>, Vec<SeenUnit>) {
+    (mine(f, scale), bars(f, scale, red).iter().map(|b| foe(f, scale, b)).collect())
+}
+
+fn mine(f: &Frame, scale: f32) -> Vec<SeenUnit> {
+    bars(f, scale, green)
         .iter()
         .map(|b| {
             let (x, y) = (b.x as f32 / scale, b.y as f32 / scale);
@@ -170,20 +179,18 @@ pub fn read(f: &Frame, scale: f32) -> (Vec<SeenUnit>, u32) {
                 emb: vec![],
             }
         })
-        .collect();
-    (units, bars(f, scale, red).len() as u32)
+        .collect()
 }
 
 /// Units with red bars (my combat opponent's, or PvE monsters): the far bench (above
 /// FOE_BENCH_Y) as slot 0, its slots unmeasured; ★ caps and crops as on green bars.
 pub fn foes(f: &Frame, scale: f32) -> Vec<SeenUnit> {
-    bars(f, scale, red)
-        .iter()
-        .map(|b| {
-            let (x, y) = (b.x as f32 / scale, b.y as f32 / scale);
-            SeenUnit { x, y, star: star(f, scale, b), bench: (y < FOE_BENCH_Y).then_some(0), full: b.w as f32 / scale >= FULL_W, items: vec![], emb: vec![] }
-        })
-        .collect()
+    bars(f, scale, red).iter().map(|b| foe(f, scale, b)).collect()
+}
+
+fn foe(f: &Frame, scale: f32, b: &Bar) -> SeenUnit {
+    let (x, y) = (b.x as f32 / scale, b.y as f32 / scale);
+    SeenUnit { x, y, star: star(f, scale, b), bench: (y < FOE_BENCH_Y).then_some(0), full: b.w as f32 / scale >= FULL_W, items: vec![], emb: vec![] }
 }
 
 /// The crop under a unit's bar, for the embedder.

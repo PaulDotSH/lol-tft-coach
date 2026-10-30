@@ -127,19 +127,37 @@ pub fn capture_league() -> Option<Frame> {
     grab_screen(x, y, w, h)
 }
 
+/// DIB sections kept per capture thread, newest last: each poll grabs the same few sizes
+/// (offer strip, scoreboard columns and board, the whole TFT window).
+const KEPT_DIBS: usize = 4;
+
+thread_local! {
+    static DIBS: std::cell::RefCell<Vec<Dib>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// BitBlt a rectangle of the screen (virtual-screen coordinates).
 pub(crate) fn grab_screen(x: i32, y: i32, w: i32, h: i32) -> Option<Frame> {
     if w <= 0 || h <= 0 {
         return None;
     }
-    let mut dib = Dib::new(w, h)?;
-    unsafe {
-        let screen = GetDC(None);
-        if screen.is_invalid() {
-            return None;
+    DIBS.with_borrow_mut(|dibs| {
+        let mut dib = match dibs.iter().position(|d| (d.width, d.height) == (w, h)) {
+            Some(i) => dibs.remove(i),
+            None => Dib::new(w, h)?,
+        };
+        let frame = unsafe {
+            let screen = GetDC(None);
+            if screen.is_invalid() {
+                return None;
+            }
+            let ok = BitBlt(dib.dc, 0, 0, w, h, Some(screen), x, y, SRCCOPY).is_ok();
+            ReleaseDC(None, screen);
+            ok.then(|| dib.snapshot())
+        };
+        dibs.push(dib);
+        if dibs.len() > KEPT_DIBS {
+            dibs.remove(0);
         }
-        let ok = BitBlt(dib.dc, 0, 0, w, h, Some(screen), x, y, SRCCOPY).is_ok();
-        ReleaseDC(None, screen);
-        ok.then(|| dib.snapshot())
-    }
+        frame
+    })
 }

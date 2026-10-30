@@ -6,6 +6,8 @@
 //! learnt looks on disk (`to_bytes` / `from_bytes`).
 
 use half::f16;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 use tft_model::Api;
 
 /// Learnt looks kept per unit (oldest dropped first).
@@ -30,6 +32,19 @@ struct Look {
 pub struct Library {
     /// Seed and learnt looks; learnt ones oldest first.
     looks: Vec<Look>,
+    /// What `classify_centered` and `units` derive from the learnt looks, made on first use and
+    /// dropped when a look is learnt.
+    learnt: OnceLock<Learnt>,
+}
+
+#[derive(Debug, Clone)]
+struct Learnt {
+    /// Units known by learnt looks.
+    units: usize,
+    /// The first learnt look's dimension (None: nothing learnt).
+    d: Option<usize>,
+    /// (look index, learnt look less the mean of them all, at unit length) for looks of dimension `d`.
+    centred: Vec<(usize, Vec<f32>)>,
 }
 
 pub fn similarity(a: &[f32], b: &[f32]) -> f32 {
@@ -60,7 +75,23 @@ impl Library {
 
     /// Units known by learnt looks.
     pub fn units(&self) -> usize {
-        self.count_units(false)
+        self.derived().units
+    }
+
+    fn derived(&self) -> &Learnt {
+        self.learnt.get_or_init(|| {
+            let learnt: Vec<(usize, &Look)> = self.looks.iter().enumerate().filter(|(_, l)| !l.seed).collect();
+            let d = learnt.first().map(|(_, l)| l.emb.len());
+            let mut centred = vec![];
+            if let Some(d) = d {
+                let mut mean = vec![0.0f32; d];
+                for (_, l) in learnt.iter().filter(|(_, l)| l.emb.len() == d) {
+                    mean.iter_mut().zip(&l.emb).for_each(|(m, v)| *m += v / learnt.len() as f32);
+                }
+                centred = learnt.iter().filter(|(_, l)| l.emb.len() == d).map(|&(i, l)| (i, unit(l.emb.iter().zip(&mean).map(|(a, b)| a - b).collect()))).collect();
+            }
+            Learnt { units: self.count_units(false), d, centred }
+        })
     }
 
     /// Seed looks and the units they cover.
@@ -80,6 +111,7 @@ impl Library {
     pub fn with_seed(mut self, bytes: &[u8]) -> Library {
         if let Some(seed) = Library::from_bytes(bytes) {
             self.looks.extend(seed.looks.into_iter().map(|l| Look { seed: true, ..l }));
+            self.learnt = OnceLock::new();
         }
         self
     }
@@ -88,11 +120,16 @@ impl Library {
     /// A unit's best learnt and best seed look are kept apart (up to two entries per unit).
     pub fn classify(&self, emb: &[f32]) -> Vec<(Api, f32, bool)> {
         let mut best: Vec<(Api, f32, bool)> = vec![];
+        // Where each (unit, seed) sits in `best`, which stays in first-seen order.
+        let mut at: HashMap<(&str, bool), usize> = HashMap::new();
         for l in &self.looks {
             let s = similarity(emb, &l.emb);
-            match best.iter_mut().find(|b| b.0 == l.api && b.2 == l.seed) {
-                Some(b) => b.1 = b.1.max(s),
-                None => best.push((l.api.clone(), s, l.seed)),
+            match at.get(&(l.api.as_str(), l.seed)) {
+                Some(&i) => best[i].1 = best[i].1.max(s),
+                None => {
+                    at.insert((l.api.as_str(), l.seed), best.len());
+                    best.push((l.api.clone(), s, l.seed));
+                }
             }
         }
         best.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -104,23 +141,21 @@ impl Library {
     /// read: another arena's floor). For units seen away from my board. Seed looks are left out:
     /// they're composited on both arenas, so they're compared as is.
     pub fn classify_centered(&self, emb: &[f32], center: &[f32]) -> Vec<(Api, f32)> {
-        let learnt: Vec<&Look> = self.looks.iter().filter(|l| !l.seed).collect();
-        let Some(d) = learnt.first().map(|l| l.emb.len()).filter(|&d| d == emb.len() && d == center.len()) else { return vec![] };
-        let mut mean = vec![0.0f32; d];
-        for l in learnt.iter().filter(|l| l.emb.len() == d) {
-            mean.iter_mut().zip(&l.emb).for_each(|(m, v)| *m += v / learnt.len() as f32);
+        let learnt = self.derived();
+        if learnt.d.is_none_or(|d| d != emb.len() || d != center.len()) {
+            return vec![];
         }
-        let unit = |v: Vec<f32>| {
-            let n = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
-            v.into_iter().map(|x| x / n).collect::<Vec<f32>>()
-        };
         let q = unit(emb.iter().zip(center).map(|(a, b)| a - b).collect());
         let mut best: Vec<(Api, f32)> = vec![];
-        for l in learnt.iter().filter(|l| l.emb.len() == d) {
-            let s = similarity(&q, &unit(l.emb.iter().zip(&mean).map(|(a, b)| a - b).collect()));
-            match best.iter_mut().find(|b| b.0 == l.api) {
-                Some(b) => b.1 = b.1.max(s),
-                None => best.push((l.api.clone(), s)),
+        let mut at: HashMap<&str, usize> = HashMap::new();
+        for (i, c) in &learnt.centred {
+            let (api, s) = (&self.looks[*i].api, similarity(&q, c));
+            match at.get(api.as_str()) {
+                Some(&k) => best[k].1 = best[k].1.max(s),
+                None => {
+                    at.insert(api, best.len());
+                    best.push((api.clone(), s));
+                }
             }
         }
         best.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -140,6 +175,7 @@ impl Library {
             self.looks.remove(i);
         }
         self.looks.push(Look { api: api.into(), star, seed: false, emb: emb.to_vec() });
+        self.learnt = OnceLock::new();
         true
     }
 
@@ -176,8 +212,14 @@ impl Library {
             };
             looks.push(Look { api, star, seed, emb });
         }
-        Some(Library { looks })
+        Some(Library { looks, learnt: OnceLock::new() })
     }
+}
+
+/// `v` at unit length.
+fn unit(v: Vec<f32>) -> Vec<f32> {
+    let n = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
+    v.into_iter().map(|x| x / n).collect()
 }
 
 fn encode<'a>(looks: impl Iterator<Item = &'a Look>) -> Vec<u8> {

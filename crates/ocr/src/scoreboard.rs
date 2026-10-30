@@ -170,7 +170,14 @@ fn normalize(d: &mut Desc) {
 }
 
 fn dot(a: &Desc, b: &Desc) -> f32 {
-    a.iter().zip(b).map(|(x, y)| x * y).sum()
+    // Eight running sums: the compiler vectorises these (one serial sum it may not reorder).
+    let mut acc = [0.0f32; 8];
+    for (x, y) in a.as_chunks::<8>().0.iter().zip(b.as_chunks::<8>().0) {
+        for i in 0..8 {
+            acc[i] += x[i] * y[i];
+        }
+    }
+    acc.iter().sum()
 }
 
 /// Template descriptor of an icon composited over the grid backdrop, inset by `inset` (fraction).
@@ -411,8 +418,27 @@ fn found(gr: &Grids) -> usize {
 
 /// Cheap open check on the two augment columns (`Geometry::column` captures).
 pub fn is_open(columns: [(&Frame, (i32, i32)); 2], g: &Geometry) -> bool {
-    let n: usize = (0..2).map(|h| found(&grids(&Img::new(columns[h].0, columns[h].1), g, &[h]))).sum();
-    n >= OPEN_ROWS
+    is_open_with(|h| Some(columns[h]), g) == Some(true)
+}
+
+/// [`is_open`] with each column captured (frame, origin) only once it is needed: the check
+/// stops at the first row that rules the board out, so a closed board (the usual case
+/// in play) mostly costs one column and a few rows. None when a capture fails.
+pub fn is_open_with<F: std::borrow::Borrow<Frame>>(mut column: impl FnMut(usize) -> Option<(F, (i32, i32))>, g: &Geometry) -> Option<bool> {
+    let mut missed = 0;
+    for h in 0..2 {
+        let (f, origin) = column(h)?;
+        let img = Img::new(f.borrow(), origin);
+        for r in 0..5 {
+            if find_grid(&img, g, h, r).is_none() {
+                missed += 1;
+                if missed > 10 - OPEN_ROWS {
+                    return Some(false);
+                }
+            }
+        }
+    }
+    Some(true)
 }
 
 /// Most likely rarity from the icon tint (gold: warm, prismatic: magenta, silver: neutral).

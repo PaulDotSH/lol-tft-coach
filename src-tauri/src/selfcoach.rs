@@ -35,8 +35,15 @@ pub fn finish(mut r: Recap, log: &coach::GameLog, sd: &StaticData, goals: &[Goal
 #[derive(Default)]
 pub struct SelfCoach {
     summaries: Option<Vec<GameSummary>>,
+    /// Bumped when `summaries` changes.
+    added: u64,
     trends: Option<Trends>,
+    /// What `trends` was computed from: unchanged, idle ticks reuse it.
+    from: Option<TrendsFrom>,
 }
+
+/// History games, `SelfCoach::added` and goals.
+type TrendsFrom = (Option<Arc<Vec<PastGame>>>, u64, Vec<Goal>);
 
 impl SelfCoach {
     /// Every tick: takes in a new recap's summary; recomputes trends while idle.
@@ -47,10 +54,19 @@ impl SelfCoach {
         {
             sums.insert(0, s.clone());
             sums.truncate(KEEP);
+            self.added += 1;
         }
-        let games = games.as_deref().map_or(&[][..], |g| g.as_slice());
-        if matches!(phase, Phase::Idle | Phase::PostGame) && (!games.is_empty() || !sums.is_empty()) {
-            self.trends = Some(coach::trends(games, sums, goals));
+        let fresh = self.from.as_ref().is_some_and(|(g, added, gl)| {
+            let same_games = match (g, &games) {
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                (a, b) => a.is_none() && b.is_none(),
+            };
+            same_games && *added == self.added && gl.as_slice() == goals
+        });
+        let list = games.as_deref().map_or(&[][..], |g| g.as_slice());
+        if matches!(phase, Phase::Idle | Phase::PostGame) && (!list.is_empty() || !sums.is_empty()) && !fresh {
+            self.trends = Some(coach::trends(list, sums, goals));
+            self.from = Some((games, self.added, goals.to_vec()));
         }
         self.trends.clone()
     }

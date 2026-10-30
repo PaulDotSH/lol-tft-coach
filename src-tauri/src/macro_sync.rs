@@ -29,6 +29,17 @@ struct Inner {
     tries: u32,
     prev_phase: Option<Phase>,
     report: Option<MacroReport>,
+    memo: Option<Memo>,
+}
+
+/// The last report and what it was made from: the same games and benchmark stats make
+/// the same report, so idle ticks reuse it.
+struct Memo {
+    games: Arc<Vec<PastGame>>,
+    /// Report without benchmarks (it picks the champions that get them).
+    plain: MacroReport,
+    stats: Vec<Arc<ChampStats>>,
+    report: MacroReport,
 }
 
 fn newest(games: &Option<Arc<Vec<PastGame>>>) -> Option<u64> {
@@ -79,7 +90,7 @@ impl MacroSync {
             });
         }
         if quiet && let Some(games) = st.games.clone() {
-            st.report = Some(report(sh, sd, &games));
+            st.report = Some(report(sh, sd, &games, &mut st.memo));
         }
         st.report.clone()
     }
@@ -87,20 +98,32 @@ impl MacroSync {
 
 /// Report with lolalytics benchmarks for my most played champions (fetched in
 /// the background on first use, so they join a later report).
-fn report(sh: &Arc<Shared>, sd: &StaticData, games: &[PastGame]) -> MacroReport {
-    let plain = coach::macro_report(games, sd, &HashMap::new());
-    let mut bench = HashMap::new();
+fn report(sh: &Arc<Shared>, sd: &StaticData, games: &Arc<Vec<PastGame>>, memo: &mut Option<Memo>) -> MacroReport {
+    let m = match memo {
+        Some(m) if Arc::ptr_eq(&m.games, games) => m,
+        _ => {
+            let plain = coach::macro_report(games, sd, &HashMap::new());
+            memo.insert(Memo { games: games.clone(), report: plain.clone(), plain, stats: vec![] })
+        }
+    };
+    let mut found = vec![];
     for mode in [Mode::Rift, Mode::Aram, Mode::Mayhem] {
-        for c in plain.champs.iter().filter(|c| c.mode == mode && c.games >= BENCH_GAMES).take(BENCH_CHAMPS) {
+        for c in m.plain.champs.iter().filter(|c| c.mode == mode && c.games >= BENCH_GAMES).take(BENCH_CHAMPS) {
             let mut lanes: HashMap<Lane, u32> = HashMap::new();
             for l in games.iter().filter(|g| g.mode == mode && g.champ == c.champ).filter_map(|g| g.lane) {
                 *lanes.entry(l).or_default() += 1;
             }
             let lane = lanes.into_iter().max_by_key(|&(l, n)| (n, l as u8)).map(|(l, _)| l);
             if let Some(s) = orchestrator::stats(sh, sd, c.champ, lane, mode) {
-                bench.insert((mode, c.champ), s.benchmarks.clone());
+                found.push(((mode, c.champ), s));
             }
         }
     }
-    if bench.is_empty() { plain } else { coach::macro_report(games, sd, &bench) }
+    let same = found.len() == m.stats.len() && found.iter().zip(&m.stats).all(|(a, b)| Arc::ptr_eq(&a.1, b));
+    if !same {
+        let bench: HashMap<_, _> = found.iter().map(|(k, s)| (*k, s.benchmarks.clone())).collect();
+        m.report = if bench.is_empty() { m.plain.clone() } else { coach::macro_report(games, sd, &bench) };
+        m.stats = found.into_iter().map(|(_, s)| s).collect();
+    }
+    m.report.clone()
 }

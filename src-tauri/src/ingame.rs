@@ -12,9 +12,10 @@ pub fn ults(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot) -> HashMap<C
         .iter()
         .filter(|p| Some(p.team) != my_team)
         .filter_map(|p| {
-            let (http, version, id) = (sh.http.clone(), sd.version.clone(), sd.champs.get(&p.champ)?.id.clone());
-            let u = ensure(sh, |s| &s.ults, |s| &s.ddragon_ok, p.champ, move || async move {
-                data::ults::ult(&http, &version, &id).await
+            let id = &sd.champs.get(&p.champ)?.id;
+            let u = ensure(sh, |s| &s.ults, |s| &s.ddragon_ok, p.champ, move || {
+                let (http, version, id) = (sh.http.clone(), sd.version.clone(), id.clone());
+                async move { data::ults::ult(&http, &version, &id).await }
             })?;
             Some((p.champ, (*u).clone()))
         })

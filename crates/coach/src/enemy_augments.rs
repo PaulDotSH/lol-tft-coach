@@ -157,9 +157,8 @@ fn name_tags(name: &str) -> Tags {
 
 /// Tags every candidate agrees on: a shared icon only counts when all its augments do the same.
 fn seen_tags(s: &SeenAugment, names: &HashMap<AugmentId, String>) -> Tags {
-    let all = |f: fn(&Tags) -> bool| {
-        !s.ids.is_empty() && s.ids.iter().all(|id| names.get(id).is_some_and(|n| f(&name_tags(n))))
-    };
+    let tags: Vec<Option<Tags>> = s.ids.iter().map(|id| names.get(id).map(|n| name_tags(n))).collect();
+    let all = |f: fn(&Tags) -> bool| !tags.is_empty() && tags.iter().all(|t| t.as_ref().is_some_and(f));
     Tags {
         tank: all(|t| t.tank),
         heal: all(|t| t.heal),

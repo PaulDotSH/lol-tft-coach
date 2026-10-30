@@ -7,50 +7,58 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 fn lane_stats(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<Lane>) -> Option<Arc<ChampStats>> {
-    let c = sd.champs.get(&champ)?.clone();
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    let (c, patch) = (sd.champs.get(&champ)?, sh.patch()?);
     ensure(
         sh,
         |s| &s.lane_stats,
         |s| &s.lola_ok,
         (champ, lane),
-        move || async move { data::lolalytics_team::lane_stats(&http, &c, lane, &s.tier, &s.region, &patch).await },
+        move || {
+            let (http, s, c) = (sh.http.clone(), sh.settings(), c.clone());
+            async move { data::lolalytics_team::lane_stats(&http, &c, lane, &s.tier, &s.region, &patch).await }
+        },
     )
 }
 
 fn team(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane) -> Option<Arc<TeamSynergy>> {
-    let c = sd.champs.get(&champ)?.clone();
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    let (c, patch) = (sd.champs.get(&champ)?, sh.patch()?);
     ensure(
         sh,
         |s| &s.team,
         |s| &s.lola_ok,
         (champ, lane),
-        move || async move { data::lolalytics_team::team(&http, &c, lane, &s.tier, &s.region, &patch).await },
+        move || {
+            let (http, s, c) = (sh.http.clone(), sh.settings(), c.clone());
+            async move { data::lolalytics_team::team(&http, &c, lane, &s.tier, &s.region, &patch).await }
+        },
     )
 }
 
 fn counters_vs(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<Vec<Matchup>>> {
-    let c = sd.champs.get(&champ)?.clone();
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    let (c, patch) = (sd.champs.get(&champ)?, sh.patch()?);
     ensure(
         sh,
         |s| &s.vs_counters,
         |s| &s.lola_ok,
         (champ, lane, vs_lane),
-        move || async move { data::lolalytics::counters_vs(&http, &c, lane, vs_lane, &s.tier, &s.region, &patch).await },
+        move || {
+            let (http, s, c) = (sh.http.clone(), sh.settings(), c.clone());
+            async move { data::lolalytics::counters_vs(&http, &c, lane, vs_lane, &s.tier, &s.region, &patch).await }
+        },
     )
 }
 
 fn matchup(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<MatchupBuild>> {
-    let (a, b) = (sd.champs.get(&me)?.clone(), sd.champs.get(&vs)?.clone());
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    let (a, b, patch) = (sd.champs.get(&me)?, sd.champs.get(&vs)?, sh.patch()?);
     ensure(
         sh,
         |s| &s.matchups,
         |s| &s.lola_ok,
         (me, vs, lane, vs_lane),
-        move || async move { data::lolalytics::matchup(&http, &a, &b, lane, vs_lane, &s.tier, &s.region, &patch).await },
+        move || {
+            let (http, s, a, b) = (sh.http.clone(), sh.settings(), a.clone(), b.clone());
+            async move { data::lolalytics::matchup(&http, &a, &b, lane, vs_lane, &s.tier, &s.region, &patch).await }
+        },
     )
 }
 
@@ -89,13 +97,16 @@ pub fn bot_lane(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &Ch
 
 /// ARAM win rates and tiers for the ARAM / Mayhem bench.
 pub fn aram_tiers(sh: &Arc<Shared>) -> Option<Arc<Vec<TierEntry>>> {
-    let (http, s, patch) = (sh.http.clone(), sh.settings(), sh.patch()?);
+    let patch = sh.patch()?;
     ensure(
         sh,
         |s| &s.aram_tiers,
         |s| &s.lola_ok,
         (),
-        move || async move { data::lolalytics_aram::aram_tier_list(&http, &s.tier, &s.region, &patch).await },
+        move || {
+            let (http, s) = (sh.http.clone(), sh.settings());
+            async move { data::lolalytics_aram::aram_tier_list(&http, &s.tier, &s.region, &patch).await }
+        },
     )
 }
 

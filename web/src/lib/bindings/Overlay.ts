@@ -7,7 +7,7 @@ import type { OverlayBadge } from "./OverlayBadge";
  */
 export type Overlay = { tft: boolean, 
 /**
- * Badge row, fraction of the window's height from the top.
+ * Badge row (the badges' top), fraction of the game window's height.
  */
 badge_y: number, 
 /**

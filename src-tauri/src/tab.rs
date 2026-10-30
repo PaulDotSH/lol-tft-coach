@@ -193,13 +193,18 @@ pub fn poll(sh: &Shared) -> Duration {
     if job.urgent { URGENT } else { PASSIVE }
 }
 
-/// Two small column captures decide whether the scoreboard is open; only then is the board captured and read.
+/// Up to two small column captures decide whether the scoreboard is open; only then is the board captured and read.
 fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
     let (w, h) = ocr::league_client()?;
     let g = Geometry::new(w, h);
-    let (a, b) = (g.column(0), g.column(1));
-    let (fa, fb) = (ocr::capture_client(a)?, ocr::capture_client(b)?);
-    if !scoreboard::is_open([(&fa, (a.x, a.y)), (&fb, (b.x, b.y))], &g) {
+    let open = scoreboard::is_open_with(
+        |h| {
+            let c = g.column(h);
+            Some((ocr::capture_client(c)?, (c.x, c.y)))
+        },
+        &g,
+    )?;
+    if !open {
         return None;
     }
     let r = g.board();

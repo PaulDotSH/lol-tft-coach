@@ -66,6 +66,8 @@ pub struct Painter {
     brushes: Vec<ID2D1SolidColorBrush>,
     bg: ID2D1SolidColorBrush,
     edge: ID2D1SolidColorBrush,
+    /// The text format and its ellipsis for the last font size (it changes only with the window).
+    format: std::cell::RefCell<Option<(f32, IDWriteTextFormat, IDWriteInlineObject)>>,
 }
 
 impl Painter {
@@ -86,7 +88,7 @@ impl Painter {
             let bg = brush(rgba(12, 16, 22, 0.78))?;
             let edge = brush(rgba(0xdc, 0xb7, 0x5c, 0.35))?;
             let dw = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED)?;
-            Ok(Self { dw, rt, brushes, bg, edge })
+            Ok(Self { dw, rt, brushes, bg, edge, format: Default::default() })
         }
     }
 
@@ -94,10 +96,16 @@ impl Painter {
         &self.brushes[INKS.iter().position(|&x| x == i).unwrap_or(0)]
     }
 
-    /// A laid-out line: its runs coloured and sized, wrapped at `max_w` (or cut with "…").
-    fn layout(&self, line: &Line, px: f32, max_w: f32, wrap: bool) -> Result<(IDWriteTextLayout, f32, f32)> {
+    /// The text format at `px` and its ellipsis sign, made once per size.
+    fn format(&self, px: f32) -> Result<(IDWriteTextFormat, IDWriteInlineObject)> {
+        let mut cached = self.format.borrow_mut();
+        if let Some((size, f, sign)) = &*cached
+            && *size == px
+        {
+            return Ok((f.clone(), sign.clone()));
+        }
         unsafe {
-            let format = self.dw.CreateTextFormat(
+            let f = self.dw.CreateTextFormat(
                 w!("Bahnschrift"),
                 None,
                 DWRITE_FONT_WEIGHT_SEMI_BOLD,
@@ -106,11 +114,20 @@ impl Painter {
                 px,
                 w!("en-us"),
             )?;
+            let sign = self.dw.CreateEllipsisTrimmingSign(&f)?;
+            *cached = Some((px, f.clone(), sign.clone()));
+            Ok((f, sign))
+        }
+    }
+
+    /// A laid-out line: its runs coloured and sized, wrapped at `max_w` (or cut with "…").
+    fn layout(&self, line: &Line, px: f32, max_w: f32, wrap: bool) -> Result<(IDWriteTextLayout, f32, f32)> {
+        unsafe {
+            let (format, sign) = self.format(px)?;
             let text: Vec<u16> = line.runs.iter().flat_map(|r| r.text.encode_utf16()).collect();
             let layout = self.dw.CreateTextLayout(&text, &format, max_w.max(1.0), 10_000.0)?;
             if !wrap {
                 layout.SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)?;
-                let sign = self.dw.CreateEllipsisTrimmingSign(&format)?;
                 let trim = DWRITE_TRIMMING { granularity: DWRITE_TRIMMING_GRANULARITY_CHARACTER, ..Default::default() };
                 layout.SetTrimming(&trim, &sign)?;
             }

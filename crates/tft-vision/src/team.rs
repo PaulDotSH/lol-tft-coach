@@ -159,6 +159,56 @@ fn ncc(m: &Map, g: &Glyph, x: usize, y: usize) -> f32 {
     if var <= 1e-9 { 0.0 } else { dot / var.sqrt() as f32 }
 }
 
+/// Coarse positions correlated at once by [`ncc_lanes`].
+const LANES: usize = 8;
+
+/// The map's even and odd columns apart, so positions COARSE px apart load side by side.
+struct Planes {
+    even: Vec<f32>,
+    odd: Vec<f32>,
+    we: usize,
+    wo: usize,
+}
+
+impl Planes {
+    fn new(m: &Map) -> Self {
+        let (we, wo) = (m.w.div_ceil(2), m.w / 2);
+        let (mut even, mut odd) = (Vec::with_capacity(we * m.h), Vec::with_capacity(wo * m.h));
+        for row in m.v.chunks(m.w) {
+            even.extend(row.iter().step_by(2));
+            odd.extend(row.iter().skip(1).step_by(2));
+        }
+        Planes { even, odd, we, wo }
+    }
+}
+
+/// [`ncc`] at x = 2k, 2(k+1), … 2(k+LANES-1): each lane does the same arithmetic in the same order
+/// (equal bit for bit), lanes side by side so the compiler vectorises across positions.
+fn ncc_lanes(p: &Planes, g: &Glyph, k: usize, y: usize) -> [f32; LANES] {
+    let (mut dot, mut sum, mut sq) = ([0.0f32; LANES], [0.0f64; LANES], [0.0f64; LANES]);
+    for r in 0..g.h {
+        let (s_even, s_odd) = (&p.even[(y + r) * p.we..][..p.we], &p.odd[(y + r) * p.wo..][..p.wo]);
+        let (mut s, mut q) = ([0.0f32; LANES], [0.0f32; LANES]);
+        for (c, &t) in g.z[r * g.w..(r + 1) * g.w].iter().enumerate() {
+            // Column 2k + c of the map.
+            let plane = if c % 2 == 0 { s_even } else { s_odd };
+            let a: &[f32; LANES] = plane[k + c / 2..][..LANES].try_into().expect("LANES long");
+            for l in 0..LANES {
+                dot[l] += a[l] * t;
+                s[l] += a[l];
+                q[l] += a[l] * a[l];
+            }
+        }
+        for l in 0..LANES {
+            (sum[l], sq[l]) = (sum[l] + s[l] as f64, sq[l] + q[l] as f64);
+        }
+    }
+    std::array::from_fn(|l| {
+        let var = sq[l] - sum[l] * sum[l] / (g.w * g.h) as f64;
+        if var <= 1e-9 { 0.0 } else { dot[l] / var.sqrt() as f32 }
+    })
+}
+
 /// Best matches of the style's templates along the row, overlapping ones dropped, left to right.
 fn find(m: &Map, style: usize) -> Vec<Found> {
     let top = ((BAND.0 - REGION.1) / 2) as i32;
@@ -166,18 +216,41 @@ fn find(m: &Map, style: usize) -> Vec<Found> {
     if m.v.iter().sum::<f32>() < EMPTY * m.v.len() as f32 {
         return all;
     }
+    let planes = Planes::new(m);
     for g in glyphs().iter().filter(|g| g.style == style) {
         let last = m.w.saturating_sub(g.w);
-        let at = |x: usize, dys: &mut dyn Iterator<Item = i32>| {
-            dys.map(|dy| top + dy).filter(|&y| y >= 0 && y as usize + g.h <= m.h).map(|y| ncc(m, g, x, y as usize)).fold(0.0f32, f32::max)
+        let rows = |dys: &mut dyn Iterator<Item = i32>| {
+            dys.map(|dy| top + dy).filter(|&y| y >= 0 && y as usize + g.h <= m.h).map(|y| y as usize).collect::<Vec<_>>()
         };
+        let at = |x: usize, ys: &[usize]| ys.iter().map(|&y| ncc(m, g, x, y)).fold(0.0f32, f32::max);
         // Coarse every COARSE px and rows, then every place and row around the promising ones.
+        let coarse_rows = rows(&mut (-SHIFT_Y..=SHIFT_Y).step_by(COARSE));
+        let fine_rows = rows(&mut (-SHIFT_Y..=SHIFT_Y));
+        const _: () = assert!(COARSE == 2, "planes split columns in two");
+        let n = last / COARSE + 1;
+        let mut coarse = vec![0.0f32; n];
+        let mut k = 0;
+        while k < n {
+            if COARSE * (k + LANES - 1) <= last {
+                let mut best = [0.0f32; LANES];
+                for &y in &coarse_rows {
+                    for (b, v) in best.iter_mut().zip(ncc_lanes(&planes, g, k, y)) {
+                        *b = b.max(v);
+                    }
+                }
+                coarse[k..k + LANES].copy_from_slice(&best);
+                k += LANES;
+            } else {
+                coarse[k] = at(COARSE * k, &coarse_rows);
+                k += 1;
+            }
+        }
         for x in (0..=last).step_by(COARSE) {
-            if at(x, &mut (-SHIFT_Y..=SHIFT_Y).step_by(COARSE)) < MATCH - NEAR {
+            if coarse[x / COARSE] < MATCH - NEAR {
                 continue;
             }
             for x in x.saturating_sub(COARSE - 1)..=(x + COARSE - 1).min(last) {
-                let best = at(x, &mut (-SHIFT_Y..=SHIFT_Y));
+                let best = at(x, &fine_rows);
                 if best >= MATCH {
                     all.push(Found { score: best, ch: g.ch, x0: x, x1: x + g.w });
                 }
@@ -269,6 +342,30 @@ mod tests {
         assert_eq!(parse(&[at('4', 168, 222), at('4', 270, 324)], false), None);
         let weak = |ch, x0, x1| Found { score: 0.55, ch, x0, x1 };
         assert_eq!(parse(&[weak('6', 168, 222), weak('/', 218, 271), weak('6', 270, 324)], false), None);
+    }
+
+    #[test]
+    fn lanes_equal_the_scalar_correlation() {
+        let (w, h) = (101, 60);
+        let mut x = 12345u32;
+        let v = (0..w * h)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                (x % 1000) as f32 / 1000.0
+            })
+            .collect();
+        let m = Map { w, h, v };
+        let p = Planes::new(&m);
+        for g in glyphs().iter().filter(|g| g.w <= w && g.h <= h).take(6) {
+            let last = (m.w - g.w) / COARSE;
+            for k in (0..=last.saturating_sub(LANES - 1)).step_by(3) {
+                for (l, v) in ncc_lanes(&p, g, k, 0).into_iter().enumerate() {
+                    assert_eq!(v.to_bits(), ncc(&m, g, COARSE * (k + l), 0).to_bits(), "{} at {}", g.ch, k + l);
+                }
+            }
+        }
     }
 
     #[test]

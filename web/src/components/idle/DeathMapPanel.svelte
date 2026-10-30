@@ -18,18 +18,18 @@
     picked.flatMap((g) =>
       g.death_spots
         .filter((d) => phase === 'all' || (phase === 'early') === d.time < EARLY)
-        .map((d) => ({ ...d, win: g.win, champ: g.champ })),
+        .map((d) => ({ ...d, win: g.win, champ: g.champ, zone: zoneOf(d.x, d.y) })),
     ),
   );
   const name = (c: number) => (store.ui ? champName(store.ui, c) : '');
   const spots = $derived<Spot[]>(
-    deaths.map((d) => ({ x: d.x, y: d.y, tone: d.win ? 'win' : 'loss', title: `${name(d.champ)} ${clockText(d.time)} · ${zoneOf(d.x, d.y)}` })),
+    deaths.map((d) => ({ x: d.x, y: d.y, tone: d.win ? 'win' : 'loss', title: `${name(d.champ)} ${clockText(d.time)} · ${d.zone}` })),
   );
   // Most common places, losses and wins apart.
   const places = $derived.by(() => {
     const m = new Map<string, [number, number]>();
     for (const d of deaths) {
-      const z = zoneOf(d.x, d.y);
+      const z = d.zone;
       const c = m.get(z) ?? [0, 0];
       c[d.win ? 1 : 0]++;
       m.set(z, c);

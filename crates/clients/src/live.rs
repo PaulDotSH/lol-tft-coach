@@ -4,6 +4,7 @@ use crate::id;
 use model_game::{ChampionStats, GameEvent, GameSnapshot, Lane, Mode, Player, Team};
 use model_static::StaticData;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::time::Duration;
 
 const URL: &str = "https://127.0.0.1:2999/liveclientdata/allgamedata";
@@ -128,12 +129,25 @@ pub fn champion_stats(v: &Value) -> Option<ChampionStats> {
     })
 }
 
+/// Each player name (game name, Riot ID, summoner name) → the first player carrying it.
+fn names(all: &[Value]) -> HashMap<&str, usize> {
+    let mut idx = HashMap::new();
+    for (i, p) in all.iter().enumerate() {
+        for k in ["riotIdGameName", "riotId", "summonerName"] {
+            if let Some(s) = p[k].as_str() {
+                idx.entry(s).or_insert(i);
+            }
+        }
+    }
+    idx
+}
+
 /// Index of the player any of whose names equals `name` (events use game names).
-fn resolve(all: &[Value], name: &str) -> Option<usize> {
+fn resolve(names: &HashMap<&str, usize>, name: &str) -> Option<usize> {
     if name.is_empty() {
         return None;
     }
-    all.iter().position(|p| ["riotIdGameName", "riotId", "summonerName"].iter().any(|k| p[*k] == name))
+    names.get(name).copied()
 }
 
 fn mode(game: &Value) -> Mode {
@@ -155,13 +169,14 @@ pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
         all.iter().position(|p| !name.is_empty() && p[*k] == name)
     })?;
     let players: Vec<Player> = all.iter().map(|p| player(p, sd)).collect();
-    let who = |v: &Value| resolve(all, str_of(v));
+    let names = names(all);
+    let who = |v: &Value| resolve(&names, str_of(v));
     let team_of = |v: &Value| who(v).map(|i| players[i].team);
 
     let events = arr(&json["events"]["Events"])
         .filter_map(|e| {
             let time = num(&e["EventTime"]);
-            let team = team_of(&e["KillerName"]);
+            let team = || team_of(&e["KillerName"]);
             Some(match str_of(&e["EventName"]) {
                 "ChampionKill" => GameEvent::Kill {
                     time,
@@ -169,12 +184,12 @@ pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
                     victim: who(&e["VictimName"])?,
                     assisters: arr(&e["Assisters"]).filter_map(who).collect(),
                 },
-                "DragonKill" => GameEvent::Dragon { time, team, kind: str_of(&e["DragonType"]).to_string() },
-                "BaronKill" => GameEvent::Baron { time, team },
-                "HeraldKill" => GameEvent::Herald { time, team },
+                "DragonKill" => GameEvent::Dragon { time, team: team(), kind: str_of(&e["DragonType"]).to_string() },
+                "BaronKill" => GameEvent::Baron { time, team: team() },
+                "HeraldKill" => GameEvent::Herald { time, team: team() },
                 "GameEnd" => GameEvent::GameEnd { time, win: e["Result"] == "Win" },
                 // HordeKill (voidgrubs), AtakhanKill, … → name without the suffix.
-                n if n.len() > 4 && n.ends_with("Kill") => GameEvent::Objective { time, team, name: n[..n.len() - 4].to_string() },
+                n if n.len() > 4 && n.ends_with("Kill") => GameEvent::Objective { time, team: team(), name: n[..n.len() - 4].to_string() },
                 _ => return None,
             })
         })

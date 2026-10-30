@@ -43,6 +43,9 @@ type Desc = Vec<f32>;
 /// Item icon templates for one set.
 pub struct ItemIcons {
     tpl: Vec<(Api, Desc)>,
+    /// The templates transposed: value i of template n at `i * tpl.len() + n`, so `best` sums
+    /// every template at once (each in its own order, as `dot` does) and vectorises.
+    cols: Vec<f32>,
 }
 
 fn bilinear(at: &impl Fn(i32, i32) -> [f32; 3], x: f32, y: f32) -> [f32; 3] {
@@ -112,7 +115,14 @@ impl ItemIcons {
                 tpl.push((api.clone(), d));
             }
         }
-        ItemIcons { tpl }
+        let n = tpl.len();
+        let mut cols = vec![0.0; D * D * 3 * n];
+        for (j, (_, t)) in tpl.iter().enumerate() {
+            for (i, &v) in t.iter().enumerate() {
+                cols[i * n + j] = v;
+            }
+        }
+        ItemIcons { tpl, cols }
     }
 
     pub fn len(&self) -> usize {
@@ -123,8 +133,17 @@ impl ItemIcons {
         self.tpl.is_empty()
     }
 
+    /// The best template for `d`: the same scores as `dot` with each template, bit for bit.
     fn best(&self, d: &[f32]) -> Option<(f32, &Api)> {
-        self.tpl.iter().map(|(a, t)| (dot(t, d), a)).max_by(|a, b| a.0.total_cmp(&b.0))
+        let n = self.tpl.len();
+        // -0.0: where `Iterator::sum` starts.
+        let mut acc = vec![-0.0f32; n];
+        for (&x, col) in d.iter().zip(self.cols.chunks_exact(n.max(1))) {
+            for (a, &t) in acc.iter_mut().zip(col) {
+                *a += t * x;
+            }
+        }
+        self.tpl.iter().zip(acc).map(|((a, _), s)| (s, a)).max_by(|a, b| a.0.total_cmp(&b.0))
     }
 
     /// The item drawn in the square (x, y, size) of client pixels, if one matches; `px` is one base pixel.
@@ -246,6 +265,17 @@ mod tests {
 
     fn unit(x: f32, y: f32) -> SeenUnit {
         SeenUnit { x, y, star: 1, bench: None, full: true, items: vec![], emb: vec![] }
+    }
+
+    #[test]
+    fn best_scores_equal_dot() {
+        let icons = icons();
+        for t in icons.tpl.iter().take(5) {
+            let d: Desc = t.1.iter().rev().zip(&t.1).map(|(a, b)| a * 0.7 + b * 0.3).collect();
+            let naive = icons.tpl.iter().map(|(a, t)| (dot(t, &d), a)).max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
+            let got = icons.best(&d).unwrap();
+            assert_eq!((got.0.to_bits(), got.1), (naive.0.to_bits(), naive.1));
+        }
     }
 
     #[test]

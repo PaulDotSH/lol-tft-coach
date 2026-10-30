@@ -194,23 +194,57 @@ fn match_digit(m: &Mask) -> Option<u32> {
     match_mask(m, templates())
 }
 
-fn match_mask(m: &Mask, templates: &[(u32, Mask)]) -> Option<u32> {
-    let agree = |t: &Mask, dx: i32, dy: i32| {
-        let (mut both, mut either) = (0u32, 0u32);
-        for y in 0..m.h as i32 {
-            for x in 0..m.w as i32 {
-                let (tx, ty) = (x + dx, y + dy);
-                let tb = tx >= 0 && ty >= 0 && tx < t.w as i32 && ty < t.h as i32 && t.bits[(ty * t.w as i32 + tx) as usize];
-                let mb = m.bits[(y * m.w as i32 + x) as usize];
-                (both, either) = (both + (tb && mb) as u32, either + (tb || mb) as u32);
-            }
+/// A mask's rows as bit sets (bit x = column x), when it is at most 64 wide.
+fn row_bits(m: &Mask) -> Option<Vec<u64>> {
+    (m.w <= 64).then(|| m.bits.chunks(m.w.max(1) as usize).map(|r| r.iter().enumerate().fold(0u64, |a, (x, &b)| a | (u64::from(b) << x))).collect())
+}
+
+/// Share of set pixels `m` and `t` (shifted by dx, dy) agree on: both over either.
+fn agree(m: &Mask, t: &Mask, dx: i32, dy: i32) -> f32 {
+    let (mut both, mut either) = (0u32, 0u32);
+    for y in 0..m.h as i32 {
+        for x in 0..m.w as i32 {
+            let (tx, ty) = (x + dx, y + dy);
+            let tb = tx >= 0 && ty >= 0 && tx < t.w as i32 && ty < t.h as i32 && t.bits[(ty * t.w as i32 + tx) as usize];
+            let mb = m.bits[(y * m.w as i32 + x) as usize];
+            (both, either) = (both + (tb && mb) as u32, either + (tb || mb) as u32);
         }
-        both as f32 / either.max(1) as f32
-    };
+    }
+    both as f32 / either.max(1) as f32
+}
+
+/// [`agree`] on row bit sets of masks the same width `w`: the same counts, a row at a time.
+fn agree_rows(m: &[u64], t: &[u64], w: u32, dx: i32, dy: i32) -> f32 {
+    let full = if w >= 64 { u64::MAX } else { (1u64 << w) - 1 };
+    let (mut both, mut either) = (0u32, 0u32);
+    for (y, &mr) in m.iter().enumerate() {
+        let ty = y as i32 + dy;
+        let tr = if ty >= 0 && (ty as usize) < t.len() { t[ty as usize] } else { 0 };
+        // Bit x of the shifted row: template column x + dx.
+        let tr = match dx {
+            d if d.abs() >= 64 => 0,
+            d if d >= 0 => tr >> d,
+            d => (tr << -d) & full,
+        };
+        both += (tr & mr).count_ones();
+        either += (tr | mr).count_ones();
+    }
+    both as f32 / either.max(1) as f32
+}
+
+fn match_mask(m: &Mask, templates: &[(u32, Mask)]) -> Option<u32> {
+    let rows = row_bits(m);
+    let shifts = || (-2..=2).flat_map(|dx| (-2..=2).map(move |dy| (dx, dy)));
     templates
         .iter()
         .filter(|(_, t)| (t.w, t.h) == (m.w, m.h))
-        .map(|(d, t)| (*d, (-2..=2).flat_map(|dx| (-2..=2).map(move |dy| (dx, dy))).map(|(dx, dy)| agree(t, dx, dy)).fold(0.0, f32::max)))
+        .map(|(d, t)| {
+            let score = match (&rows, row_bits(t)) {
+                (Some(mr), Some(tr)) => shifts().map(|(dx, dy)| agree_rows(mr, &tr, m.w, dx, dy)).fold(0.0, f32::max),
+                _ => shifts().map(|(dx, dy)| agree(m, t, dx, dy)).fold(0.0, f32::max),
+            };
+            (*d, score)
+        })
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .filter(|(_, s)| *s >= DIGIT_MATCH)
         .map(|(d, _)| d)
@@ -577,10 +611,11 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
 
     let (traits, traits_hidden) = panel(f, &g, names);
 
-    let (units, enemies) = units::read(f, g.0);
+    // Red bars scanned once: their count, and the units when there are any.
+    let (units, foes) = units::read_with_foes(f, g.0);
+    let enemies = foes.len() as u32;
     let viewing_other = viewing_other(&boxes, &g, me);
     let viewing = viewed(f, &boxes, &g, me, enemies > 0);
-    let foes = if enemies > 0 { units::foes(f, g.0) } else { vec![] };
     Some(TftSnapshot {
         at,
         stage,
@@ -731,6 +766,32 @@ fn embed_units(e: &mut tft_embed::Embedder, f: &Frame, scale: f32, units: &mut [
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn row_bits_agree_with_the_pixel_loop() {
+        let mut x = 99u32;
+        let mut mask = |w: u32, h: u32| Mask {
+            w,
+            h,
+            bits: (0..w * h)
+                .map(|_| {
+                    x ^= x << 13;
+                    x ^= x >> 17;
+                    x ^= x << 5;
+                    x.is_multiple_of(3)
+                })
+                .collect(),
+        };
+        for (w, h) in [(34, 42), (7, 9), (64, 5), (1, 3)] {
+            let (m, t) = (mask(w, h), mask(w, h));
+            let (mr, tr) = (row_bits(&m).unwrap(), row_bits(&t).unwrap());
+            for dx in -3..=3 {
+                for dy in -3..=3 {
+                    assert_eq!(agree_rows(&mr, &tr, w, dx, dy).to_bits(), agree(&m, &t, dx, dy).to_bits(), "{w}x{h} {dx},{dy}");
+                }
+            }
+        }
+    }
 
     #[test]
     fn stage_and_digits() {
