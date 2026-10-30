@@ -52,13 +52,15 @@ pub struct Shared {
     /// Draft: counter-only stats per (champ, lane) and build-team synergy.
     pub lane_stats: Cache<(ChampKey, Option<Lane>), ChampStats>,
     pub team: Cache<(ChampKey, Lane), TeamSynergy>,
-    /// Bot lane plan: my counters against another lane, and matchup pages.
+    /// Matchup card: my counters against an opposing lane, and matchup pages.
     pub vs_counters: Cache<(ChampKey, Lane, Lane), Vec<Matchup>>,
     pub matchups: Cache<(ChampKey, ChampKey, Lane, Lane), MatchupBuild>,
     /// ARAM tier list (all champions) for the ARAM / Mayhem bench.
     pub aram_tiers: Cache<(), Vec<TierEntry>>,
     /// Data Dragon R cooldowns per champion, and the last fetch outcome.
     pub ults: Cache<ChampKey, UltCooldowns>,
+    /// Data Dragon Q W E R per champion (matchup cards).
+    pub spells: Cache<ChampKey, Vec<SpellInfo>>,
     pub ddragon_ok: Mutex<Option<bool>>,
     /// Coachless sign-in, my champion's Coachless builds and the last fetch outcome.
     pub coachless_auth: data::coachless::Auth,
@@ -111,6 +113,7 @@ impl Shared {
             matchups: Mutex::default(),
             aram_tiers: Mutex::default(),
             ults: Mutex::default(),
+            spells: Mutex::default(),
             ddragon_ok: Mutex::new(None),
             coachless_auth: data::coachless::Auth::load(crate::settings::local_dir("").join("coachless.json")),
             coachless: Mutex::default(),

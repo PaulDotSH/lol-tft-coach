@@ -196,7 +196,7 @@ fn affordable_item_has_zero_eta_and_no_back_plans() {
 fn extras(s: &GameSnapshot, t: &Tracker, ults: &HashMap<ChampKey, UltCooldowns>) -> GameAdvice {
     let sd = sd();
     let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
-    live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker: t, ults });
+    live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker: t, ults, notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     a
 }
 

@@ -1,7 +1,8 @@
 //! In-game advice (`coach` output, rendered by the UI): buy next, threats, gold, shopping,
-//! death windows, augments, calls and tips.
+//! death windows, augments, calls, tips and the laning matchup panel.
 
 pub use model_core::*;
+use model_draft::MatchupCard;
 
 data! {
     pub struct Threat {
@@ -120,6 +121,9 @@ data! {
         /// Quiet tips: lane pace, vision, spending.
         #[serde(default)]
         pub tips: Vec<LiveTip>,
+        /// Rift: tips against my lane opponent(s), both enemy bot laners in bot lane.
+        #[serde(default)]
+        pub matchup: Vec<MatchupCard>,
     }
 
     /// One Rift lane pairing; item gold of visible inventories, ally − enemy.

@@ -11,4 +11,16 @@ lane_games: number, gold_15: number | null,
 /**
  * Times they killed me, over `games`.
  */
-killed_me: number, };
+killed_me: number, 
+/**
+ * Of those, before 15:00 (games with a timeline only).
+ */
+early_kills: number, 
+/**
+ * Games and wins on the champion I play now.
+ */
+same_games: number, same_wins: number, 
+/**
+ * Newest first, at most three: true = win.
+ */
+last: Array<boolean>, };

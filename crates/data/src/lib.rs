@@ -5,13 +5,13 @@ pub mod coachless;
 pub mod ddragon;
 pub mod icons;
 pub mod item_groups;
-pub mod lane_notes;
 pub mod lolalytics;
 pub mod lolalytics_aram;
 pub mod lolalytics_team;
+pub mod notes;
 pub mod qwik;
+pub mod spells;
 pub mod ugg;
-pub mod ults;
 
 use anyhow::Context;
 use std::path::{Path, PathBuf};

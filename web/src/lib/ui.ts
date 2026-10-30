@@ -13,6 +13,30 @@ export const itemIcon = (ui: UiStatic, id: number) => `${DD}/${ui.version}/img/i
 export const augmentIcon = (ui: UiStatic, id: number) =>
   ui.ugg_patch ? `https://static.bigbrain.gg/cdragon-custom/${ui.ugg_patch}/augments/${id}.webp` : '';
 
+/** Champion spell image (`SpellInfo.icon`, e.g. "ZoeE.png"). */
+export const spellIcon = (ui: UiStatic, file: string) => (file ? `${DD}/${ui.version}/img/spell/${file}` : '');
+/** Summoner spell keys (lolalytics / Data Dragon `key`) → Data Dragon id and name. */
+export const SUMMONERS: Record<number, [string, string]> = {
+  1: ['SummonerBoost', 'Cleanse'],
+  3: ['SummonerExhaust', 'Exhaust'],
+  4: ['SummonerFlash', 'Flash'],
+  6: ['SummonerHaste', 'Ghost'],
+  7: ['SummonerHeal', 'Heal'],
+  11: ['SummonerSmite', 'Smite'],
+  12: ['SummonerTeleport', 'Teleport'],
+  14: ['SummonerDot', 'Ignite'],
+  21: ['SummonerBarrier', 'Barrier'],
+};
+export const summonerIcon = (ui: UiStatic, key: number) => (SUMMONERS[key] ? `${DD}/${ui.version}/img/spell/${SUMMONERS[key][0]}.png` : '');
+/** Cooldown per rank → "16–11s" (one value when flat). */
+export const cooldownText = (cd: number[]) => {
+  const f = (n: number) => `${Math.round(n * 10) / 10}`;
+  if (!cd.length) return '';
+  const [a, b] = [cd[0], cd[cd.length - 1]];
+  if (Math.max(a, b) < 1) return 'no cd';
+  return a === b ? `${f(a)}s` : `${f(a)}–${f(b)}s`;
+};
+
 /** Rune / stat shard image path from Data Dragon (`perk-images/…`); not versioned. */
 export const runeIcon = (path: string) => (path ? `${DD}/img/${path}` : '');
 

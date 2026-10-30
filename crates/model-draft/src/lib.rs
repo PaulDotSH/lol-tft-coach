@@ -1,8 +1,8 @@
 //! Champ select advice (`coach` output, rendered by the UI): picks, bans, build, runes, bench,
-//! draft breakdown, matchup memory and the bot lane plan.
+//! draft breakdown, matchup memory and the lane matchup card.
 
 pub use model_core::*;
-use model_static::MatchupBuild;
+use model_static::{ChampNote, MatchupBuild};
 
 data! {
     pub struct PickSuggestion {
@@ -87,40 +87,63 @@ data! {
         /// My history against the enemies revealed so far.
         #[serde(default)]
         pub memory: Vec<MatchupMemory>,
-        /// Rift, me support or ADC: the bot lane 2v2.
+        /// Rift: my lane opponent(s) once my lane and champion are known.
         #[serde(default)]
-        pub bot_lane: Option<BotLanePlan>,
+        pub matchup: Option<MatchupPlan>,
     }
 
-    /// Champ select plan for the bot lane 2v2 when I play support or ADC.
-    pub struct BotLanePlan {
-        /// My duo, me first.
+    /// Champ select: my lane opponent(s) with tips; in bot lane both of theirs and my partner.
+    pub struct MatchupPlan {
+        pub lane: Lane,
+        /// Me, then my bot lane partner when known.
         pub allies: Vec<ChampKey>,
-        /// Their bot laner then their support, as revealed (empty: none yet).
-        pub enemies: Vec<ChampKey>,
-        pub numbers: Vec<LaneNumber>,
-        /// From the hand-written lane notes, one per enemy that has one.
-        pub windows: Vec<LaneWindow>,
-        /// My past games against their bot laners.
-        pub memory: Vec<MatchupMemory>,
-        /// Starting and first items against their bot laner (lolalytics matchup page).
-        pub start: Option<MatchupBuild>,
+        /// Bot lane: synergy with my partner.
+        pub partner: Option<PartnerSynergy>,
+        /// Their laner(s) as revealed, bot laner before support; empty: none yet.
+        pub cards: Vec<MatchupCard>,
+        /// lolalytics matchup page against my direct opponent; None until fetched or from few games.
+        pub build: Option<MatchupBuild>,
+        /// `build.runes` with names and icons.
+        pub runes: Vec<RunePick>,
     }
 
-    pub struct LaneNumber {
+    pub struct PartnerSynergy {
         pub champ: ChampKey,
-        /// true: synergy with my lane partner (win-rate points); false: my win rate
-        /// against them (percent).
-        pub with: bool,
-        pub value: f32,
+        /// Win rate together minus expectation, points.
+        pub delta: f32,
         pub games: u32,
     }
 
-    pub struct LaneWindow {
+    /// Tips against one lane opponent (champ select and the in-game laning panel).
+    pub struct MatchupCard {
         pub champ: ChampKey,
+        /// My win rate against them, percent (lolalytics), and its games; None until fetched.
+        pub vs_wr: Option<f32>,
+        pub games: u32,
         /// "strong level 2", "all-in at 6", "hard engage", "poke", "sustain".
         pub tags: Vec<String>,
-        pub note: String,
+        /// Hand-written notes on this champion; None when missing from the notes.
+        pub note: Option<ChampNote>,
+        /// Hand-written note for exactly my champion against them.
+        pub pair: Option<String>,
+        /// Their Q W E R with base cooldowns; empty until Data Dragon answers.
+        pub spells: Vec<SpellCd>,
+        /// My past games against them.
+        pub record: Option<MatchupMemory>,
+    }
+
+    pub struct SpellCd {
+        /// "Q", "W", "E" or "R".
+        pub key: String,
+        pub name: String,
+        /// Image file under `cdn/<version>/img/spell/`.
+        pub icon: String,
+        /// Base cooldown per rank, seconds (before ability haste).
+        pub cooldown: Vec<f32>,
+        /// Named in the notes as a spell to play around.
+        pub watch: bool,
+        /// In game, R only: base cooldown at the rank their level allows.
+        pub now: Option<f32>,
     }
 
     /// My past games against one enemy champion (champ select).
@@ -133,6 +156,17 @@ data! {
         pub gold_15: Option<i32>,
         /// Times they killed me, over `games`.
         pub killed_me: u32,
+        /// Of those, before 15:00 (games with a timeline only).
+        #[serde(default)]
+        pub early_kills: u32,
+        /// Games and wins on the champion I play now.
+        #[serde(default)]
+        pub same_games: u32,
+        #[serde(default)]
+        pub same_wins: u32,
+        /// Newest first, at most three: true = win.
+        #[serde(default)]
+        pub last: Vec<bool>,
     }
 
     /// One lane: your champion vs the enemy most likely there.

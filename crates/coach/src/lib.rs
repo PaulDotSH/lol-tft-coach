@@ -3,7 +3,6 @@
 mod analysis;
 mod augment_tags;
 mod augments;
-mod bot_lane;
 mod calls;
 mod champ_select;
 mod common;
@@ -13,6 +12,7 @@ mod draft;
 mod enemy_augments;
 mod fights;
 mod items;
+mod lane_matchup;
 mod laning;
 mod macro_coach;
 mod late;
@@ -40,7 +40,7 @@ mod windows;
 
 pub use analysis::{analyze_match, compare_past};
 pub use augments::offer_places;
-pub use bot_lane::{BotLaneInput, plan as bot_lane_plan};
+pub use lane_matchup::{CardData, PlanInput as MatchupInput, opposing as opposing_lanes, plan as matchup_plan};
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use memory::matchup_memory;
@@ -145,6 +145,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         readiness: None,
         calls: vec![],
         tips: vec![],
+        matchup: vec![],
     }
 }
 
@@ -155,12 +156,16 @@ pub struct LiveInput<'a> {
     pub tracker: &'a Tracker,
     /// Data Dragon R cooldowns of champions in this game, as fetched so far.
     pub ults: &'a std::collections::HashMap<ChampKey, UltCooldowns>,
+    /// Laning panel: notes, Data Dragon spells of my lane opponents, my record against the enemies.
+    pub notes: &'a LaneNotes,
+    pub spells: &'a std::collections::HashMap<ChampKey, Vec<SpellInfo>>,
+    pub memory: &'a [MatchupMemory],
 }
 
 /// Second pass over [`game_advice`]: gold ETA from tracked income, enemy R ranks,
-/// newly finished items, calls and quiet tips.
+/// newly finished items, calls, quiet tips and the laning matchup panel.
 pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
-    let LiveInput { snap, sd, tracker, ults } = *input;
+    let LiveInput { snap, sd, tracker, ults, notes, spells, memory } = *input;
     if let (Some(me), Some(_)) = (snap.players.get(snap.me), &advice.gold_eta) {
         let path: Vec<ItemId> = advice.path.iter().map(|p| p.item).collect();
         advice.gold_eta = Some(shop::eta(sd, snap.mode, me, snap.my_gold, &path, tracker.income()));
@@ -168,6 +173,8 @@ pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
     spikes::annotate(&mut advice.threats, snap, tracker, ults);
     calls::annotate(advice, snap, sd);
     tips::annotate(advice, snap, sd, tracker);
+    let me = snap.players.get(snap.me).map_or(0, |p| p.champ);
+    advice.matchup = lane_matchup::laning(advice, snap, &CardData { sd, notes, me, spells, memory });
 }
 
 pub struct ChampSelectInput<'a> {

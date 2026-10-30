@@ -356,20 +356,18 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
 }
 
 /// Matchup page: the header (`vs`, `vsLane`, `n`, `wr`) and the most played
-/// `summary.pick.items` (`start` set, then `item1`..`item3` with `id`).
+/// `summary.pick`: `items` (`start` set, then `item1`..`item3` with `id`), `runes.set`,
+/// `sums.ids` and `skillpriority.id`.
 pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBuild> {
     let q = crate::qwik::parse(html).ok_or_else(|| anyhow::anyhow!("no qwik/json state"))?;
     let (games, win_rate) = q
         .find_map(2, &["vs", "vsLane", "n", "wr"], |h| Some((num(&h["n"])? as u32, num(&h["wr"])? as f32)))
         .ok_or_else(|| anyhow::anyhow!("no matchup header"))?;
-    let items = q.find_map(6, &["pick", "win"], |v| {
-        let it = &v["pick"]["items"];
-        it["start"].is_object().then(|| it.clone())
-    });
-    let ids = |v: &Value| -> Vec<ItemId> { v.as_array().into_iter().flatten().filter_map(|x| num(x).map(|n| n as ItemId)).collect() };
+    let pick = q.find_map(6, &["pick", "win"], |v| v["pick"]["items"]["start"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
+    let ids = |v: &Value| -> Vec<u32> { v.as_array().into_iter().flatten().filter_map(|x| num(x).map(|n| n as u32)).collect() };
     // item1..3 are single rows; later slots are lists of rows.
     let first_id = |v: &Value| num(if v.is_array() { &v[0]["id"] } else { &v["id"] }).map(|n| n as ItemId);
-    let it = items.unwrap_or_default();
+    let (it, set) = (&pick["items"], &pick["runes"]["set"]);
     let s = &it["start"];
     Ok(MatchupBuild {
         vs,
@@ -379,6 +377,9 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
         start_games: num(&s["n"]).unwrap_or(0.0) as u32,
         start_wr: num(&s["wr"]).unwrap_or(0.0) as f32,
         core: ["item1", "item2", "item3"].iter().filter_map(|k| first_id(&it[*k])).collect(),
+        runes: ids(&set["pri"]).into_iter().chain(ids(&set["sec"])).collect(),
+        summoners: ids(&pick["sums"]["ids"]),
+        skills: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
     })
 }
 
@@ -507,6 +508,8 @@ mod tests {
         assert_eq!((m.vs, m.games, m.win_rate), (81, 1807, 57.78));
         assert_eq!((m.start.as_slice(), m.start_games, m.start_wr), ([3865, 2003, 2003].as_slice(), 1776, 57.83));
         assert_eq!(m.core, [3876, 3047, 3190]);
+        assert_eq!(m.runes, [8465, 8463, 8473, 8242, 8347, 8345]);
+        assert_eq!((m.summoners.as_slice(), m.skills.as_str()), ([4, 7].as_slice(), "QEW"));
     }
 
     #[test]

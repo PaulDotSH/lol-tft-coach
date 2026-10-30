@@ -1,5 +1,5 @@
 //! Static and aggregate game data: Data Dragon items, champions and runes, lolalytics and
-//! u.gg stats, hand-written lane notes. Produced by `data`.
+//! u.gg stats, hand-written laning notes. Produced by `data`.
 
 pub use model_core::*;
 use std::collections::HashMap;
@@ -231,8 +231,8 @@ data! {
         pub silver: Vec<AugmentId>,
     }
 
-    /// Hand-written bot lane note (`crates/data/lane_notes.toml`).
-    pub struct LaneNote {
+    /// Hand-written notes on laning against one champion (`crates/data/champ_notes.toml`).
+    pub struct ChampNote {
         #[serde(default)]
         pub level2: bool,
         #[serde(default)]
@@ -243,7 +243,14 @@ data! {
         pub poke: bool,
         #[serde(default)]
         pub sustain: bool,
-        pub note: String,
+        /// How they win the lane.
+        pub wins: String,
+        /// Their spells to play around, by key ("E", "QR").
+        pub watch: String,
+        /// When they get stronger (levels, items).
+        pub spike: String,
+        /// When to trade and when to back off.
+        pub trade: String,
     }
 
     /// lolalytics matchup page: me against one champion, lane against lane.
@@ -258,6 +265,12 @@ data! {
         pub start_wr: f32,
         /// Most played first, second and third completed items.
         pub core: Vec<ItemId>,
+        /// Most played rune page: primary tree (keystone first), then secondary.
+        pub runes: Vec<RuneId>,
+        /// Most played summoner spells (Data Dragon summoner keys: 4 Flash, 14 Ignite, …).
+        pub summoners: Vec<u32>,
+        /// Skill max order, e.g. "QEW".
+        pub skills: String,
     }
 
     /// lolalytics `build-team` row: one teammate of `TeamSynergy::champ`.
@@ -280,11 +293,34 @@ data! {
         pub mates: Vec<Teammate>,
     }
 
+    /// One spell from Data Dragon `champion/<Id>.json` (`spells`, Q W E R order).
+    pub struct SpellInfo {
+        pub name: String,
+        /// Image file under `cdn/<version>/img/spell/`.
+        pub icon: String,
+        /// Base cooldown per rank, seconds.
+        pub cooldown: Vec<f32>,
+    }
+
     /// Data Dragon `champion/<Id>.json` → `spells[3]`.
     pub struct UltCooldowns {
         pub max_rank: u32,
         /// Base cooldown per rank, seconds.
         pub cooldown: Vec<f32>,
+    }
+}
+
+/// Hand-written laning notes, keyed by Data Dragon id.
+#[derive(Debug, Clone, Default)]
+pub struct LaneNotes {
+    pub champs: HashMap<String, ChampNote>,
+    /// My champion → their champion → one line for that pairing.
+    pub pairs: HashMap<String, HashMap<String, String>>,
+}
+
+impl LaneNotes {
+    pub fn pair(&self, me: &str, them: &str) -> Option<&String> {
+        self.pairs.get(me)?.get(them)
     }
 }
 

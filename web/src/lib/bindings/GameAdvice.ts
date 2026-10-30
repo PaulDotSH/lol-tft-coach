@@ -9,6 +9,7 @@ import type { GoldEta } from "./GoldEta";
 import type { GoldSink } from "./GoldSink";
 import type { ItemPick } from "./ItemPick";
 import type { LiveTip } from "./LiveTip";
+import type { MatchupCard } from "./MatchupCard";
 import type { MatchupTip } from "./MatchupTip";
 import type { Mode } from "./Mode";
 import type { MyAugment } from "./MyAugment";
@@ -67,4 +68,8 @@ calls: Array<Call>,
 /**
  * Quiet tips: lane pace, vision, spending.
  */
-tips: Array<LiveTip>, };
+tips: Array<LiveTip>, 
+/**
+ * Rift: tips against my lane opponent(s), both enemy bot laners in bot lane.
+ */
+matchup: Array<MatchupCard>, };
