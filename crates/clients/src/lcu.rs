@@ -19,6 +19,8 @@ pub struct Lcu {
     pub base: String,
     /// "Basic …" header value.
     pub auth: String,
+    /// League install folder: the lockfile's folder, or the client's `--install-directory`.
+    pub install_dir: Option<std::path::PathBuf>,
 }
 
 /// Find a running client (lockfile in the default install dir, else via the
@@ -32,14 +34,19 @@ pub fn discover() -> Option<Lcu> {
     if let Some((pid, port, password)) = std::fs::read_to_string(LOCKFILE).ok().and_then(|s| parse_lockfile(&s))
         && running(pid)
     {
-        return Some(Lcu::new(port, &password));
+        let mut lcu = Lcu::new(port, &password);
+        lcu.install_dir = std::path::Path::new(LOCKFILE).parent().map(Into::into);
+        return Some(lcu);
     }
     let ux_running = procs.as_ref().is_some_and(|p| p.iter().any(|(_, n)| n.eq_ignore_ascii_case(UX_EXE)));
     if !ux_running {
         return None;
     }
-    let (port, token) = command_line(UX_EXE).and_then(|c| parse_ux_args(&c))?;
-    Some(Lcu::new(port, &token))
+    let cmd = command_line(UX_EXE)?;
+    let (port, token) = parse_ux_args(&cmd)?;
+    let mut lcu = Lcu::new(port, &token);
+    lcu.install_dir = parse_install_dir(&cmd);
+    Some(lcu)
 }
 
 /// `name:pid:port:password:protocol` → (pid, port, password).
@@ -47,6 +54,15 @@ pub(crate) fn parse_lockfile(s: &str) -> Option<(u32, u16, String)> {
     let f: Vec<&str> = s.trim().split(':').collect();
     let [_, pid, port, password, _] = f.as_slice() else { return None };
     Some((pid.parse().ok()?, port.parse().ok()?, password.to_string()))
+}
+
+/// `--install-directory=` from a LeagueClientUx command line; runs to the closing quote or the next ` --`, so folders with spaces survive.
+pub(crate) fn parse_install_dir(cmd: &str) -> Option<std::path::PathBuf> {
+    const KEY: &str = "--install-directory=";
+    let rest = &cmd[cmd.find(KEY)? + KEY.len()..];
+    let end = rest.find('"').into_iter().chain(rest.find(" --")).min().unwrap_or(rest.len());
+    let dir = rest[..end].trim().trim_matches('"');
+    (!dir.is_empty()).then(|| dir.into())
 }
 
 /// `--app-port=` and `--remoting-auth-token=` from a LeagueClientUx command line.
@@ -120,6 +136,7 @@ impl Lcu {
             client: crate::local_client(Duration::from_secs(2)),
             base: format!("https://127.0.0.1:{port}"),
             auth: format!("Basic {token}"),
+            install_dir: None,
         }
     }
 
@@ -326,6 +343,16 @@ mod tests {
         assert_eq!(parse_ux_args(cmd), Some((52436, "s3cr3t_Tok-en".into())));
         assert_eq!(parse_ux_args("--app-port=1 --remoting-auth-token=t"), Some((1, "t".into())));
         assert_eq!(parse_ux_args("LeagueClientUx.exe --app-port=52436"), None);
+    }
+
+    #[test]
+    fn install_dir() {
+        let cmd = r#""C:/Riot Games/League of Legends/LeagueClientUx.exe" "--app-port=52436" "--install-directory=C:\Riot Games\League of Legends" "--region=EUW""#;
+        assert_eq!(parse_install_dir(cmd), Some(r"C:\Riot Games\League of Legends".into()));
+        assert_eq!(parse_install_dir(r#"x --install-directory=D:\LoL --app-port=1"#), Some(r"D:\LoL".into()));
+        assert_eq!(parse_install_dir(r#"x "--install-directory=D:\Games\LoL""#), Some(r"D:\Games\LoL".into()));
+        assert_eq!(parse_install_dir("x --app-port=1"), None);
+        assert_eq!(parse_install_dir(r#""--install-directory=""#), None);
     }
 
     #[test]

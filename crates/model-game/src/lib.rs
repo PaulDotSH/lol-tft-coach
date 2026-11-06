@@ -300,6 +300,14 @@ impl MapZone {
         if blue { (x, y) } else { (MAP_END - y, MAP_END - x) }
     }
 
+    /// A minimap-fraction point (fx from the left, fy from the top, both 0..1) to Summoner's
+    /// Rift world coordinates with the blue base at the origin. `flipped` is League's "flip
+    /// minimap" option, a 180° rotation of the view.
+    pub fn from_minimap(fx: f32, fy: f32, flipped: bool) -> (i32, i32) {
+        let (fx, fy) = if flipped { (1.0 - fx, 1.0 - fy) } else { (fx, fy) };
+        ((fx * MAP_END as f32) as i32, ((1.0 - fy) * MAP_END as f32) as i32)
+    }
+
     pub fn at(x: i32, y: i32) -> MapZone {
         let near = |a: i32, b: i32| ((a * a + b * b) as f32).sqrt() < 5000.0;
         if near(x, y) {

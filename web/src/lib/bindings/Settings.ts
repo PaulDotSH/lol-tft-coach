@@ -19,6 +19,11 @@ goals: Array<Goal>,
  */
 audio: boolean, 
 /**
- * Draw the click-through overlay over the game window (LoL and TFT).
+ * Draw the click-through overlay over the game window (LoL and TFT). Off by default: any
+ * window over League costs it FPS, and drawing inside the game would need Riot's approval.
  */
-overlay: boolean, };
+overlay: boolean, 
+/**
+ * Read the minimap and warn of early-game ganks heading mid or into your jungle (Rift).
+ */
+gank_warn: boolean, };

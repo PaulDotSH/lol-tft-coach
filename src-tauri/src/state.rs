@@ -30,6 +30,20 @@ pub struct StatsKey {
 /// Coachless build for my champion: lane, lane opponent, my first two completed items.
 pub type CoachlessKey = (ChampKey, Lane, Option<ChampKey>, Option<ItemId>, Option<ItemId>);
 
+/// Set by the orchestrator each tick while an early-game Rift match with gank warnings runs;
+/// None parks the minimap thread.
+#[derive(Clone)]
+pub struct GankCtx {
+    /// Game time at `at`; the thread counts on from it.
+    pub time: f32,
+    pub at: Instant,
+    pub blue: bool,
+    pub lane: Option<Lane>,
+}
+
+/// League's minimap settings are re-read at most this often.
+const MINIMAP_CFG_EVERY: Duration = Duration::from_secs(30);
+
 pub struct Shared {
     pub http: data::Http,
     pub ui: Mutex<AppState>,
@@ -68,6 +82,13 @@ pub struct Shared {
     pub coachless_ok: Mutex<Option<bool>>,
     /// Mayhem Tab scoreboard reader.
     pub tab: crate::tab::TabShared,
+    /// Minimap thread: what to watch for, its gank warnings and when they were made, its state.
+    pub gank_ctx: Mutex<Option<GankCtx>>,
+    pub gank_calls: Mutex<(Vec<Call>, Instant)>,
+    pub minimap_state: Mutex<SourceState>,
+    /// League install folder (from the client), and the minimap settings read from it.
+    pub league_install: Mutex<Option<std::path::PathBuf>>,
+    minimap_cfg: Mutex<Option<(clients::league_cfg::MinimapSettings, Instant)>>,
 }
 
 impl Shared {
@@ -82,6 +103,7 @@ impl Shared {
                     lolalytics: SourceState::Off,
                     ugg: SourceState::Off,
                     ocr: SourceState::Off,
+                    minimap: SourceState::Off,
                     coachless: SourceState::Off,
                     coachless_premium: false,
                     message: None,
@@ -119,7 +141,26 @@ impl Shared {
             coachless: Mutex::default(),
             coachless_ok: Mutex::new(None),
             tab: Default::default(),
+            gank_ctx: Mutex::new(None),
+            gank_calls: Mutex::new((vec![], Instant::now())),
+            minimap_state: Mutex::new(SourceState::Off),
+            league_install: Mutex::new(None),
+            minimap_cfg: Mutex::new(None),
         }
+    }
+
+    /// League's minimap scale and flip, from the install folder when known; cached.
+    pub fn minimap_settings(&self) -> clients::league_cfg::MinimapSettings {
+        let mut c = self.minimap_cfg.lock().unwrap();
+        if let Some((s, at)) = *c
+            && at.elapsed() < MINIMAP_CFG_EVERY
+        {
+            return s;
+        }
+        let dir = self.league_install.lock().unwrap().clone();
+        let s = clients::league_cfg::minimap_settings(dir.as_deref());
+        *c = Some((s, Instant::now()));
+        s
     }
 
     pub fn settings(&self) -> Settings {

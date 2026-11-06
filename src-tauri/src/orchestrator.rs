@@ -15,6 +15,13 @@ const OFFER_TTL: Duration = Duration::from_secs(3);
 const OFFER_HOLD_S: f32 = 120.0;
 /// Offer OCR cadence while a Mayhem game runs.
 const OFFER_SCAN: Duration = Duration::from_millis(500);
+/// Minimap read cadence while an early-game Rift match runs, and the parked thread's check rate.
+const MINIMAP_SCAN: Duration = Duration::from_millis(500);
+const MINIMAP_IDLE: Duration = Duration::from_secs(2);
+/// Gank warnings older than this are dropped (the game lost focus, the thread stalled).
+const MINIMAP_TTL: Duration = Duration::from_millis(1500);
+/// The minimap thread counts the game clock on from the last tick for at most this long.
+const CLOCK_ON: f32 = 5.0;
 
 struct PendingOffer {
     ids: Vec<AugmentId>,
@@ -93,6 +100,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
             if let Some(c) = &lcu {
                 tracing::info!("League client found at {}", c.base);
+                *sh.league_install.lock().unwrap() = c.install_dir.clone();
                 let (c2, sh2) = (c.clone(), sh.clone());
                 tokio::spawn(async move {
                     match c2.augment_names().await {
@@ -261,6 +269,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         }
         if phase != Phase::InGame {
             *sh.ocr_names.lock().unwrap() = None;
+            *sh.gank_ctx.lock().unwrap() = None;
         }
         if last_phase != Some(phase) {
             tracing::info!("phase {:?} → {phase:?}", last_phase);
@@ -276,6 +285,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             lolalytics: flag(*sh.lola_ok.lock().unwrap()),
             ugg: flag(*sh.ugg_ok.lock().unwrap()),
             ocr: *sh.ocr_state.lock().unwrap(),
+            minimap: *sh.minimap_state.lock().unwrap(),
             coachless: match (sh.coachless_auth.signed_in(), *sh.coachless_ok.lock().unwrap()) {
                 (false, _) => SourceState::Off,
                 (true, Some(false)) => SourceState::Degraded,
@@ -525,6 +535,14 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let spells = crate::ingame::spells(sh, sd, &faced);
     let notes = crate::draft::lane_notes();
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
+    let watch = snap.mode == Mode::Rift && settings.gank_warn && snap.time <= coach::consts::GANK_EARLY_S;
+    *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx { time: snap.time, at: Instant::now(), blue: me.team == Team::Order, lane });
+    if watch {
+        let calls = sh.gank_calls.lock().unwrap();
+        if calls.1.elapsed() < MINIMAP_TTL {
+            inject_gank(&mut advice, &calls.0);
+        }
+    }
     if let Some(s) = advice.gold.history.last() {
         memo.gold.push(s.clone());
     }
@@ -618,6 +636,71 @@ fn scan_offer(names: &std::collections::HashMap<AugmentId, String>, last_lines: 
         }
     }
     Ok(ids)
+}
+
+/// Replace the gank warnings in `advice` with `calls`, ahead of the other calls (they're the
+/// most time-critical: first on the overlay strip and first to be spoken).
+fn inject_gank(advice: &mut GameAdvice, calls: &[Call]) {
+    advice.calls.retain(|c| !c.key.starts_with("gank-"));
+    advice.calls.splice(0..0, calls.iter().cloned());
+}
+
+/// Minimap vision thread: reads enemy blips off the minimap while the orchestrator asks for it
+/// (early game on the Rift, gank warnings on) and the game is in the foreground, tracks them and
+/// pushes gank warnings to the UI as soon as they change. Never sends input or takes focus.
+pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
+    std::thread::Builder::new()
+        .name("minimap".into())
+        .spawn(move || {
+            let mut tracker = coach::GankTracker::default();
+            let mut prev: Vec<(f32, f32)> = vec![];
+            let mut said: Vec<Call> = vec![];
+            loop {
+                let ctx = sh.gank_ctx.lock().unwrap().clone();
+                let Some(ctx) = ctx else {
+                    tracker = coach::GankTracker::default();
+                    prev.clear();
+                    said.clear();
+                    *sh.minimap_state.lock().unwrap() = SourceState::Off;
+                    std::thread::sleep(MINIMAP_IDLE);
+                    continue;
+                };
+                std::thread::sleep(MINIMAP_SCAN);
+                if !ocr::league_foreground() {
+                    continue;
+                }
+                let cfg = sh.minimap_settings();
+                let Some(frame) = ocr::league_client().and_then(|(cw, ch)| ocr::capture_client(ocr::minimap::rect(cw, ch, cfg.scale))) else {
+                    *sh.minimap_state.lock().unwrap() = SourceState::Error;
+                    continue;
+                };
+                let raw = ocr::enemy_blips(&frame);
+                let blips = ocr::stable(&prev, &raw, ocr::minimap::STABLE_RADIUS);
+                prev = raw;
+                if debug::on() {
+                    debug::frame("minimap", Duration::from_secs(10), &frame);
+                }
+                let time = ctx.time + ctx.at.elapsed().as_secs_f32().min(CLOCK_ON);
+                let world: Vec<(i32, i32)> = blips.iter().map(|&(fx, fy)| MapZone::from_minimap(fx, fy, cfg.flipped)).collect();
+                tracker.observe(&world, ctx.blue, time);
+                let calls = tracker.warnings(time, ctx.lane);
+                *sh.minimap_state.lock().unwrap() = SourceState::Ok;
+                *sh.gank_calls.lock().unwrap() = (calls.clone(), Instant::now());
+                if calls.iter().map(|c| &c.key).ne(said.iter().map(|c| &c.key)) {
+                    let json = {
+                        let mut st = sh.ui.lock().unwrap();
+                        let Some(g) = st.game.as_mut() else { continue };
+                        inject_gank(g, &calls);
+                        serde_json::to_string(&*st).unwrap_or_default()
+                    };
+                    if !json.is_empty() {
+                        let _ = app.emit_str("state", json);
+                    }
+                    said = calls;
+                }
+            }
+        })
+        .expect("spawn minimap thread");
 }
 
 /// OCR thread: scans while the orchestrator provides an augment pool.

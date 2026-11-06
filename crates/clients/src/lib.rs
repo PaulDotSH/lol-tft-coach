@@ -3,6 +3,7 @@
 
 pub mod history;
 pub mod lcu;
+pub mod league_cfg;
 pub mod live;
 
 use std::time::Duration;

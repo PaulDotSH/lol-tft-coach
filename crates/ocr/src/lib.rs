@@ -6,11 +6,13 @@ use model_core::AugmentId;
 use std::collections::HashMap;
 
 mod matching;
+pub mod minimap;
 pub mod scoreboard;
 #[cfg(windows)]
 mod win;
 
 pub use matching::match_augments;
+pub use minimap::{enemy_blips, stable};
 
 /// BGRA8 pixels, top-down.
 #[derive(Clone)]

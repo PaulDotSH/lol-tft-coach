@@ -272,3 +272,17 @@ pub const INCOME_WINDOW: f32 = 120.0;
 /// No income estimate before this much non-spending time was observed.
 pub const INCOME_MIN_SPAN: f32 = 20.0;
 pub const BACK_PLANS: usize = 2;
+
+// ---- minimap gank warnings (early game). First guesses, tune against a real game. ----
+/// Warn only before this much game time (laning phase).
+pub const GANK_EARLY_S: f32 = 14.0 * 60.0;
+/// A warning is re-announced only after its threat has been absent this long.
+pub const GANK_GAP_S: f32 = 25.0;
+/// Mid-gank movement is measured against the newest read at least this old (seconds).
+pub const GANK_MOVE_DT: f32 = 1.5;
+/// Reads older than this are dropped from the history (seconds).
+pub const GANK_MAX_DT: f32 = 6.0;
+/// A blip is tied to one from the previous read within this distance (world units).
+pub const GANK_MAX_STEP: i32 = 3500;
+/// A mid warning needs the blip to have moved at least this far toward your base.
+pub const GANK_APPROACH: i32 = 350;

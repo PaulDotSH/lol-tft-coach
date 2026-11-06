@@ -3,6 +3,10 @@ import type { SourceState } from "./SourceState";
 
 export type Sources = { client: SourceState, game: SourceState, lolalytics: SourceState, ugg: SourceState, ocr: SourceState, 
 /**
+ * Minimap reading for the gank warnings: off outside the early game on the Rift.
+ */
+minimap: SourceState, 
+/**
  * Off while signed out of Coachless.
  */
 coachless: SourceState, 

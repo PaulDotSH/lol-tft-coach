@@ -11,6 +11,7 @@ mod gold;
 mod draft;
 mod enemy_augments;
 mod fights;
+mod gank;
 mod items;
 mod lane_matchup;
 mod laning;
@@ -48,6 +49,7 @@ pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal
 pub use ranked::{ladder, rank_trends};
 pub use trends::trends;
 pub use picks::AugmentTracker;
+pub use gank::GankTracker;
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
 pub use threat::lane_opponent;

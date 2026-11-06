@@ -71,6 +71,7 @@ fn main() {
 
             overlay::spawn(shared.clone(), tft_shared.clone());
             orchestrator::spawn_ocr(shared.clone());
+            orchestrator::spawn_minimap(app.handle().clone(), shared.clone());
             tauri::async_runtime::spawn(orchestrator::run(app.handle().clone(), shared.clone()));
             tauri::async_runtime::spawn(tft::run(app.handle().clone(), shared.clone(), tft_shared.clone()));
             Ok(())
