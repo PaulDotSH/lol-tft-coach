@@ -16,3 +16,7 @@ test('a read older than the push never puts the clock behind it', () => {
   assert.equal(dragon - gameTime(a, 30_000), 70);
   assert.equal(dragon - gameTime(a, 50_500), 69.5);
 });
+
+test('stands still at 0 through the loading screen', () => {
+  assert.equal(gameTime({ time: 0, at: 10_000 }, 70_000), 0);
+});
