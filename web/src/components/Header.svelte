@@ -23,6 +23,7 @@
     ['u.gg', state.sources.ugg],
     ['Coachless', state.sources.coachless],
     ['OCR', state.sources.ocr],
+    ['Minimap', state.sources.minimap],
   ]);
   const tip = $derived(state.sources.message ?? '');
 </script>

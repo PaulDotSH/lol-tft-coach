@@ -11,7 +11,7 @@ development; remote is github.com/PaulDotSH/lol-tft-coach (branch `master`).
 
 - Spec: `docs/superpowers/specs/`; future ideas: `docs/ideas.md`.
 - Mayhem is a main mode. The app is silent and shows ranks, never win rates, for
-  augments. Enemy ult/summoner timers were rejected (Riot policy).
+  augments.
 - Don't restart the running app mid-game unless asked (it loses the recap's game
   log). Don't test by stealing focus or clicking over the user's windows.
 

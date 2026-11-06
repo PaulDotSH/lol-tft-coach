@@ -1,0 +1,35 @@
+{
+  "description": "The settings in this file are persisted server-side. This file is generated automatically. Editing it is not recommended. Modify SettingsToPersist.json to specify which settings are persisted.",
+  "files": [
+    {
+      "name": "Game.cfg",
+      "sections": [
+        {
+          "name": "HUD",
+          "settings": [
+            {
+              "name": "FlipMiniMap",
+              "value": "0"
+            },
+            {
+              "name": "MinimapEnableAllTimers",
+              "value": "0"
+            },
+            {
+              "name": "MinimapMoveSelf",
+              "value": "1"
+            },
+            {
+              "name": "MinimapScale",
+              "value": "1.0000"
+            },
+            {
+              "name": "MinimapScaleSpectator",
+              "value": "1.0000"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

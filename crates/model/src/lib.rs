@@ -29,6 +29,8 @@ data! {
         pub lolalytics: SourceState,
         pub ugg: SourceState,
         pub ocr: SourceState,
+        /// Minimap reading for the gank warnings: off outside the early game on the Rift.
+        pub minimap: SourceState,
         /// Off while signed out of Coachless.
         pub coachless: SourceState,
         /// The Coachless account has Premium (current patch).
@@ -53,6 +55,9 @@ data! {
         /// Draw the click-through overlay over the game window (LoL and TFT).
         #[serde(default = "yes")]
         pub overlay: bool,
+        /// Read the minimap and warn of early-game ganks heading mid or into your jungle (Rift).
+        #[serde(default = "yes")]
+        pub gank_warn: bool,
     }
 
     /// One rank badge over an offered augment card. Ranks only, never win rates.
@@ -134,6 +139,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: true }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: true, gank_warn: true }
     }
 }

@@ -46,6 +46,11 @@
     <input id="overlay" type="checkbox" checked={settings.overlay} onchange={(e) => set('overlay', e.currentTarget.checked)} />
     <label for="ocr">Read Mayhem augments from screen</label>
     <input id="ocr" type="checkbox" checked={settings.ocr_enabled} onchange={(e) => set('ocr_enabled', e.currentTarget.checked)} />
+    <label for="gank">
+      Early-game gank warnings
+      <small>reads the minimap on the Rift and warns of enemies heading mid or into your jungle</small>
+    </label>
+    <input id="gank" type="checkbox" checked={settings.gank_warn} onchange={(e) => set('gank_warn', e.currentTarget.checked)} />
     <label for="rec">Record games as test fixtures</label>
     <input id="rec" type="checkbox" checked={settings.record_fixtures} onchange={(e) => set('record_fixtures', e.currentTarget.checked)} />
   </div>
