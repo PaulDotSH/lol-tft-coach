@@ -11,7 +11,7 @@ import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
 import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoeCard, zoeLaning } from './matchup';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: true, gank_warn: true };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true };
 
 const src = (p: Partial<Sources>): Sources => ({
   client: 'ok',

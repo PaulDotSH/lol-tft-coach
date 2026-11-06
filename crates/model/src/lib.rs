@@ -52,8 +52,9 @@ data! {
         /// Speak in-game calls aloud.
         #[serde(default = "yes")]
         pub audio: bool,
-        /// Draw the click-through overlay over the game window (LoL and TFT).
-        #[serde(default = "yes")]
+        /// Draw the click-through overlay over the game window (LoL and TFT). Off by default: any
+        /// window over League costs it FPS, and drawing inside the game would need Riot's approval.
+        #[serde(default)]
         pub overlay: bool,
         /// Read the minimap and warn of early-game ganks heading mid or into your jungle (Rift).
         #[serde(default = "yes")]
@@ -139,6 +140,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: true, gank_warn: true }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true }
     }
 }

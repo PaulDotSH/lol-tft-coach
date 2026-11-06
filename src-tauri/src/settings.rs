@@ -27,3 +27,16 @@ pub fn save(s: &Settings) -> anyhow::Result<()> {
     std::fs::write(dir.join("settings.toml"), toml::to_string(s)?)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overlay_is_opt_in() {
+        assert!(!Settings::default().overlay);
+        let old: Settings = toml::from_str("tier = \"all\"\nregion = \"all\"\nocr_enabled = true\nrecord_fixtures = false\n").unwrap();
+        assert!(!old.overlay);
+        assert!(old.audio && old.gank_warn);
+    }
+}
