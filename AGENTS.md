@@ -24,7 +24,7 @@ development; remote is github.com/PaulDotSH/lol-tft-coach (branch `master`).
 - `crates/model` re-exports `model-core/static/game/live/draft/review`: shared
   types. `data`: Data Dragon, lolalytics, u.gg, Coachless, disk cache (hand-written
   `champ_notes.toml`, `matchup_notes.toml`, `traits.toml`). `clients`: League
-  client (LCU) and Live Client API. `coach`: pure decisions, tuning in
+  client (LCU), Riot Client (standalone TFT client presence), Live Client API. `coach`: pure decisions, tuning in
   `consts.rs`, `modes.toml`, `augments.toml`. `ocr`: GDI capture + Windows OCR.
   `tft-model/data/coach/vision/embed/choncc`: the TFT side.
 - `web/src`: dashboards; mock mode when opened outside Tauri.

@@ -7,6 +7,7 @@
 
 use crate::debug;
 use clients::lcu::Lcu;
+use clients::riot_client::{RiotClient, TftPresence};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -82,7 +83,16 @@ pub fn get_tft_static(tft: St) -> Result<TftSetData, String> {
     tft.set.lock().unwrap().as_deref().cloned().ok_or_else(|| "TFT set data not loaded yet".into())
 }
 
-/// Client phase → TFT screen, for a TFT queue.
+/// Standalone TFT client presence → TFT screen: after a game, the post-game screens until the next one.
+fn presence_phase(p: &TftPresence, prev: TftPhase) -> TftPhase {
+    match prev {
+        _ if p.in_game() => TftPhase::InGame,
+        TftPhase::InGame | TftPhase::PostGame => TftPhase::PostGame,
+        _ => TftPhase::Lobby,
+    }
+}
+
+/// League client phase → TFT screen, for a TFT queue.
 fn phase(gameflow: &str) -> TftPhase {
     match gameflow {
         "InProgress" | "Reconnect" | "GameStart" => TftPhase::InGame,
@@ -220,6 +230,8 @@ async fn history(lcu: &Lcu) -> anyhow::Result<Vec<TftPastGame>> {
 
 pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShared>) {
     let mut lcu: Option<Lcu> = None;
+    let mut rc: Option<RiotClient> = None;
+    let mut last_queue: Option<i64> = None;
     let mut metas: HashMap<i64, (Arc<TftMeta>, Instant)> = HashMap::new();
     let mut reader: Option<Reader> = None;
     let mut games: Vec<TftPastGame> = vec![];
@@ -233,6 +245,17 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
     let mut model_task: Option<tauri::async_runtime::JoinHandle<()>> = None;
     let mut items_task: Option<tauri::async_runtime::JoinHandle<()>> = None;
     loop {
+        if rc.is_none() {
+            rc = tokio::task::spawn_blocking(clients::riot_client::discover).await.ok().flatten();
+        }
+        let presence = match &rc {
+            Some(c) => c.tft().await.unwrap_or_else(|e| {
+                tracing::debug!("riot client: {e:#}");
+                rc = None;
+                None
+            }),
+            None => None,
+        };
         if lcu.is_none() {
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
         }
@@ -243,10 +266,22 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
         if flow.is_none() {
             lcu = None;
         }
-        let flow = flow.unwrap_or_default();
-        let queue = flow.pointer("/gameData/queue/id").and_then(|v| v.as_i64()).filter(|&q| q > 0);
-        let tft_queue = flow.pointer("/gameData/queue/gameMode").and_then(|v| v.as_str()) == Some("TFT");
-        let now = if tft_queue { phase(flow["phase"].as_str().unwrap_or_default()) } else { TftPhase::None };
+        // The standalone TFT client first; a TFT queue in the League client otherwise.
+        let (queue, now) = match &presence {
+            Some(p) => {
+                last_queue = p.queue.or(last_queue);
+                (Some(last_queue.unwrap_or(QUEUE_NORMAL)), presence_phase(p, prev))
+            }
+            None => {
+                let flow = flow.unwrap_or_default();
+                let tft_queue = flow.pointer("/gameData/queue/gameMode").and_then(|v| v.as_str()) == Some("TFT");
+                let queue = flow.pointer("/gameData/queue/id").and_then(|v| v.as_i64()).filter(|&q| q > 0 && tft_queue);
+                (queue, if tft_queue { phase(flow["phase"].as_str().unwrap_or_default()) } else { TftPhase::None })
+            }
+        };
+        if me.is_none() {
+            me = presence.as_ref().and_then(|p| p.name.clone());
+        }
 
         let mut status = vec![];
         let set = if now == TftPhase::None {
@@ -269,7 +304,7 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
             }
         };
         status.push(("Set data".to_string(), set.is_some()));
-        let meta = match (&set, queue.filter(|_| tft_queue)) {
+        let meta = match (&set, queue) {
             (Some(set), Some(q)) => {
                 let fresh = metas.get(&q).filter(|(_, at)| at.elapsed() < META_EVERY).map(|(m, _)| m.clone());
                 match fresh {
@@ -367,7 +402,7 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
         {
             let mut st = tft.state.lock().unwrap();
             st.phase = now;
-            st.queue = queue.filter(|_| tft_queue);
+            st.queue = queue;
             st.mode = queue.map_or(TftMode::Standard, TftMode::of_queue);
             st.status = status;
             // The last advice stays up after the game, until the next lobby.
@@ -402,5 +437,24 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
         }
         let pause = if now == TftPhase::InGame { 1000 } else { 3000 };
         tokio::time::sleep(Duration::from_millis(pause)).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn p(progress: &str) -> TftPresence {
+        TftPresence { queue: Some(1100), progress: progress.into(), name: None }
+    }
+
+    #[test]
+    fn presence_phases() {
+        assert_eq!(presence_phase(&p(""), TftPhase::None), TftPhase::Lobby);
+        assert_eq!(presence_phase(&p("InGame"), TftPhase::Lobby), TftPhase::InGame);
+        assert_eq!(presence_phase(&p("InGame"), TftPhase::None), TftPhase::InGame);
+        assert_eq!(presence_phase(&p(""), TftPhase::InGame), TftPhase::PostGame);
+        assert_eq!(presence_phase(&p("Lobby"), TftPhase::PostGame), TftPhase::PostGame);
+        assert_eq!(presence_phase(&p("InGame"), TftPhase::PostGame), TftPhase::InGame);
     }
 }

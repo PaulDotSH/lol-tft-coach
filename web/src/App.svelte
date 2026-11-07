@@ -9,8 +9,12 @@
   import Tft from './tft/Tft.svelte';
 
   const s = $derived(store.state);
-  // In a TFT queue the LoL coach goes quiet and the TFT screens take over (header stays).
-  const t = $derived(tft.state && tft.state.phase !== 'none' ? tft.state : null);
+  // In TFT the LoL coach goes quiet and the TFT screens take over (header stays); the TFT
+  // client idling in its menus doesn't cover a LoL champ select or game.
+  const lol = $derived(s && (s.phase === 'champselect' || s.phase === 'loading' || s.phase === 'ingame'));
+  const t = $derived(
+    tft.state && (tft.state.phase === 'ingame' || (tft.state.phase !== 'none' && !lol)) ? tft.state : null,
+  );
   const DevSwitcher = isTauri ? null : import('./components/DevSwitcher.svelte');
 </script>
 

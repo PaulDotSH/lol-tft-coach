@@ -77,7 +77,7 @@ pub(crate) fn parse_ux_args(cmd: &str) -> Option<(u16, String)> {
 
 /// (pid, exe name) of every process; None off Windows or on failure.
 #[cfg(windows)]
-fn processes() -> Option<Vec<(u32, String)>> {
+pub(crate) fn processes() -> Option<Vec<(u32, String)>> {
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::*;
     // SAFETY: plain Win32 snapshot iteration; the entry is sized and the handle closed.
@@ -100,7 +100,7 @@ fn processes() -> Option<Vec<(u32, String)>> {
 }
 
 #[cfg(not(windows))]
-fn processes() -> Option<Vec<(u32, String)>> {
+pub(crate) fn processes() -> Option<Vec<(u32, String)>> {
     None
 }
 
