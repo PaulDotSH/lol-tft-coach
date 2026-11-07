@@ -80,6 +80,13 @@ pub fn champion_icon_url(ddragon_version: &str, id: &str) -> String {
     format!("https://ddragon.leagueoflegends.com/cdn/{ddragon_version}/img/champion/{id}.png")
 }
 
+/// CommunityDragon HUD circle portrait (the minimap's art) candidates, in order: champions with skins of their own
+/// HUD art have `_circle_0`, the rest `_circle`.
+pub fn champion_circle_urls(id: &str) -> [String; 2] {
+    let c = id.to_lowercase();
+    ["_circle_0", "_circle"].map(|s| format!("https://raw.communitydragon.org/latest/game/assets/characters/{c}/hud/{c}{s}.png"))
+}
+
 /// GET `url` as bytes, served from the disk cache if younger than `ttl`; a
 /// stale entry is used when the network fails.
 pub async fn get_bytes(http: &Http, url: &str, ttl: Duration) -> anyhow::Result<Vec<u8>> {

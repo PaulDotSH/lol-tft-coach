@@ -5,8 +5,8 @@
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-/// Minimap size when the file can't be read: the slider's rough middle.
-pub const DEFAULT_SCALE: f32 = 0.55;
+/// Minimap size when the file can't be read: League's default slider position.
+pub const DEFAULT_SCALE: f32 = 1.3;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MinimapSettings {
@@ -23,7 +23,7 @@ pub fn parse(json: &str) -> Option<MinimapSettings> {
     let v: Value = serde_json::from_str(json).ok()?;
     let scale = find(&v, &|k| k.eq_ignore_ascii_case("MinimapScale"))
         .and_then(|s| s.trim().parse::<f32>().ok())
-        .filter(|s| *s > 0.0)
+        .filter(|s| *s >= 0.0)
         .unwrap_or(DEFAULT_SCALE)
         .clamp(0.0, 2.0);
     let flipped = find(&v, &|k| k.eq_ignore_ascii_case("FlipMiniMap")).is_some_and(|s| truthy(&s));

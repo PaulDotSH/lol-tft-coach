@@ -651,11 +651,20 @@ fn gank_enemies(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, mine: Te
     let foes: Vec<&Player> = snap.players.iter().filter(|p| p.team != mine).collect();
     for p in &foes {
         if let Some(c) = sd.champs.get(&p.champ) {
-            let (http, url) = (sh.http.clone(), data::icons::champion_icon_url(&sd.version, &c.id));
+            let (http, url, circles) = (sh.http.clone(), data::icons::champion_icon_url(&sd.version, &c.id), data::icons::champion_circle_urls(&c.id));
             ensure(sh, |s| &s.portraits, |s| &s.ddragon_ok, p.champ, move || async move {
-                let b = data::icons::get_bytes(&http, &url, PORTRAIT_TTL).await?;
-                let img = ocr::scoreboard::decode_png(&b).ok_or_else(|| anyhow::anyhow!("bad champion icon {url}"))?;
-                Ok(ocr::minimap::portrait(&img))
+                let png = |b: Vec<u8>| ocr::scoreboard::decode_png(&b);
+                let square = png(data::icons::get_bytes(&http, &url, PORTRAIT_TTL).await?).ok_or_else(|| anyhow::anyhow!("bad champion icon {url}"))?;
+                let mut circle = None;
+                for u in &circles {
+                    if let Ok(b) = data::icons::get_bytes(&http, u, PORTRAIT_TTL).await {
+                        circle = png(b);
+                        break;
+                    }
+                }
+                let mut art = vec![ocr::minimap::Art::Square(&square)];
+                art.extend(circle.as_ref().map(ocr::minimap::Art::Circle));
+                Ok(ocr::minimap::portrait(&art))
             });
         }
     }
@@ -695,11 +704,12 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                     continue;
                 }
                 let cfg = sh.minimap_settings();
-                let Some(frame) = ocr::league_client().and_then(|(cw, ch)| ocr::capture_client(ocr::minimap::rect(cw, ch, cfg.scale))) else {
+                let Some(frame) = ocr::league_client().and_then(|(cw, ch)| ocr::capture_client(ocr::minimap::rect(cw, ch, cfg.scale, cfg.flipped))) else {
                     *sh.minimap_state.lock().unwrap() = SourceState::Error;
                     continue;
                 };
-                let blips = ocr::enemy_blips(&frame);
+                let sq = ocr::minimap::map_square(&frame, cfg.flipped);
+                let blips = ocr::enemy_blips(&frame, sq);
                 let portraits: Vec<(ChampKey, Arc<ocr::minimap::Portrait>)> = {
                     let cache = sh.portraits.lock().unwrap();
                     ctx.enemies
@@ -712,13 +722,13 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                         .collect()
                 };
                 let refs: Vec<(ChampKey, &ocr::minimap::Portrait)> = portraits.iter().map(|(k, p)| (*k, &**p)).collect();
-                let names = ocr::minimap::name_blips(&frame, &blips, &refs);
+                let names = ocr::minimap::name_blips(&frame, sq, &blips, &refs);
                 let time = ctx.time + ctx.at.elapsed().as_secs_f32().min(CLOCK_ON);
                 let world: Vec<(i32, i32, Option<ChampKey>)> = blips
                     .iter()
                     .zip(&names)
                     .map(|(&(fx, fy), &champ)| {
-                        let (x, y) = MapZone::from_minimap(fx, fy, cfg.flipped);
+                        let (x, y) = MapZone::from_minimap(fx, fy);
                         (x, y, champ)
                     })
                     .collect();
@@ -727,7 +737,8 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                 if debug::on() {
                     debug::frame("minimap", Duration::from_secs(3), &frame);
                     let keys: Vec<&str> = calls.iter().map(|c| c.key.as_str()).collect();
-                    debug::dump("minimap-blips", Duration::from_secs(1), &(time, (frame.width, frame.height), cfg.scale, &blips, &world, keys));
+                    let square = (sq.x, sq.y, sq.side);
+                    debug::dump("minimap-blips", Duration::from_secs(1), &(time, (frame.width, frame.height), cfg.scale, &blips, &world, keys, square));
                 }
                 *sh.minimap_state.lock().unwrap() = SourceState::Ok;
                 *sh.gank_calls.lock().unwrap() = (calls.clone(), Instant::now());

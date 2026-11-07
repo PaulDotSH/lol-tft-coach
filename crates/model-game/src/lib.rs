@@ -304,10 +304,9 @@ impl MapZone {
     }
 
     /// A minimap-fraction point (fx from the left, fy from the top, both 0..1) to Summoner's
-    /// Rift world coordinates with the blue base at the origin. `flipped` is League's "flip
-    /// minimap" option, a 180° rotation of the view.
-    pub fn from_minimap(fx: f32, fy: f32, flipped: bool) -> (i32, i32) {
-        let (fx, fy) = if flipped { (1.0 - fx, 1.0 - fy) } else { (fx, fy) };
+    /// Rift world coordinates with the blue base at the origin. League's "flip minimap" option
+    /// only moves the minimap to the left corner; the map itself is drawn the same way.
+    pub fn from_minimap(fx: f32, fy: f32) -> (i32, i32) {
         ((fx * MAP_END as f32) as i32, ((1.0 - fy) * MAP_END as f32) as i32)
     }
 
