@@ -15,7 +15,7 @@ const OFFER_TTL: Duration = Duration::from_secs(3);
 const OFFER_HOLD_S: f32 = 120.0;
 /// Offer OCR cadence while a Mayhem game runs.
 const OFFER_SCAN: Duration = Duration::from_millis(500);
-/// Minimap read cadence while an early-game Rift match runs, and the parked thread's check rate.
+/// Minimap read cadence while a Rift match runs, and the parked thread's check rate.
 const MINIMAP_SCAN: Duration = Duration::from_millis(500);
 const MINIMAP_IDLE: Duration = Duration::from_secs(2);
 /// Gank warnings older than this are dropped (the game lost focus, the thread stalled).
@@ -537,7 +537,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let spells = crate::ingame::spells(sh, sd, &faced);
     let notes = crate::draft::lane_notes();
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
-    let watch = snap.mode == Mode::Rift && settings.gank_warn && snap.time <= coach::consts::GANK_EARLY_S;
+    let watch = snap.mode == Mode::Rift && settings.gank_warn;
     *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx {
         time: snap.time,
         at: Instant::now(),
@@ -683,7 +683,7 @@ fn inject_gank(advice: &mut GameAdvice, calls: &[Call]) {
 }
 
 /// Minimap vision thread: reads enemy blips off the minimap while the orchestrator asks for it
-/// (early game on the Rift, gank warnings on) and the game is in the foreground, tracks them and
+/// (on the Rift, gank warnings on) and the game is in the foreground, tracks them and
 /// pushes gank warnings to the UI as soon as they change. Never sends input or takes focus.
 pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
     std::thread::Builder::new()

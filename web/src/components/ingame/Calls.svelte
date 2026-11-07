@@ -2,9 +2,11 @@
   // Calls already spoken this game, by key. Module-level: the banner unmounts
   // whenever there are no calls, and a remount must not speak them again.
   const spoken = new Set<string>();
-  /** Fewest milliseconds between two spoken calls. */
+  /** Fewest milliseconds between two spoken calls, gank warnings aside: those are spoken at once. */
   const GAP_MS = 6000;
   let lastSpoke = 0;
+  /** Gank warnings still queued or being spoken; one cuts off any other call mid-sentence. */
+  let urgentLeft = 0;
   /** Game clock last seen; going back means a new game. */
   let lastTime = 0;
 </script>
@@ -23,14 +25,26 @@
     lastTime = time;
     if (!store.state?.settings.audio || typeof speechSynthesis === 'undefined') return;
     const fresh = calls.filter((c) => !spoken.has(c.key));
-    if (!fresh.length || Date.now() - lastSpoke < GAP_MS) return;
-    const c = fresh[0];
+    const urgent = fresh.filter((c) => c.key.startsWith('gank-'));
+    if (urgent.length) {
+      if (!urgentLeft) speechSynthesis.cancel();
+      urgent.forEach((c) => say(c, true));
+    } else if (fresh.length && Date.now() - lastSpoke >= GAP_MS) {
+      say(fresh[0], false);
+    }
+  });
+
+  function say(c: Call, urgent: boolean) {
     spoken.add(c.key);
     lastSpoke = Date.now();
     const u = new SpeechSynthesisUtterance(c.say);
     u.rate = 1.1;
+    if (urgent) {
+      urgentLeft++;
+      u.onend = u.onerror = () => (urgentLeft = Math.max(0, urgentLeft - 1));
+    }
     speechSynthesis.speak(u);
-  });
+  }
 </script>
 
 {#if calls.length}

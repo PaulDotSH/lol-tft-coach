@@ -24,6 +24,6 @@ audio: boolean,
  */
 overlay: boolean, 
 /**
- * Read the minimap and warn of early-game ganks heading mid or into your jungle (Rift).
+ * Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
  */
 gank_warn: boolean, };

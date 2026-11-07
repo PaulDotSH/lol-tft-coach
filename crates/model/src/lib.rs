@@ -29,7 +29,7 @@ data! {
         pub lolalytics: SourceState,
         pub ugg: SourceState,
         pub ocr: SourceState,
-        /// Minimap reading for the gank warnings: off outside the early game on the Rift.
+        /// Minimap reading for the gank warnings: off outside the Rift.
         pub minimap: SourceState,
         /// Off while signed out of Coachless.
         pub coachless: SourceState,
@@ -56,7 +56,7 @@ data! {
         /// window over League costs it FPS, and drawing inside the game would need Riot's approval.
         #[serde(default)]
         pub overlay: bool,
-        /// Read the minimap and warn of early-game ganks heading mid or into your jungle (Rift).
+        /// Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
         #[serde(default = "yes")]
         pub gank_warn: bool,
     }

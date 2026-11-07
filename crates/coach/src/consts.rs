@@ -274,7 +274,7 @@ pub const INCOME_MIN_SPAN: f32 = 20.0;
 pub const BACK_PLANS: usize = 2;
 
 // ---- minimap gank warnings (early game). First guesses, tune against a real game. ----
-/// Warn only before this much game time (laning phase).
+/// The laning phase: roam calls, and gank calls for supports and junglers, stop after this much game time.
 pub const GANK_EARLY_S: f32 = 14.0 * 60.0;
 /// A warning is re-announced only after its threat has been absent this long.
 pub const GANK_GAP_S: f32 = 25.0;

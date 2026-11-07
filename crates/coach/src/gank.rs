@@ -42,8 +42,8 @@ fn lane_name(lane: Lane) -> &'static str {
     }
 }
 
-/// Whether a laner of `lane` at `b` is where they belong: their lane, the river beside it, their base, or a short
-/// step off the lane (their own raptors, a tri-bush).
+/// Whether a laner of `lane` at `b` is where they belong: their lane, their base, their lane's side of the map (the
+/// river and jungle beside it: warding, a drake), or a short step off the lane (their own raptors, a tri-bush).
 fn at_home(lane: Lane, b: Blip) -> bool {
     let home = match lane {
         Lane::Top => MapZone::Top,
@@ -52,10 +52,7 @@ fn at_home(lane: Lane, b: Blip) -> bool {
         Lane::Jungle => return true,
     };
     let zone = MapZone::at(b.x, b.y);
-    zone == home
-        || zone == MapZone::RedBase
-        || (zone == MapZone::River && Side::of_lane(Some(lane)) == Some(Side::of(b)))
-        || off_lane(home, b) < consts::ROAM_SLACK
+    zone == home || zone == MapZone::RedBase || Side::of_lane(Some(lane)) == Some(Side::of(b)) || off_lane(home, b) < consts::ROAM_SLACK
 }
 
 /// Where a roamer is: a lane by name, else the side of the map.
@@ -217,12 +214,11 @@ impl GankTracker {
 
     /// Warnings for this tick (at most one per threat), stable-keyed so each is spoken once: ganks on your lane, an
     /// enemy in your jungle, the side the enemy jungler was just seen on, and laners roaming from their lane (your
-    /// lane opponent anywhere, the others near your lane). Empty after the laning phase.
+    /// lane opponent anywhere, the others near your lane). After the laning phase nobody roams and only the solo
+    /// laners, still farming a lane, hear of ganks on it.
     pub fn warnings(&mut self, time: f32, lane: Option<Lane>, enemies: &GankEnemies) -> Vec<Call> {
         let mut out = Vec::new();
-        if time > consts::GANK_EARLY_S {
-            return out;
-        }
+        let laning = time <= consts::GANK_EARLY_S;
         let Some((_, cur)) = self.history.back() else {
             return out;
         };
@@ -238,7 +234,8 @@ impl GankTracker {
         }
         let (zone, key, text, say) = watched(lane);
         let opponent = |b: &Blip| b.champ.and_then(|c| enemies.lanes.get(&c)).is_some_and(|&l| lane.is_some() && Side::of_lane(Some(l)) == Side::of_lane(lane));
-        if let Some(b) = cur.iter().find(|b| !opponent(b) && self.threatens(zone, **b)) {
+        let in_lane = laning || matches!(lane, Some(Lane::Top | Lane::Middle | Lane::Bottom));
+        if in_lane && let Some(b) = cur.iter().find(|b| !opponent(b) && self.threatens(zone, **b)) {
             let n = self.lane.next(time);
             out.push(call(format!("gank-{key}-{n}"), who(b), text, say));
         }
@@ -249,7 +246,9 @@ impl GankTracker {
         {
             out.push(c);
         }
-        out.extend(self.roam_calls(time, lane, enemies, ganked));
+        if laning {
+            out.extend(self.roam_calls(time, lane, enemies, ganked));
+        }
         out
     }
 
@@ -523,9 +522,14 @@ mod tests {
     }
 
     fn walk_from(t: &mut GankTracker, lane: Option<Lane>, step: f32, reads: u32, at: impl Fn(i32) -> (i32, i32)) -> Vec<Call> {
+        walk_at(t, lane, step, reads, 100.0, at)
+    }
+
+    /// `walk_from` starting at game time `start`.
+    fn walk_at(t: &mut GankTracker, lane: Option<Lane>, step: f32, reads: u32, start: f32, at: impl Fn(i32) -> (i32, i32)) -> Vec<Call> {
         let mut w = Vec::new();
         for i in 0..reads {
-            let time = 100.0 + i as f32 * step;
+            let time = start + i as f32 * step;
             let d = (i as f32 * step * 200.0) as i32;
             t.obs(&[at(d)], true, time);
             w = t.w(time, lane);
@@ -604,11 +608,32 @@ mod tests {
     }
 
     #[test]
-    fn silent_after_the_laning_phase() {
+    fn your_jungle_and_the_jungler_are_called_all_game() {
+        let late = consts::GANK_EARLY_S + 600.0;
         let mut t = tracker();
-        let late = consts::GANK_EARLY_S + 1.0;
         t.obs(&[MY_JUNGLE], true, late);
-        assert!(t.w(late, None).is_empty());
+        assert!(t.w(late, Some(Lane::Support)).iter().any(|c| c.key.starts_with("gank-jungle-")));
+        assert!(jungler_key(&jinx_at(&mut tracker(), ENEMY_BOT_JUNGLE, late, Some(Lane::Support))).is_some());
+    }
+
+    #[test]
+    fn after_laning_only_solo_laners_hear_of_ganks_on_their_lane() {
+        let late = consts::GANK_EARLY_S + 600.0;
+        let river = |d| (RIVER_FAR.0 - d, RIVER_FAR.1 + d);
+        assert!(has_mid(&walk_at(&mut tracker(), Some(Lane::Middle), 0.5, 8, late, river)));
+        assert!(!has_mid(&walk_at(&mut tracker(), Some(Lane::Jungle), 0.5, 8, late, river)));
+    }
+
+    #[test]
+    fn nobody_roams_after_laning() {
+        let late = consts::GANK_EARLY_S + 600.0;
+        assert!(seen(SYLAS, &[(late, TOP_LANE), (late + 1.0, TOP_LANE)], Some(Lane::Middle)).is_empty());
+    }
+
+    #[test]
+    fn a_laner_on_their_own_side_is_not_roaming() {
+        let dragon_ward = [(475.0, (10486, 5670)), (476.0, (10530, 5582))];
+        assert!(seen(NAMI, &dragon_ward, Some(Lane::Support)).is_empty());
     }
 
     #[test]

@@ -52,6 +52,31 @@ fn mid_hears_sylas_roam_and_the_ganks() {
     assert!(at("gank-mid-", 205, 220), "Lillia gank");
 }
 
+/// Blue side, support (Thresh); Wukong jungle, Jax top, Viktor mid, Sivir and Zilean bot; blips named by portrait.
+const BLUE_SUPPORT_NAMED: &str = include_str!("../../../fixtures/coach/gank_blue_support_named.json");
+
+fn thresh_game() -> GankEnemies {
+    let roster = [(24, "Jax", Lane::Top), (62, "Wukong", Lane::Jungle), (112, "Viktor", Lane::Middle), (15, "Sivir", Lane::Bottom), (26, "Zilean", Lane::Support)];
+    GankEnemies {
+        names: roster.iter().map(|&(k, n, _)| (k, n.to_string())).collect(),
+        jungler: Some(62),
+        lanes: roster.iter().map(|&(k, _, l)| (k, l)).collect(),
+    }
+}
+
+/// Real game as support: Wukong ganked bot at 7:21 (Twitch, then you at 7:25) and again at 10:54 (Twitch, you at 11:11).
+#[test]
+fn support_hears_wukong_before_his_bot_ganks() {
+    let w = replay_named(BLUE_SUPPORT_NAMED, true, Some(Lane::Support), &thresh_game());
+    for (t, k, s) in &w {
+        println!("{:>2}:{:02} {k:<22} {s}", t / 60, t % 60);
+    }
+    let at = |prefix: &str, from: u32, to: u32| w.iter().any(|(t, k, _)| k.starts_with(prefix) && (from..=to).contains(t));
+    assert!(at("gank-jg-", 436, 441), "Wukong showing bot before the 7:21 gank");
+    assert!(at("gank-jg-", 652, 654), "Wukong showing bot before the 10:54 gank");
+    assert!(!w.iter().any(|(_, _, s)| s.contains("roaming bot side")), "Zilean warding by the drake is home");
+}
+
 /// (time, key) of each newly spoken warning.
 fn replay(game: &str, blue: bool, lane: Option<Lane>) -> Vec<(u32, String)> {
     let reads: Reads = serde_json::from_str(game).unwrap();
