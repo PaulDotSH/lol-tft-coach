@@ -1,6 +1,6 @@
 //! Gank warnings replayed over every enemy blip read off real games' minimaps (Swiftplay).
 
-use coach::GankTracker;
+use coach::{GankEnemies, GankTracker};
 use model::*;
 
 type Reads = Vec<(f32, Vec<(i32, i32)>)>;
@@ -9,6 +9,48 @@ type Reads = Vec<(f32, Vec<(i32, i32)>)>;
 const RED_SUPPORT: &str = include_str!("../../../fixtures/coach/gank_red_support.json");
 /// Blue side, mid; Jinx jungle.
 const BLUE_MID: &str = include_str!("../../../fixtures/coach/gank_blue_mid.json");
+
+/// Blue side, mid (Zed); Lillia jungle, Sylas mid, Mundo top, Vayne and Nami bot; blips named by portrait.
+const BLUE_MID_NAMED: &str = include_str!("../../../fixtures/coach/gank_blue_mid_named.json");
+
+/// (time, say) of each newly spoken call, replaying named reads.
+fn replay_named(game: &str, blue: bool, lane: Option<Lane>, enemies: &GankEnemies) -> Vec<(u32, String, String)> {
+    let reads: Vec<(f32, Vec<(i32, i32, Option<ChampKey>)>)> = serde_json::from_str(game).unwrap();
+    let mut t = GankTracker::default();
+    let mut said: Vec<String> = vec![];
+    let mut out = vec![];
+    for (time, enemies_seen) in reads {
+        t.observe(&enemies_seen, blue, time);
+        for c in t.warnings(time, lane, enemies) {
+            if !said.contains(&c.key) {
+                said.push(c.key.clone());
+                out.push((time as u32, c.key, c.say));
+            }
+        }
+    }
+    out
+}
+
+fn zed_game() -> GankEnemies {
+    let roster = [(36, "Dr. Mundo", Lane::Top), (876, "Lillia", Lane::Jungle), (517, "Sylas", Lane::Middle), (67, "Vayne", Lane::Bottom), (267, "Nami", Lane::Support)];
+    GankEnemies {
+        names: roster.iter().map(|&(k, n, _)| (k, n.to_string())).collect(),
+        jungler: Some(876),
+        lanes: roster.iter().map(|&(k, _, l)| (k, l)).collect(),
+    }
+}
+
+/// Real game as mid: Sylas (lane opponent) roamed top at 10:37; Lillia ganked mid at 3:35, Nami roamed mid at 5:13.
+#[test]
+fn mid_hears_sylas_roam_and_the_ganks() {
+    let w = replay_named(BLUE_MID_NAMED, true, Some(Lane::Middle), &zed_game());
+    for (t, k, s) in &w {
+        println!("{:>2}:{:02} {k:<22} {s}", t / 60, t % 60);
+    }
+    let at = |prefix: &str, from: u32, to: u32| w.iter().any(|(t, k, _)| k.starts_with(prefix) && (from..=to).contains(t));
+    assert!(at("gank-roam-517-", 630, 645), "Sylas top roam");
+    assert!(at("gank-mid-", 205, 220), "Lillia gank");
+}
 
 /// (time, key) of each newly spoken warning.
 fn replay(game: &str, blue: bool, lane: Option<Lane>) -> Vec<(u32, String)> {

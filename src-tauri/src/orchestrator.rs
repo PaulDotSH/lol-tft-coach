@@ -671,6 +671,7 @@ fn gank_enemies(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, mine: Te
     coach::GankEnemies {
         names: foes.iter().filter_map(|p| Some((p.champ, sd.champs.get(&p.champ)?.name.clone()))).collect(),
         jungler: foes.iter().find(|p| p.smite).or_else(|| foes.iter().find(|p| p.position == Some(Lane::Jungle))).map(|p| p.champ),
+        lanes: foes.iter().filter_map(|p| Some((p.champ, p.position?))).collect(),
     }
 }
 

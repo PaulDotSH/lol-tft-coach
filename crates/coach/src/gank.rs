@@ -14,11 +14,58 @@ struct Blip {
     champ: Option<ChampKey>,
 }
 
-/// The enemy team: champion names for the calls, and their jungler.
+/// The enemy team: champion names for the calls, their jungler, and the laners' lanes.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct GankEnemies {
     pub names: HashMap<ChampKey, String>,
     pub jungler: Option<ChampKey>,
+    pub lanes: HashMap<ChampKey, Lane>,
+}
+
+/// One enemy laner's roaming: when the current stretch away from home began and was last seen, the announcement
+/// count, whether this stretch was announced, and whether that was spoken (a gank warning on the sighting says it).
+#[derive(Clone, Copy)]
+struct Roam {
+    since: f32,
+    last: f32,
+    n: u32,
+    announced: bool,
+    spoken: bool,
+}
+
+fn lane_name(lane: Lane) -> &'static str {
+    match lane {
+        Lane::Top => "top",
+        Lane::Jungle => "the jungle",
+        Lane::Middle => "mid",
+        Lane::Bottom | Lane::Support => "bot",
+    }
+}
+
+/// Whether a laner of `lane` at `b` is where they belong: their lane, the river beside it, their base, or a short
+/// step off the lane (their own raptors, a tri-bush).
+fn at_home(lane: Lane, b: Blip) -> bool {
+    let home = match lane {
+        Lane::Top => MapZone::Top,
+        Lane::Middle => MapZone::Mid,
+        Lane::Bottom | Lane::Support => MapZone::Bot,
+        Lane::Jungle => return true,
+    };
+    let zone = MapZone::at(b.x, b.y);
+    zone == home
+        || zone == MapZone::RedBase
+        || (zone == MapZone::River && Side::of_lane(Some(lane)) == Some(Side::of(b)))
+        || off_lane(home, b) < consts::ROAM_SLACK
+}
+
+/// Where a roamer is: a lane by name, else the side of the map.
+fn whereabouts(b: Blip) -> &'static str {
+    match MapZone::at(b.x, b.y) {
+        MapZone::Top => "top",
+        MapZone::Mid => "mid",
+        MapZone::Bot => "bot",
+        _ => Side::of(b).name(),
+    }
 }
 
 /// Which part of the map a position is on, seen from your side: mid lane's surroundings or either side of it.
@@ -91,6 +138,9 @@ pub struct GankTracker {
     jungle: Episode,
     lane: Episode,
     jungler: Option<JunglerSeen>,
+    roams: HashMap<ChampKey, Roam>,
+    /// Where and when each champion was last seen named, to reject a name that would have teleported.
+    named: HashMap<ChampKey, (f32, Blip)>,
 }
 
 fn dist2(a: Blip, b: Blip) -> i32 {
@@ -132,6 +182,8 @@ impl GankTracker {
         if self.history.back().is_some_and(|(t, _)| time < *t) {
             self.history.clear();
             self.jungler = None;
+            self.roams.clear();
+            self.named.clear();
         }
         while self.history.front().is_some_and(|(t, _)| time - *t > consts::GANK_MAX_DT) {
             self.history.pop_front();
@@ -140,14 +192,32 @@ impl GankTracker {
             .iter()
             .map(|&(x, y, champ)| {
                 let (x, y) = MapZone::from_blue(x, y, blue);
-                Blip { x, y, champ }
+                let mut b = Blip { x, y, champ };
+                if let Some(c) = champ {
+                    match self.named.get(&c) {
+                        Some(&(t, p)) if !self.reachable(p, b, time - t) => b.champ = None,
+                        _ => {
+                            self.named.insert(c, (time, b));
+                        }
+                    }
+                }
+                b
             })
             .collect();
         self.history.push_back((time, blips));
     }
 
+    /// Whether a champion seen at `from` could be at `to` `dt` seconds later: within walking (and Flash) range, home
+    /// in their base after a recall or death, or out of sight long enough for anything.
+    fn reachable(&self, from: Blip, to: Blip, dt: f32) -> bool {
+        dt > consts::NAME_TRUST_S
+            || MapZone::at(to.x, to.y) == MapZone::RedBase
+            || (dist2(from, to) as f32).sqrt() <= consts::NAME_JUMP + consts::NAME_SPEED * dt
+    }
+
     /// Warnings for this tick (at most one per threat), stable-keyed so each is spoken once: ganks on your lane, an
-    /// enemy in your jungle, and the side the enemy jungler was just seen on. Empty after the laning phase.
+    /// enemy in your jungle, the side the enemy jungler was just seen on, and laners roaming from their lane (your
+    /// lane opponent anywhere, the others near your lane). Empty after the laning phase.
     pub fn warnings(&mut self, time: f32, lane: Option<Lane>, enemies: &GankEnemies) -> Vec<Call> {
         let mut out = Vec::new();
         if time > consts::GANK_EARLY_S {
@@ -167,7 +237,8 @@ impl GankTracker {
             out.push(call(format!("gank-jungle-{n}"), who(b), text, say));
         }
         let (zone, key, text, say) = watched(lane);
-        if let Some(b) = cur.iter().find(|b| self.threatens(zone, **b)) {
+        let opponent = |b: &Blip| b.champ.and_then(|c| enemies.lanes.get(&c)).is_some_and(|&l| lane.is_some() && Side::of_lane(Some(l)) == Side::of_lane(lane));
+        if let Some(b) = cur.iter().find(|b| !opponent(b) && self.threatens(zone, **b)) {
             let n = self.lane.next(time);
             out.push(call(format!("gank-{key}-{n}"), who(b), text, say));
         }
@@ -178,20 +249,64 @@ impl GankTracker {
         {
             out.push(c);
         }
+        out.extend(self.roam_calls(time, lane, enemies, ganked));
         out
     }
 
-    /// The enemy jungler's side, announced when it changes or after the jungler was out of sight `JUNGLER_STALE_S`;
-    /// kept on screen briefly after. Not spoken when a gank warning already fires on that sighting.
+    /// Enemy laners seen away from home on reads `ROAM_DWELL_S` apart, announced once per stretch away (a new one after
+    /// `ROAM_GAP_S` back home or unseen) and kept on screen briefly. Called for your lane opponent wherever they go,
+    /// for any laner on your side of the map, and for every laner when you jungle.
+    fn roam_calls(&mut self, time: f32, lane: Option<Lane>, enemies: &GankEnemies, ganked: bool) -> Vec<Call> {
+        let Some((_, cur)) = self.history.back() else {
+            return vec![];
+        };
+        let mine = Side::of_lane(lane);
+        let mut out = vec![];
+        for b in cur.iter().filter(|b| b.champ.is_some_and(|c| Some(c) != enemies.jungler)) {
+            let c = b.champ.unwrap_or_default();
+            let (Some(&home), Some(name)) = (enemies.lanes.get(&c), enemies.names.get(&c)) else { continue };
+            if at_home(home, *b) {
+                continue;
+            }
+            let opponent = lane.is_some_and(|l| Side::of_lane(Some(l)) == Side::of_lane(Some(home)));
+            if !(mine.is_none() || opponent || mine == Some(Side::of(*b))) {
+                continue;
+            }
+            let r = self.roams.entry(c).or_insert(Roam { since: time, last: time, n: 0, announced: false, spoken: false });
+            if time - r.last > consts::ROAM_GAP_S {
+                (r.since, r.announced) = (time, false);
+            }
+            r.last = time;
+            if !r.announced && time - r.since >= consts::ROAM_DWELL_S {
+                (r.n, r.announced, r.spoken) = (r.n + 1, true, !ganked);
+            }
+            if !(r.announced && r.spoken) {
+                continue;
+            }
+            let at = whereabouts(*b);
+            let (text, say) = if opponent {
+                (format!("{name} left {} — roaming {at}", lane_name(home)), format!("{name} left {}, roaming {at}.", lane_name(home)))
+            } else if mine == Some(Side::of(*b)) {
+                (format!("{name} roaming {at} — near your lane"), format!("{name} roaming {at}. Careful."))
+            } else {
+                (format!("{name} roaming {at}"), format!("{name} roaming {at}."))
+            };
+            out.push(Call { key: format!("gank-roam-{c}-{}", r.n), text, say });
+        }
+        out
+    }
+
+    /// The enemy jungler's side when they appear: first seen, or seen again after `JUNGLER_STALE_S` out of sight
+    /// (moving while in view is on the minimap already); kept on screen briefly. Not spoken when a gank warning
+    /// already fires on that sighting.
     fn jungler_call(&mut self, time: f32, lane: Option<Lane>, jungler: ChampKey, name: &str, ganked: bool) -> Option<Call> {
         let seen = self.history.back()?.1.iter().find(|b| b.champ == Some(jungler)).copied();
         if let Some(b) = seen {
-            let side = Side::of(b);
             match &mut self.jungler {
-                Some(j) if j.side == side && time - j.last <= consts::JUNGLER_STALE_S => j.last = time,
+                Some(j) if time - j.last <= consts::JUNGLER_STALE_S => j.last = time,
                 j => {
                     let n = j.map_or(1, |j| j.n + 1);
-                    *j = Some(JunglerSeen { side, n, last: time, spoken: !ganked });
+                    *j = Some(JunglerSeen { side: Side::of(b), n, last: time, spoken: !ganked });
                 }
             }
         }
@@ -201,7 +316,7 @@ impl GankTracker {
         } else {
             (format!("{name} spotted {}", j.side.name()), format!("{name} {}.", j.side.name()))
         };
-        Some(Call { key: format!("jungler-{}", j.n), text, say })
+        Some(Call { key: format!("gank-jg-{}", j.n), text, say })
     }
 
     /// A blip off the lanes (river or a jungle) near `lane` that lurks right beside it (unless walking away) or closed
@@ -260,7 +375,7 @@ mod tests {
     }
 
     fn jinx_jungles() -> GankEnemies {
-        GankEnemies { names: HashMap::from([(JINX, "Jinx".to_string()), (157, "Yasuo".to_string())]), jungler: Some(JINX) }
+        GankEnemies { names: HashMap::from([(JINX, "Jinx".to_string()), (157, "Yasuo".to_string())]), jungler: Some(JINX), lanes: HashMap::new() }
     }
 
     /// Jinx seen at `at` at `time`; the calls for a player in `lane`.
@@ -270,7 +385,76 @@ mod tests {
     }
 
     fn jungler_key(w: &[Call]) -> Option<String> {
-        w.iter().find(|c| c.key.starts_with("jungler-")).map(|c| c.key.clone())
+        w.iter().find(|c| c.key.starts_with("gank-jg-")).map(|c| c.key.clone())
+    }
+
+    const SYLAS: ChampKey = 517;
+    const NAMI: ChampKey = 267;
+    /// Top lane on the enemy's half, where Sylas roamed at 10:37 in a real game.
+    const TOP_LANE: (i32, i32) = (6364, 13616);
+
+    fn roster() -> GankEnemies {
+        GankEnemies {
+            names: HashMap::from([(SYLAS, "Sylas".to_string()), (NAMI, "Nami".to_string()), (JINX, "Jinx".to_string())]),
+            jungler: Some(JINX),
+            lanes: HashMap::from([(SYLAS, Lane::Middle), (NAMI, Lane::Support), (JINX, Lane::Jungle)]),
+        }
+    }
+
+    /// `who` seen at each (time, at); the roam calls heard by a player in `lane`.
+    fn seen(who: ChampKey, reads: &[(f32, (i32, i32))], lane: Option<Lane>) -> Vec<Call> {
+        let mut t = tracker();
+        let mut heard = vec![];
+        for &(time, at) in reads {
+            t.observe(&[(at.0, at.1, Some(who))], true, time);
+            for c in t.warnings(time, lane, &roster()) {
+                if c.key.starts_with("gank-roam-") && !heard.iter().any(|h: &Call| h.key == c.key) {
+                    heard.push(c);
+                }
+            }
+        }
+        heard
+    }
+
+    #[test]
+    fn your_lane_opponent_roaming_is_called() {
+        let w = seen(SYLAS, &[(600.0, TOP_LANE), (601.0, TOP_LANE)], Some(Lane::Middle));
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert_eq!(w[0].say, "Sylas left mid, roaming top.");
+    }
+
+    #[test]
+    fn one_sighting_away_is_not_a_roam() {
+        assert!(seen(SYLAS, &[(600.0, TOP_LANE)], Some(Lane::Middle)).is_empty());
+    }
+
+    #[test]
+    fn a_laner_at_home_is_not_roaming() {
+        let mid = [(600.0, (7600, 7700)), (601.0, (7700, 7800))];
+        let raptors = [(600.0, (8300, 9600)), (601.0, (8300, 9600))];
+        let base = [(600.0, (12500, 13000)), (601.0, (12500, 13000))];
+        for reads in [&mid[..], &raptors[..], &base[..]] {
+            assert!(seen(SYLAS, reads, Some(Lane::Middle)).is_empty(), "{reads:?}");
+        }
+    }
+
+    #[test]
+    fn a_roamer_near_your_lane_is_called() {
+        let w = seen(NAMI, &[(600.0, TOP_LANE), (601.0, TOP_LANE)], Some(Lane::Top));
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert_eq!(w[0].say, "Nami roaming top. Careful.");
+    }
+
+    #[test]
+    fn a_roam_far_from_you_is_not_called_unless_you_jungle() {
+        assert!(seen(SYLAS, &[(600.0, TOP_LANE), (601.0, TOP_LANE)], Some(Lane::Bottom)).is_empty());
+        assert_eq!(seen(SYLAS, &[(600.0, TOP_LANE), (601.0, TOP_LANE)], Some(Lane::Jungle)).len(), 1);
+    }
+
+    #[test]
+    fn a_new_roam_after_a_while_home_is_called_again() {
+        let reads = [(600.0, TOP_LANE), (601.0, TOP_LANE), (605.0, TOP_LANE), (640.0, TOP_LANE), (641.0, TOP_LANE)];
+        assert_eq!(seen(SYLAS, &reads, Some(Lane::Middle)).len(), 2);
     }
 
     #[test]
@@ -282,18 +466,38 @@ mod tests {
     }
 
     #[test]
-    fn the_jungler_side_is_called_once_per_side() {
+    fn the_jungler_is_called_when_they_appear() {
         let mut t = tracker();
         let w = jinx_at(&mut t, ENEMY_BOT_JUNGLE, 100.0, Some(Lane::Middle));
         assert_eq!(w.len(), 1, "{w:?}");
         assert_eq!((w[0].text.as_str(), w[0].say.as_str()), ("Jinx spotted bot side", "Jinx bot side."));
         let first = jungler_key(&w);
         assert_eq!(jungler_key(&jinx_at(&mut t, ENEMY_BOT_JUNGLE, 110.0, Some(Lane::Middle))), first);
-        let top = jungler_key(&jinx_at(&mut t, TOP_SIDE_JUNGLE, 120.0, Some(Lane::Middle)));
-        assert!(top.is_some() && top != first);
+        assert_eq!(jungler_key(&jinx_at(&mut t, (8000, 9000), 117.0, Some(Lane::Middle))), first, "moving in view is not a new call");
         assert!(jungler_key(&t.w(130.0, Some(Lane::Middle))).is_none(), "no longer shown once out of sight");
         let again = jungler_key(&jinx_at(&mut t, TOP_SIDE_JUNGLE, 170.0, Some(Lane::Middle)));
-        assert!(again.is_some() && again != top, "re-announced after a while out of sight");
+        assert!(again.is_some() && again != first, "called again on reappearing after a while out of sight");
+    }
+
+    /// Real game: the enemy top laner's ring was read as Lillia for one frame, 13 000 units from where Lillia had been
+    /// seen 3 s before.
+    #[test]
+    fn a_name_that_would_teleport_is_dropped() {
+        let mut t = tracker();
+        let _ = jinx_at(&mut t, (6660, 13616), 538.0, Some(Lane::Middle));
+        t.observe(&[(12876, 2368, Some(JINX))], true, 541.0);
+        assert_eq!(t.history.back().unwrap().1[0].champ, None);
+        t.observe(&[(6512, 13468, Some(JINX))], true, 544.0);
+        assert_eq!(t.history.back().unwrap().1[0].champ, Some(JINX));
+    }
+
+    #[test]
+    fn your_lane_opponent_walking_back_is_not_a_gank() {
+        let mut t = tracker();
+        t.observe(&[(9400, 5400, Some(SYLAS))], true, 100.0);
+        let _ = t.warnings(100.0, Some(Lane::Middle), &roster());
+        t.observe(&[(8800, 6000, Some(SYLAS))], true, 102.0);
+        assert!(!has_mid(&t.warnings(102.0, Some(Lane::Middle), &roster())));
     }
 
     #[test]

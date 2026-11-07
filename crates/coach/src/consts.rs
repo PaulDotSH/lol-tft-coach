@@ -300,5 +300,16 @@ pub const JUNGLER_MID_BAND: i32 = 2500;
 /// a sighting.
 pub const JUNGLER_STALE_S: f32 = 30.0;
 pub const JUNGLER_SHOW_S: f32 = 5.0;
+/// A recognised champion can't have moved further than `NAME_JUMP + NAME_SPEED × seconds` (world units; Flash and
+/// dashes included) since last seen within `NAME_TRUST_S`: a farther name is a misread and dropped.
+pub const NAME_JUMP: f32 = 1500.0;
+pub const NAME_SPEED: f32 = 1000.0;
+pub const NAME_TRUST_S: f32 = 10.0;
+/// An enemy laner counts as roaming once more than this far off their lane (world units) outside their lane, the
+/// river beside it and their base, seen so on reads this many seconds apart; a roam ends after this long back home
+/// or unseen.
+pub const ROAM_SLACK: i32 = 1800;
+pub const ROAM_DWELL_S: f32 = 1.0;
+pub const ROAM_GAP_S: f32 = 20.0;
 /// A side lane is laned within this distance of its map corner (world units); blips there are the laners.
 pub const GANK_LANE_CORNER: i32 = 4400;
