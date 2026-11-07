@@ -44,6 +44,9 @@ data! {
         pub items: Vec<ItemId>,
         pub dead: bool,
         pub respawn_in: f32,
+        /// Takes Smite (any upgrade): the jungler, also where positions aren't given.
+        #[serde(default)]
+        pub smite: bool,
     }
 
     pub struct GameSnapshot {

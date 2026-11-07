@@ -253,6 +253,7 @@ mod tests {
             items: vec![],
             dead: false,
             respawn_in: 0.0,
+            smite: false,
         }
     }
 

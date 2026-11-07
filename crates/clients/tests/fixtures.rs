@@ -156,6 +156,8 @@ fn live_full_game() {
     assert_eq!((nau.team, nau.position), (Team::Chaos, Some(Lane::Support)));
     let jinx = &g.players[3];
     assert!(jinx.dead && (jinx.respawn_in - 18.6).abs() < 1e-3);
+    let smite: Vec<usize> = (0..10).filter(|&i| g.players[i].smite).collect();
+    assert_eq!(smite, [1, 6], "the two junglers take Smite");
 
     use GameEvent::*;
     let ev = &g.events;

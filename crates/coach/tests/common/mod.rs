@@ -349,6 +349,7 @@ pub fn player(champ: ChampKey, team: Team, position: Option<Lane>) -> Player {
         items: vec![RUBY],
         dead: false,
         respawn_in: 0.0,
+        smite: false,
     }
 }
 

@@ -92,6 +92,7 @@ fn player(p: &Value, sd: &StaticData) -> Player {
         items: arr(&p["items"]).filter_map(|i| id(&i["itemID"])).collect(),
         dead: p["isDead"] == true,
         respawn_in: num(&p["respawnTimer"]),
+        smite: ["summonerSpellOne", "summonerSpellTwo"].iter().any(|s| str_of(&p["summonerSpells"][s]["rawDisplayName"]).contains("Smite")),
     }
 }
 

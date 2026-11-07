@@ -2,4 +2,8 @@
 import type { Lane } from "./Lane";
 import type { Team } from "./Team";
 
-export type Player = { riot_id: string, champ: number, team: Team, position: Lane | null, level: number, kills: number, deaths: number, assists: number, cs: number, ward_score: number, items: Array<number>, dead: boolean, respawn_in: number, };
+export type Player = { riot_id: string, champ: number, team: Team, position: Lane | null, level: number, kills: number, deaths: number, assists: number, cs: number, ward_score: number, items: Array<number>, dead: boolean, respawn_in: number, 
+/**
+ * Takes Smite (any upgrade): the jungler, also where positions aren't given.
+ */
+smite: boolean, };
