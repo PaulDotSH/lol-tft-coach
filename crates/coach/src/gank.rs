@@ -108,7 +108,8 @@ impl GankTracker {
         out
     }
 
-    /// A blip off the lanes (river or a jungle) near `lane` that lurks right beside it (side lanes) or closed on it since the newest read at least `GANK_MOVE_DT` old. Blips in a lane are laners.
+    /// A blip off the lanes (river or a jungle) near `lane` that lurks right beside it (unless walking away) or closed
+    /// on it since the newest read at least `GANK_MOVE_DT` old. Blips in a lane are laners.
     fn threatens(&self, lane: MapZone, b: Blip) -> bool {
         if !matches!(MapZone::at(b.x, b.y), MapZone::River | MapZone::BlueJungle | MapZone::RedJungle) {
             return false;
@@ -117,19 +118,19 @@ impl GankTracker {
         if gap <= 0 || gap >= consts::GANK_REACH {
             return false;
         }
-        if lane != MapZone::Mid && gap < consts::GANK_LURK {
+        let closing = self.earlier(b).map(|p| off_lane(lane, p) - gap);
+        let lurk = if lane == MapZone::Mid { (consts::GANK_MID_HUG..consts::GANK_LURK_MID).contains(&gap) } else { gap < consts::GANK_LURK };
+        if lurk && closing.is_none_or(|c| c > -consts::GANK_APPROACH) {
             return true;
         }
-        let Some((now, _)) = self.history.back() else {
-            return false;
-        };
-        let Some((_, old)) = self.history.iter().rev().skip(1).find(|(t, _)| now - t >= consts::GANK_MOVE_DT) else {
-            return false;
-        };
-        let Some(p) = old.iter().copied().min_by_key(|&p| dist2(p, b)) else {
-            return false;
-        };
-        dist2(p, b) <= consts::GANK_MAX_STEP.pow(2) && off_lane(lane, p) - gap >= consts::GANK_APPROACH
+        closing.is_some_and(|c| c >= consts::GANK_APPROACH)
+    }
+
+    /// Where `b` was in the newest read at least `GANK_MOVE_DT` old: the nearest blip there within `GANK_MAX_STEP`.
+    fn earlier(&self, b: Blip) -> Option<Blip> {
+        let (now, _) = self.history.back()?;
+        let (_, old) = self.history.iter().rev().skip(1).find(|(t, _)| now - t >= consts::GANK_MOVE_DT)?;
+        old.iter().copied().filter(|&p| dist2(p, b) <= consts::GANK_MAX_STEP.pow(2)).min_by_key(|&p| dist2(p, b))
     }
 }
 
@@ -139,6 +140,8 @@ mod tests {
 
     const MY_JUNGLE: (i32, i32) = (3500, 7000);
     const RIVER_NEAR_MID: (i32, i32) = (8800, 6000);
+    /// In the river, but too far from mid to lurk on it.
+    const RIVER_FAR: (i32, i32) = (9400, 5400);
     const ENEMY_JUNGLE: (i32, i32) = (11300, 7800);
 
     fn tracker() -> GankTracker {
@@ -151,7 +154,7 @@ mod tests {
 
     /// An enemy walking down the river from the bot side into mid lane.
     fn walk(t: &mut GankTracker, lane: Option<Lane>, step: f32, reads: u32) -> Vec<Call> {
-        walk_from(t, lane, step, reads, |d| (RIVER_NEAR_MID.0 - d, RIVER_NEAR_MID.1 + d))
+        walk_from(t, lane, step, reads, |d| (RIVER_FAR.0 - d, RIVER_FAR.1 + d))
     }
 
     fn walk_from(t: &mut GankTracker, lane: Option<Lane>, step: f32, reads: u32, at: impl Fn(i32) -> (i32, i32)) -> Vec<Call> {
@@ -170,39 +173,48 @@ mod tests {
 
     #[test]
     fn enemy_in_my_jungle_warns_once_then_re_warns_after_a_gap() {
+        let top = Some(Lane::Top);
         let mut t = tracker();
         t.observe(&[MY_JUNGLE], true, 100.0);
-        let w = t.warnings(100.0, None);
+        let w = t.warnings(100.0, top);
         assert_eq!(w.len(), 1);
         let key = w[0].key.clone();
         t.observe(&[MY_JUNGLE], true, 102.0);
-        assert_eq!(t.warnings(102.0, None)[0].key, key);
+        assert_eq!(t.warnings(102.0, top)[0].key, key);
         t.observe(&[], true, 140.0);
-        assert!(t.warnings(140.0, None).is_empty());
+        assert!(t.warnings(140.0, top).is_empty());
         t.observe(&[MY_JUNGLE], true, 160.0);
-        assert_ne!(t.warnings(160.0, None)[0].key, key);
+        assert_ne!(t.warnings(160.0, top)[0].key, key);
     }
 
     #[test]
     fn enemy_jungle_is_not_my_jungle() {
         let mut t = tracker();
         t.observe(&[ENEMY_JUNGLE], true, 100.0);
-        assert!(t.warnings(100.0, None).is_empty());
+        assert!(t.warnings(100.0, Some(Lane::Top)).is_empty());
     }
 
     #[test]
     fn approaching_mid_warns_but_a_standing_blip_does_not() {
         let mut t = tracker();
-        t.observe(&[RIVER_NEAR_MID], true, 100.0);
+        t.observe(&[RIVER_FAR], true, 100.0);
         let _ = t.warnings(100.0, None);
-        t.observe(&[(8200, 6600)], true, 102.0);
+        t.observe(&[RIVER_NEAR_MID], true, 102.0);
         assert!(has_mid(&t.warnings(102.0, None)));
 
         let mut t = tracker();
-        t.observe(&[RIVER_NEAR_MID], true, 100.0);
+        t.observe(&[RIVER_FAR], true, 100.0);
         let _ = t.warnings(100.0, None);
-        t.observe(&[RIVER_NEAR_MID], true, 102.0);
+        t.observe(&[RIVER_FAR], true, 102.0);
         assert!(!has_mid(&t.warnings(102.0, None)));
+    }
+
+    /// A jungler seen once in the river beside mid, then lost in the fog, warns on that one read.
+    #[test]
+    fn one_sighting_in_the_river_beside_mid_warns() {
+        let mut t = tracker();
+        t.observe(&[RIVER_NEAR_MID], true, 100.0);
+        assert!(has_mid(&t.warnings(100.0, Some(Lane::Middle))));
     }
 
     /// Regression: the enemy mid laner pushing down the lane toward your tower was called a gank.
@@ -238,7 +250,7 @@ mod tests {
     fn red_side_reads_from_its_own_corner() {
         let mut t = tracker();
         t.observe(&[ENEMY_JUNGLE], false, 100.0);
-        assert_eq!(t.warnings(100.0, None).len(), 1);
+        assert_eq!(t.warnings(100.0, Some(Lane::Top)).len(), 1);
     }
 
     #[test]
@@ -256,7 +268,7 @@ mod tests {
         let mut t = tracker();
         for i in 0..8 {
             let time = 100.0 + i as f32 * 0.5;
-            t.observe(&[RIVER_NEAR_MID], true, time);
+            t.observe(&[RIVER_FAR], true, time);
             assert!(!has_mid(&t.warnings(time, None)));
         }
     }

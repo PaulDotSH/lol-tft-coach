@@ -13,9 +13,6 @@ const MIN_AREA_FRAC: f32 = 0.0006;
 const MAX_AREA_FRAC: f32 = 0.03;
 const MAX_BLIPS: usize = 5;
 
-/// Largest distance (fraction units) a blip may move between two reads and still count as the same champion.
-pub const STABLE_RADIUS: f32 = 0.04;
-
 /// Minimap side as a fraction of the client height is `MM_BASE + MM_SPAN * scale`, inset from the bottom-right corner by `MM_INSET`. First guesses to tune against a real capture.
 const MM_BASE: f32 = 0.11;
 const MM_SPAN: f32 = 0.154;
@@ -83,10 +80,6 @@ pub fn enemy_blips(frame: &Frame) -> Vec<(f32, f32)> {
         .collect()
 }
 
-/// The blips in `cur` that have a blip in `prev` within `radius`, in `cur` order.
-pub fn stable(prev: &[(f32, f32)], cur: &[(f32, f32)], radius: f32) -> Vec<(f32, f32)> {
-    cur.iter().copied().filter(|&(x, y)| prev.iter().any(|&(px, py)| (x - px).hypot(y - py) <= radius)).collect()
-}
 
 /// The minimap's client-area rectangle for a client of `cw`×`ch` pixels at League's MinimapScale `scale`: a square anchored bottom-right.
 pub fn rect(cw: u32, ch: u32, scale: f32) -> Rect {
@@ -191,27 +184,6 @@ mod tests {
     #[test]
     fn empty_frame_is_safe() {
         assert!(enemy_blips(&Frame { width: 0, height: 0, bgra: vec![] }).is_empty());
-    }
-
-    #[test]
-    fn stable_keeps_blips_seen_twice() {
-        assert_eq!(stable(&[(0.5, 0.5)], &[(0.5, 0.5)], STABLE_RADIUS), vec![(0.5, 0.5)]);
-    }
-
-    #[test]
-    fn stable_drops_new_blips() {
-        assert_eq!(stable(&[(0.1, 0.1)], &[(0.1, 0.1), (0.8, 0.8)], STABLE_RADIUS), vec![(0.1, 0.1)]);
-    }
-
-    #[test]
-    fn stable_keeps_small_moves_and_drops_jumps() {
-        assert_eq!(stable(&[(0.5, 0.5)], &[(0.52, 0.51)], STABLE_RADIUS), vec![(0.52, 0.51)]);
-        assert!(stable(&[(0.5, 0.5)], &[(0.7, 0.5)], STABLE_RADIUS).is_empty());
-    }
-
-    #[test]
-    fn stable_with_no_prev_is_empty() {
-        assert!(stable(&[], &[(0.5, 0.5)], STABLE_RADIUS).is_empty());
     }
 
     #[test]

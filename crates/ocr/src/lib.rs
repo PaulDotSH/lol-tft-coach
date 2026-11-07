@@ -12,7 +12,7 @@ pub mod scoreboard;
 mod win;
 
 pub use matching::match_augments;
-pub use minimap::{enemy_blips, stable};
+pub use minimap::enemy_blips;
 
 /// BGRA8 pixels, top-down.
 #[derive(Clone)]

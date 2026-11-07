@@ -653,13 +653,11 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
         .name("minimap".into())
         .spawn(move || {
             let mut tracker = coach::GankTracker::default();
-            let mut prev: Vec<(f32, f32)> = vec![];
             let mut said: Vec<Call> = vec![];
             loop {
                 let ctx = sh.gank_ctx.lock().unwrap().clone();
                 let Some(ctx) = ctx else {
                     tracker = coach::GankTracker::default();
-                    prev.clear();
                     said.clear();
                     *sh.minimap_state.lock().unwrap() = SourceState::Off;
                     std::thread::sleep(MINIMAP_IDLE);
@@ -674,8 +672,7 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                     *sh.minimap_state.lock().unwrap() = SourceState::Error;
                     continue;
                 };
-                let raw = ocr::enemy_blips(&frame);
-                let blips = ocr::stable(&prev, &raw, ocr::minimap::STABLE_RADIUS);
+                let blips = ocr::enemy_blips(&frame);
                 let time = ctx.time + ctx.at.elapsed().as_secs_f32().min(CLOCK_ON);
                 let world: Vec<(i32, i32)> = blips.iter().map(|&(fx, fy)| MapZone::from_minimap(fx, fy, cfg.flipped)).collect();
                 tracker.observe(&world, ctx.blue, time);
@@ -683,9 +680,8 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                 if debug::on() {
                     debug::frame("minimap", Duration::from_secs(3), &frame);
                     let keys: Vec<&str> = calls.iter().map(|c| c.key.as_str()).collect();
-                    debug::dump("minimap-blips", Duration::from_secs(1), &(time, (frame.width, frame.height), cfg.scale, &raw, &blips, &world, keys));
+                    debug::dump("minimap-blips", Duration::from_secs(1), &(time, (frame.width, frame.height), cfg.scale, &blips, &world, keys));
                 }
-                prev = raw;
                 *sh.minimap_state.lock().unwrap() = SourceState::Ok;
                 *sh.gank_calls.lock().unwrap() = (calls.clone(), Instant::now());
                 if calls.iter().map(|c| &c.key).ne(said.iter().map(|c| &c.key)) {
