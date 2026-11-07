@@ -39,6 +39,7 @@ pub struct GankCtx {
     pub at: Instant,
     pub blue: bool,
     pub lane: Option<Lane>,
+    pub enemies: Arc<coach::GankEnemies>,
 }
 
 /// League's minimap settings are re-read at most this often.
@@ -86,6 +87,8 @@ pub struct Shared {
     pub gank_ctx: Mutex<Option<GankCtx>>,
     pub gank_calls: Mutex<(Vec<Call>, Instant)>,
     pub minimap_state: Mutex<SourceState>,
+    /// Enemy champion portraits for naming minimap blips.
+    pub portraits: Cache<ChampKey, ocr::minimap::Portrait>,
     /// League install folder (from the client), and the minimap settings read from it.
     pub league_install: Mutex<Option<std::path::PathBuf>>,
     minimap_cfg: Mutex<Option<(clients::league_cfg::MinimapSettings, Instant)>>,
@@ -144,6 +147,7 @@ impl Shared {
             gank_ctx: Mutex::new(None),
             gank_calls: Mutex::new((vec![], Instant::now())),
             minimap_state: Mutex::new(SourceState::Off),
+            portraits: Mutex::default(),
             league_install: Mutex::new(None),
             minimap_cfg: Mutex::new(None),
         }

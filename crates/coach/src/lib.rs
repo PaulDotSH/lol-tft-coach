@@ -49,7 +49,7 @@ pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal
 pub use ranked::{ladder, rank_trends};
 pub use trends::trends;
 pub use picks::AugmentTracker;
-pub use gank::GankTracker;
+pub use gank::{GankEnemies, GankTracker};
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
 pub use threat::lane_opponent;

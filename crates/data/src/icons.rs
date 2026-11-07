@@ -75,6 +75,11 @@ pub fn item_icon_url(ddragon_version: &str, id: ItemId) -> String {
     format!("https://ddragon.leagueoflegends.com/cdn/{ddragon_version}/img/item/{id}.png")
 }
 
+/// Champion square portrait; `id` is the Data Dragon id ("MonkeyKing").
+pub fn champion_icon_url(ddragon_version: &str, id: &str) -> String {
+    format!("https://ddragon.leagueoflegends.com/cdn/{ddragon_version}/img/champion/{id}.png")
+}
+
 /// GET `url` as bytes, served from the disk cache if younger than `ttl`; a
 /// stale entry is used when the network fails.
 pub async fn get_bytes(http: &Http, url: &str, ttl: Duration) -> anyhow::Result<Vec<u8>> {

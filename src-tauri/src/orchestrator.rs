@@ -22,6 +22,8 @@ const MINIMAP_IDLE: Duration = Duration::from_secs(2);
 const MINIMAP_TTL: Duration = Duration::from_millis(1500);
 /// The minimap thread counts the game clock on from the last tick for at most this long.
 const CLOCK_ON: f32 = 5.0;
+/// Champion portraits (Data Dragon) are re-fetched after this long.
+const PORTRAIT_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
 struct PendingOffer {
     ids: Vec<AugmentId>,
@@ -536,7 +538,13 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let notes = crate::draft::lane_notes();
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
     let watch = snap.mode == Mode::Rift && settings.gank_warn && snap.time <= coach::consts::GANK_EARLY_S;
-    *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx { time: snap.time, at: Instant::now(), blue: me.team == Team::Order, lane });
+    *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx {
+        time: snap.time,
+        at: Instant::now(),
+        blue: me.team == Team::Order,
+        lane,
+        enemies: Arc::new(gank_enemies(sh, sd, snap, me.team)),
+    });
     if watch {
         let calls = sh.gank_calls.lock().unwrap();
         if calls.1.elapsed() < MINIMAP_TTL {
@@ -638,6 +646,25 @@ fn scan_offer(names: &std::collections::HashMap<AugmentId, String>, last_lines: 
     Ok(ids)
 }
 
+/// The enemy team for the minimap thread (names, jungler), fetching their portraits in the background.
+fn gank_enemies(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, mine: Team) -> coach::GankEnemies {
+    let foes: Vec<&Player> = snap.players.iter().filter(|p| p.team != mine).collect();
+    for p in &foes {
+        if let Some(c) = sd.champs.get(&p.champ) {
+            let (http, url) = (sh.http.clone(), data::icons::champion_icon_url(&sd.version, &c.id));
+            ensure(sh, |s| &s.portraits, |s| &s.ddragon_ok, p.champ, move || async move {
+                let b = data::icons::get_bytes(&http, &url, PORTRAIT_TTL).await?;
+                let img = ocr::scoreboard::decode_png(&b).ok_or_else(|| anyhow::anyhow!("bad champion icon {url}"))?;
+                Ok(ocr::minimap::portrait(&img))
+            });
+        }
+    }
+    coach::GankEnemies {
+        names: foes.iter().filter_map(|p| Some((p.champ, sd.champs.get(&p.champ)?.name.clone()))).collect(),
+        jungler: foes.iter().find(|p| p.position == Some(Lane::Jungle)).map(|p| p.champ),
+    }
+}
+
 /// Replace the gank warnings in `advice` with `calls`, ahead of the other calls (they're the
 /// most time-critical: first on the overlay strip and first to be spoken).
 fn inject_gank(advice: &mut GameAdvice, calls: &[Call]) {
@@ -673,10 +700,30 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                     continue;
                 };
                 let blips = ocr::enemy_blips(&frame);
+                let portraits: Vec<(ChampKey, Arc<ocr::minimap::Portrait>)> = {
+                    let cache = sh.portraits.lock().unwrap();
+                    ctx.enemies
+                        .names
+                        .keys()
+                        .filter_map(|k| match cache.get(k) {
+                            Some(crate::state::Slot::Ready(p)) => Some((*k, p.clone())),
+                            _ => None,
+                        })
+                        .collect()
+                };
+                let refs: Vec<(ChampKey, &ocr::minimap::Portrait)> = portraits.iter().map(|(k, p)| (*k, &**p)).collect();
+                let names = ocr::minimap::name_blips(&frame, &blips, &refs);
                 let time = ctx.time + ctx.at.elapsed().as_secs_f32().min(CLOCK_ON);
-                let world: Vec<(i32, i32)> = blips.iter().map(|&(fx, fy)| MapZone::from_minimap(fx, fy, cfg.flipped)).collect();
+                let world: Vec<(i32, i32, Option<ChampKey>)> = blips
+                    .iter()
+                    .zip(&names)
+                    .map(|(&(fx, fy), &champ)| {
+                        let (x, y) = MapZone::from_minimap(fx, fy, cfg.flipped);
+                        (x, y, champ)
+                    })
+                    .collect();
                 tracker.observe(&world, ctx.blue, time);
-                let calls = tracker.warnings(time, ctx.lane);
+                let calls = tracker.warnings(time, ctx.lane, &ctx.enemies);
                 if debug::on() {
                     debug::frame("minimap", Duration::from_secs(3), &frame);
                     let keys: Vec<&str> = calls.iter().map(|c| c.key.as_str()).collect();

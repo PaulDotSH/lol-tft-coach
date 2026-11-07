@@ -17,8 +17,8 @@ fn replay(game: &str, blue: bool, lane: Option<Lane>) -> Vec<(u32, String)> {
     let mut said: Vec<String> = vec![];
     let mut out = vec![];
     for (time, enemies) in reads {
-        t.observe(&enemies, blue, time);
-        for c in t.warnings(time, lane) {
+        t.observe(&enemies.iter().map(|&(x, y)| (x, y, None)).collect::<Vec<_>>(), blue, time);
+        for c in t.warnings(time, lane, &Default::default()) {
             if !said.contains(&c.key) {
                 said.push(c.key.clone());
                 out.push((time as u32, c.key));

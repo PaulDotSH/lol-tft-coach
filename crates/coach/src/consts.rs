@@ -294,5 +294,11 @@ pub const GANK_LURK: i32 = 1300;
 /// up to `GANK_LURK_MID`) warns even standing still.
 pub const GANK_MID_HUG: i32 = 400;
 pub const GANK_LURK_MID: i32 = 1600;
+/// The enemy jungler counts as mid within this |x - y| of the mid lane, else top or bot side.
+pub const JUNGLER_MID_BAND: i32 = 2500;
+/// The jungler's side is announced again after they were out of sight this long (seconds), and shown this long after
+/// a sighting.
+pub const JUNGLER_STALE_S: f32 = 30.0;
+pub const JUNGLER_SHOW_S: f32 = 5.0;
 /// A side lane is laned within this distance of its map corner (world units); blips there are the laners.
 pub const GANK_LANE_CORNER: i32 = 4400;

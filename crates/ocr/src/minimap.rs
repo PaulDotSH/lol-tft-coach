@@ -1,8 +1,9 @@
-//! Enemy champion blips on the minimap, found by their red border ring, plus the minimap's client rectangle.
-//! Pure: it reads a `Frame` already cropped to the minimap, so it is tested on synthetic frames.
+//! Enemy champion blips on the minimap, found by their red border ring, named by their portrait, plus the
+//! minimap's client rectangle. Pure: it reads a `Frame` already cropped to the minimap.
 
 use crate::Frame;
-use crate::scoreboard::Rect;
+use crate::scoreboard::{Rect, Rgba};
+use model_core::ChampKey;
 
 /// A pixel counts as enemy red at or above this red channel, with green and blue this much lower and this far below red. First guesses, to tune on a real capture.
 const RED_MIN: i32 = 165;
@@ -17,10 +18,22 @@ const MAX_BLIPS: usize = 5;
 const MM_BASE: f32 = 0.11;
 const MM_SPAN: f32 = 0.154;
 const MM_INSET: f32 = 0.006;
-/// The map itself inside that square (left, top, side), as fractions of it: the rest is the frame and HUD. Measured at scale 1.0 on 2560×1440 (map at 35,34 size 338 of 380).
+/// The map itself inside that square (left, top, side), as fractions of it: the rest is the frame and HUD. Measured at scale 1.0 on 2560Ã—1440 (map at 35,34 size 338 of 380).
 const MAP_X0: f32 = 35.0 / 380.0;
 const MAP_Y0: f32 = 34.0 / 380.0;
 const MAP_SIDE: f32 = 338.0 / 380.0;
+
+/// Portrait descriptor: cells across the icon's diameter (inside the circle only), and the share of the Data Dragon
+/// square's width the minimap circle shows.
+const PORTRAIT_N: usize = 12;
+const PORTRAIT_ZOOM: f32 = 0.85;
+/// Minimap icon radius sampled, and how far around a blip's centre to look for the best fit (fractions of the map side).
+const ICON_R: f32 = 11.0 / 338.0;
+const ICON_SLACK: f32 = 2.0 / 338.0;
+/// A blip is named when its best portrait correlates at least this well and this far ahead of the runner-up
+/// (overlapping icons score low and stay unnamed).
+const NAME_MIN: f32 = 0.45;
+const NAME_MARGIN: f32 = 0.15;
 
 const OFF: u8 = 0;
 const RED: u8 = 1;
@@ -81,7 +94,97 @@ pub fn enemy_blips(frame: &Frame) -> Vec<(f32, f32)> {
 }
 
 
-/// The minimap's client-area rectangle for a client of `cw`×`ch` pixels at League's MinimapScale `scale`: a square anchored bottom-right.
+/// A champion portrait template: RGB over the cells of a circle, mean-free, unit length.
+pub struct Portrait(Vec<f32>);
+
+/// Descriptor of the circle of radius `r` around (cx, cy), each cell the mean of kÃ—k taps of `rgb`.
+fn circle(rgb: impl Fn(i32, i32) -> [f32; 3], cx: f32, cy: f32, r: f32, k: usize) -> Vec<f32> {
+    let cell = 2.0 * r / PORTRAIT_N as f32;
+    let mut v = Vec::with_capacity(PORTRAIT_N * PORTRAIT_N * 3);
+    for j in 0..PORTRAIT_N {
+        for i in 0..PORTRAIT_N {
+            let (dx, dy) = ((i as f32 + 0.5) / PORTRAIT_N as f32 * 2.0 - 1.0, (j as f32 + 0.5) / PORTRAIT_N as f32 * 2.0 - 1.0);
+            if dx * dx + dy * dy > 1.0 {
+                continue;
+            }
+            let mut sum = [0.0; 3];
+            for t in 0..k * k {
+                let x = cx + dx * r + ((t % k) as f32 + 0.5) / k as f32 * cell - cell / 2.0;
+                let y = cy + dy * r + ((t / k) as f32 + 0.5) / k as f32 * cell - cell / 2.0;
+                let p = rgb(x.floor() as i32, y.floor() as i32);
+                (0..3).for_each(|c| sum[c] += p[c]);
+            }
+            v.extend(sum.map(|s| s / (k * k) as f32));
+        }
+    }
+    let mean = v.iter().sum::<f32>() / v.len() as f32;
+    v.iter_mut().for_each(|a| *a -= mean);
+    let norm = v.iter().map(|a| a * a).sum::<f32>().sqrt().max(1e-6);
+    v.iter_mut().for_each(|a| *a /= norm);
+    v
+}
+
+/// Template of a Data Dragon champion square (`img/champion/<Id>.png`).
+pub fn portrait(icon: &Rgba) -> Portrait {
+    let (w, h) = (icon.w as i32, icon.h as i32);
+    let rgb = |x: i32, y: i32| {
+        let p = &icon.px[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize * 4..][..3];
+        [p[0] as f32, p[1] as f32, p[2] as f32]
+    };
+    Portrait(circle(rgb, icon.w as f32 / 2.0, icon.h as f32 / 2.0, icon.w as f32 / 2.0 * PORTRAIT_ZOOM, 4))
+}
+
+fn dot(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b).map(|(x, y)| x * y).sum()
+}
+
+/// The champion drawn at each of `blips` (from `enemy_blips`) among `portraits`, where one clearly fits; a champion
+/// names at most one blip (the better fit).
+pub fn name_blips(frame: &Frame, blips: &[(f32, f32)], portraits: &[(ChampKey, &Portrait)]) -> Vec<Option<ChampKey>> {
+    let (w, h) = (frame.width as i32, frame.height as i32);
+    if portraits.is_empty() || w == 0 || h == 0 || frame.bgra.len() < (w * h * 4) as usize {
+        return vec![None; blips.len()];
+    }
+    let rgb = |x: i32, y: i32| {
+        let p = &frame.bgra[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize * 4..][..3];
+        [p[2] as f32, p[1] as f32, p[0] as f32]
+    };
+    let side = MAP_SIDE * w as f32;
+    let (r, slack) = (ICON_R * side, (ICON_SLACK * side).round().max(1.0) as i32);
+    let mut named: Vec<Option<(ChampKey, f32)>> = blips
+        .iter()
+        .map(|&(fx, fy)| {
+            let (cx, cy) = ((MAP_X0 + fx * MAP_SIDE) * w as f32, (MAP_Y0 + fy * MAP_SIDE) * h as f32);
+            let mut best = vec![f32::MIN; portraits.len()];
+            for oy in -slack..=slack {
+                for ox in -slack..=slack {
+                    let d = circle(rgb, cx + ox as f32, cy + oy as f32, r, 2);
+                    for (b, (_, p)) in best.iter_mut().zip(portraits) {
+                        *b = b.max(dot(&d, &p.0));
+                    }
+                }
+            }
+            let mut order: Vec<usize> = (0..best.len()).collect();
+            order.sort_by(|&a, &b| best[b].total_cmp(&best[a]));
+            let (top, next) = (best[order[0]], order.get(1).map_or(f32::MIN, |&i| best[i]));
+            (top >= NAME_MIN && top - next >= NAME_MARGIN).then(|| (portraits[order[0]].0, top))
+        })
+        .collect();
+    for i in 0..named.len() {
+        for j in 0..named.len() {
+            if let (Some(a), Some(b)) = (named[i], named[j])
+                && i != j
+                && a.0 == b.0
+                && a.1 < b.1
+            {
+                named[i] = None;
+            }
+        }
+    }
+    named.into_iter().map(|n| n.map(|n| n.0)).collect()
+}
+
+/// The minimap's client-area rectangle for a client of `cw`Ã—`ch` pixels at League's MinimapScale `scale`: a square anchored bottom-right.
 pub fn rect(cw: u32, ch: u32, scale: f32) -> Rect {
     let side = ((ch as f32 * (MM_BASE + MM_SPAN * scale)).round() as i32).max(1);
     let inset = (ch as f32 * MM_INSET).round() as i32;
@@ -97,7 +200,7 @@ pub fn top_frac(scale: f32) -> f32 {
 mod tests {
     use super::*;
 
-    /// A `w`×`h` BGRA frame, black, with filled discs painted in (cx, cy, radius, [b,g,r]).
+    /// A `w`Ã—`h` BGRA frame, black, with filled discs painted in (cx, cy, radius, [b,g,r]).
     fn frame(w: u32, h: u32, discs: &[(i32, i32, i32, [u8; 3])]) -> Frame {
         let mut bgra = vec![0u8; (w * h * 4) as usize];
         for &(cx, cy, rad, [b, g, r]) in discs {
@@ -115,6 +218,61 @@ mod tests {
 
     const RED_PX: [u8; 3] = [20, 20, 210];
     const BLUE: [u8; 3] = [210, 120, 40];
+
+    fn fixture(path: &str) -> Rgba {
+        let png = std::fs::read(format!("{}/../../fixtures/ocr/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        crate::scoreboard::decode_png(&png).unwrap()
+    }
+
+    fn minimap(name: &str) -> Frame {
+        let img = fixture(&format!("minimap/{name}.png"));
+        Frame { width: img.w, height: img.h, bgra: img.px.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect() }
+    }
+
+    const YASUO: ChampKey = 157;
+    const TEEMO: ChampKey = 17;
+    const SORAKA: ChampKey = 16;
+
+    /// The enemy team of the blue-side fixtures.
+    fn enemy_portraits() -> Vec<(ChampKey, Portrait)> {
+        [(TEEMO, "Teemo"), (222, "Jinx"), (YASUO, "Yasuo"), (81, "Ezreal"), (SORAKA, "Soraka")]
+            .into_iter()
+            .map(|(k, n)| (k, portrait(&fixture(&format!("champions/{n}.png")))))
+            .collect()
+    }
+
+    /// Name of the blip nearest (fx, fy).
+    fn named_at(f: &Frame, fx: f32, fy: f32) -> Option<ChampKey> {
+        let p = enemy_portraits();
+        let refs: Vec<(ChampKey, &Portrait)> = p.iter().map(|(k, p)| (*k, p)).collect();
+        let b = enemy_blips(f);
+        let names = name_blips(f, &b, &refs);
+        let i = (0..b.len()).min_by(|&i, &j| (b[i].0 - fx).hypot(b[i].1 - fy).total_cmp(&(b[j].0 - fx).hypot(b[j].1 - fy)))?;
+        assert!((b[i].0 - fx).hypot(b[i].1 - fy) < 0.03, "no blip near ({fx}, {fy}): {b:?}");
+        names[i]
+    }
+
+    /// Real capture, 8:02: Soraka (enemy support) roaming through the river beside mid; Yasuo in the lane.
+    #[test]
+    fn names_a_roamer_in_the_river() {
+        let f = minimap("blue_side_0802");
+        assert_eq!(named_at(&f, 0.636, 0.565), Some(SORAKA));
+        assert_eq!(named_at(&f, (235.0 - 35.0) / 338.0, (184.0 - 34.0) / 338.0), Some(YASUO));
+    }
+
+    /// Real capture, 2:36: Teemo top, Yasuo mid.
+    #[test]
+    fn names_the_laners() {
+        let f = minimap("blue_side_0236");
+        assert_eq!(named_at(&f, (90.0 - 35.0) / 338.0, (83.0 - 34.0) / 338.0), Some(TEEMO));
+        assert_eq!(named_at(&f, (220.0 - 35.0) / 338.0, (187.0 - 34.0) / 338.0), Some(YASUO));
+    }
+
+    #[test]
+    fn no_portraits_names_nothing() {
+        let f = minimap("blue_side_0236");
+        assert!(name_blips(&f, &enemy_blips(&f), &[]).iter().all(Option::is_none));
+    }
 
     /// Pixel of map fraction (fx, fy) in a `side`-pixel minimap frame.
     fn px(fx: f32, fy: f32, side: u32) -> (i32, i32) {
@@ -138,7 +296,7 @@ mod tests {
         assert!(enemy_blips(&frame(200, 200, &[(8, 8, 6, RED_PX)])).is_empty());
     }
 
-    /// A real capture (scale 1.0, 2560×1440, red side, 1:08): three enemies, at top lane, mid and bot.
+    /// A real capture (scale 1.0, 2560Ã—1440, red side, 1:08): three enemies, at top lane, mid and bot.
     #[test]
     fn real_minimap_finds_the_three_visible_enemies() {
         let png = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/ocr/minimap/red_side_0108.png")).unwrap();
