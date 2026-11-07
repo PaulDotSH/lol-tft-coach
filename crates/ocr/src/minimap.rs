@@ -20,6 +20,10 @@ pub const STABLE_RADIUS: f32 = 0.04;
 const MM_BASE: f32 = 0.11;
 const MM_SPAN: f32 = 0.154;
 const MM_INSET: f32 = 0.006;
+/// The map itself inside that square (left, top, side), as fractions of it: the rest is the frame and HUD. Measured at scale 1.0 on 2560×1440 (map at 35,34 size 338 of 380).
+const MAP_X0: f32 = 35.0 / 380.0;
+const MAP_Y0: f32 = 34.0 / 380.0;
+const MAP_SIDE: f32 = 338.0 / 380.0;
 
 const OFF: u8 = 0;
 const RED: u8 = 1;
@@ -30,7 +34,7 @@ fn is_red(&[b, g, r, _]: &[u8; 4]) -> bool {
     r >= RED_MIN && g <= CHAN_MAX && b <= CHAN_MAX && r - g >= RED_DIFF && r - b >= RED_DIFF
 }
 
-/// Enemy blips as (fx, fy) fractions of the minimap frame (fx from the left, fy from the top, both 0..1), largest ring first. Empty when none are visible.
+/// Enemy blips as (fx, fy) fractions of the map inside the minimap frame (fx from the left, fy from the top, both 0..1), largest ring first. Empty when none are visible.
 pub fn enemy_blips(frame: &Frame) -> Vec<(f32, f32)> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     if w == 0 || h == 0 || frame.bgra.len() < w * h * 4 {
@@ -71,8 +75,12 @@ pub fn enemy_blips(frame: &Frame) -> Vec<(f32, f32)> {
         }
     }
     blobs.sort_by_key(|b| std::cmp::Reverse(b.2));
-    blobs.truncate(MAX_BLIPS);
-    blobs.into_iter().map(|(cx, cy, _)| (cx / w as f32, cy / h as f32)).collect()
+    blobs
+        .into_iter()
+        .map(|(cx, cy, _)| (((cx + 0.5) / w as f32 - MAP_X0) / MAP_SIDE, ((cy + 0.5) / h as f32 - MAP_Y0) / MAP_SIDE))
+        .filter(|&(x, y)| (0.0..=1.0).contains(&x) && (0.0..=1.0).contains(&y))
+        .take(MAX_BLIPS)
+        .collect()
 }
 
 /// The blips in `cur` that have a blip in `prev` within `radius`, in `cur` order.
@@ -115,14 +123,40 @@ mod tests {
     const RED_PX: [u8; 3] = [20, 20, 210];
     const BLUE: [u8; 3] = [210, 120, 40];
 
+    /// Pixel of map fraction (fx, fy) in a `side`-pixel minimap frame.
+    fn px(fx: f32, fy: f32, side: u32) -> (i32, i32) {
+        let s = side as f32;
+        (((MAP_X0 + fx * MAP_SIDE) * s) as i32, ((MAP_Y0 + fy * MAP_SIDE) * s) as i32)
+    }
+
     #[test]
-    fn finds_red_discs_and_places_them() {
-        let f = frame(200, 200, &[(50, 60, 7, RED_PX), (150, 140, 7, RED_PX)]);
+    fn finds_red_discs_and_places_them_on_the_map() {
+        let ((ax, ay), (bx, by)) = (px(0.25, 0.30, 200), px(0.75, 0.70, 200));
+        let f = frame(200, 200, &[(ax, ay, 7, RED_PX), (bx, by, 7, RED_PX)]);
         let mut b = enemy_blips(&f);
         b.sort_by(|a, c| a.0.total_cmp(&c.0));
         assert_eq!(b.len(), 2);
         assert!((b[0].0 - 0.25).abs() < 0.02 && (b[0].1 - 0.30).abs() < 0.02, "{b:?}");
         assert!((b[1].0 - 0.75).abs() < 0.02 && (b[1].1 - 0.70).abs() < 0.02, "{b:?}");
+    }
+
+    #[test]
+    fn ignores_red_outside_the_map() {
+        assert!(enemy_blips(&frame(200, 200, &[(8, 8, 6, RED_PX)])).is_empty());
+    }
+
+    /// A real capture (scale 1.0, 2560×1440, red side, 1:08): three enemies, at top lane, mid and bot.
+    #[test]
+    fn real_minimap_finds_the_three_visible_enemies() {
+        let png = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/ocr/minimap/red_side_0108.png")).unwrap();
+        let img = crate::scoreboard::decode_png(&png).unwrap();
+        let bgra = img.px.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect();
+        let mut b = enemy_blips(&Frame { width: img.w, height: img.h, bgra });
+        b.sort_by(|a, c| a.0.total_cmp(&c.0));
+        assert_eq!(b.len(), 3, "{b:?}");
+        for (got, want) in b.iter().zip([(0.156, 0.168), (0.503, 0.479), (0.814, 0.848)]) {
+            assert!((got.0 - want.0).abs() < 0.02 && (got.1 - want.1).abs() < 0.02, "{b:?}");
+        }
     }
 
     #[test]
@@ -142,7 +176,8 @@ mod tests {
 
     #[test]
     fn mixed_frame_keeps_only_the_enemy() {
-        let b = enemy_blips(&frame(200, 200, &[(50, 50, 7, BLUE), (150, 140, 7, RED_PX)]));
+        let (x, y) = px(0.75, 0.70, 200);
+        let b = enemy_blips(&frame(200, 200, &[(50, 50, 7, BLUE), (x, y, 7, RED_PX)]));
         assert_eq!(b.len(), 1, "{b:?}");
         assert!((b[0].0 - 0.75).abs() < 0.02 && (b[0].1 - 0.70).abs() < 0.02, "{b:?}");
     }

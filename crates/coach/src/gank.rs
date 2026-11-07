@@ -1,5 +1,6 @@
 //! Early-game gank warnings from enemy blips read off the minimap, spoken as `Call`s.
-//! Blips are anonymous, so structures are excluded by zone and a mid warning needs movement toward your base.
+//! Blips are anonymous, so structures are excluded by zone, and a mid warning needs an enemy off the lane
+//! closing on it (the mid laner in the lane is not a gank).
 
 use crate::consts;
 use model::*;
@@ -78,10 +79,10 @@ impl GankTracker {
             out.push(Call { key: format!("gank-jungle-{n}"), text: text.into(), say: say.into() });
         }
         let wording = match lane {
-            Some(Lane::Top | Lane::Bottom) => None,
+            Some(Lane::Top | Lane::Bottom | Lane::Support) => None,
             Some(Lane::Middle) => Some(("Enemy coming to your lane through the river — watch for a gank", "Gank coming mid. Back off.")),
             Some(Lane::Jungle) => Some(("Enemy heading mid through the river — counter-gank or ward", "Enemy heading mid. Counter-gank.")),
-            Some(Lane::Support) | None => Some(("Enemy moving through the river toward mid — watch for a gank", "Enemy heading mid. Watch for a gank.")),
+            None => Some(("Enemy moving through the river toward mid — watch for a gank", "Enemy heading mid. Watch for a gank.")),
         };
         if let Some((text, say)) = wording
             && cur.iter().any(|b| self.heading_mid(*b))
@@ -92,9 +93,10 @@ impl GankTracker {
         out
     }
 
-    /// A blip in your half of the river or mid that moved toward your base since the newest read at least `GANK_MOVE_DT` old: a jungler collapsing on mid, not a laner holding lane.
+    /// A blip off the mid lane (river or your jungle) near it that closed on the lane since the newest read at least `GANK_MOVE_DT` old: a jungler collapsing on mid. Blips in the lane itself are the mid laner.
     fn heading_mid(&self, b: Blip) -> bool {
-        if !matches!(MapZone::at(b.x, b.y), MapZone::Mid | MapZone::River) || b.x + b.y >= MAP_END {
+        let off_mid = |p: Blip| (p.x - p.y).abs();
+        if !matches!(MapZone::at(b.x, b.y), MapZone::River | MapZone::BlueJungle) || off_mid(b) >= consts::GANK_MID_REACH {
             return false;
         }
         let Some((now, _)) = self.history.back() else {
@@ -106,7 +108,7 @@ impl GankTracker {
         let Some(p) = old.iter().copied().min_by_key(|&p| dist2(p, b)) else {
             return false;
         };
-        dist2(p, b) <= consts::GANK_MAX_STEP.pow(2) && (p.x + p.y) - (b.x + b.y) >= consts::GANK_APPROACH
+        dist2(p, b) <= consts::GANK_MAX_STEP.pow(2) && off_mid(p) - off_mid(b) >= consts::GANK_APPROACH
     }
 }
 
@@ -115,7 +117,7 @@ mod tests {
     use super::*;
 
     const MY_JUNGLE: (i32, i32) = (3500, 7000);
-    const MY_RIVER_MID: (i32, i32) = (5600, 6000);
+    const RIVER_NEAR_MID: (i32, i32) = (8800, 6000);
     const ENEMY_JUNGLE: (i32, i32) = (11300, 7800);
 
     fn tracker() -> GankTracker {
@@ -126,12 +128,17 @@ mod tests {
         w.iter().any(|c| c.key.starts_with("gank-mid"))
     }
 
+    /// An enemy walking down the river from the bot side into mid lane.
     fn walk(t: &mut GankTracker, lane: Option<Lane>, step: f32, reads: u32) -> Vec<Call> {
+        walk_from(t, lane, step, reads, |d| (RIVER_NEAR_MID.0 - d, RIVER_NEAR_MID.1 + d))
+    }
+
+    fn walk_from(t: &mut GankTracker, lane: Option<Lane>, step: f32, reads: u32, at: impl Fn(i32) -> (i32, i32)) -> Vec<Call> {
         let mut w = Vec::new();
         for i in 0..reads {
             let time = 100.0 + i as f32 * step;
             let d = (i as f32 * step * 200.0) as i32;
-            t.observe(&[(5900 - d, 6100 - d)], true, time);
+            t.observe(&[at(d)], true, time);
             w = t.warnings(time, lane);
             if has_mid(&w) {
                 break;
@@ -165,16 +172,37 @@ mod tests {
     #[test]
     fn approaching_mid_warns_but_a_standing_blip_does_not() {
         let mut t = tracker();
-        t.observe(&[(6800, 7200)], true, 100.0);
+        t.observe(&[RIVER_NEAR_MID], true, 100.0);
         let _ = t.warnings(100.0, None);
-        t.observe(&[MY_RIVER_MID], true, 102.0);
+        t.observe(&[(8200, 6600)], true, 102.0);
         assert!(has_mid(&t.warnings(102.0, None)));
 
         let mut t = tracker();
-        t.observe(&[MY_RIVER_MID], true, 100.0);
+        t.observe(&[RIVER_NEAR_MID], true, 100.0);
         let _ = t.warnings(100.0, None);
-        t.observe(&[MY_RIVER_MID], true, 102.0);
+        t.observe(&[RIVER_NEAR_MID], true, 102.0);
         assert!(!has_mid(&t.warnings(102.0, None)));
+    }
+
+    /// Regression: the enemy mid laner pushing down the lane toward your tower was called a gank.
+    #[test]
+    fn mid_laner_walking_down_the_lane_does_not_warn() {
+        assert!(!has_mid(&walk_from(&mut tracker(), None, 0.5, 12, |d| (7700 - d, 7900 - d))));
+    }
+
+    #[test]
+    fn coming_out_of_my_jungle_toward_mid_warns() {
+        assert!(has_mid(&walk_from(&mut tracker(), Some(Lane::Middle), 0.5, 8, |d| (4300 + d, 7800 - d))));
+    }
+
+    #[test]
+    fn walking_away_from_mid_does_not_warn() {
+        assert!(!has_mid(&walk_from(&mut tracker(), None, 0.5, 12, |d| (7400 + d, 7400 - d))));
+    }
+
+    #[test]
+    fn supports_get_no_mid_warnings() {
+        assert!(!has_mid(&walk(&mut tracker(), Some(Lane::Support), 0.5, 8)));
     }
 
     #[test]
@@ -207,7 +235,7 @@ mod tests {
         let mut t = tracker();
         for i in 0..8 {
             let time = 100.0 + i as f32 * 0.5;
-            t.observe(&[MY_RIVER_MID], true, time);
+            t.observe(&[RIVER_NEAR_MID], true, time);
             assert!(!has_mid(&t.warnings(time, None)));
         }
     }

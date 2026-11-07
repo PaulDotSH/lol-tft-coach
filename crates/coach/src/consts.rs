@@ -284,5 +284,7 @@ pub const GANK_MOVE_DT: f32 = 1.5;
 pub const GANK_MAX_DT: f32 = 6.0;
 /// A blip is tied to one from the previous read within this distance (world units).
 pub const GANK_MAX_STEP: i32 = 3500;
-/// A mid warning needs the blip to have moved at least this far toward your base.
+/// A mid warning needs the blip to have closed on the mid lane by at least this much |x - y|.
 pub const GANK_APPROACH: i32 = 350;
+/// Only blips this close to the mid lane (|x - y|, world units) count toward a mid gank.
+pub const GANK_MID_REACH: i32 = 4500;
