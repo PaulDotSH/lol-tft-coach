@@ -34,11 +34,33 @@ impl Episode {
 pub struct GankTracker {
     history: VecDeque<(f32, Vec<Blip>)>,
     jungle: Episode,
-    mid: Episode,
+    lane: Episode,
 }
 
 fn dist2(a: Blip, b: Blip) -> i32 {
     (a.x - b.x).pow(2) + (a.y - b.y).pow(2)
+}
+
+/// How far (world units) a blip is outside `lane`'s laning area; negative inside. Side lanes are laned around
+/// their corner (the river crosses the lane there, so `MapZone::at` calls part of it river).
+fn off_lane(lane: MapZone, b: Blip) -> i32 {
+    let from = |cx: i32, cy: i32| ((b.x - cx) as f32).hypot((b.y - cy) as f32) as i32 - consts::GANK_LANE_CORNER;
+    match lane {
+        MapZone::Top => from(0, MAP_END),
+        MapZone::Bot => from(MAP_END, 0),
+        _ => ((b.x - b.y).abs() as f32 * std::f32::consts::FRAC_1_SQRT_2) as i32 - 920,
+    }
+}
+
+/// The lane whose ganks you're warned of, and the call for it: your own lane; a jungler (or an unknown role) watches mid.
+fn watched(lane: Option<Lane>) -> (MapZone, &'static str, &'static str, &'static str) {
+    match lane {
+        Some(Lane::Top) => (MapZone::Top, "top", "Enemy near top lane — watch for a gank", "Enemy near top. Watch for a gank."),
+        Some(Lane::Bottom | Lane::Support) => (MapZone::Bot, "bot", "Enemy near bot lane — watch for a gank", "Enemy near bot. Watch for a gank."),
+        Some(Lane::Middle) => (MapZone::Mid, "mid", "Enemy coming to your lane — watch for a gank", "Gank coming mid. Back off."),
+        Some(Lane::Jungle) => (MapZone::Mid, "mid", "Enemy heading mid — counter-gank or ward", "Enemy heading mid. Counter-gank."),
+        None => (MapZone::Mid, "mid", "Enemy heading mid — watch for a gank", "Enemy heading mid. Watch for a gank."),
+    }
 }
 
 impl GankTracker {
@@ -78,26 +100,25 @@ impl GankTracker {
             };
             out.push(Call { key: format!("gank-jungle-{n}"), text: text.into(), say: say.into() });
         }
-        let wording = match lane {
-            Some(Lane::Top | Lane::Bottom | Lane::Support) => None,
-            Some(Lane::Middle) => Some(("Enemy coming to your lane through the river — watch for a gank", "Gank coming mid. Back off.")),
-            Some(Lane::Jungle) => Some(("Enemy heading mid through the river — counter-gank or ward", "Enemy heading mid. Counter-gank.")),
-            None => Some(("Enemy moving through the river toward mid — watch for a gank", "Enemy heading mid. Watch for a gank.")),
-        };
-        if let Some((text, say)) = wording
-            && cur.iter().any(|b| self.heading_mid(*b))
-        {
-            let n = self.mid.next(time);
-            out.push(Call { key: format!("gank-mid-{n}"), text: text.into(), say: say.into() });
+        let (zone, name, text, say) = watched(lane);
+        if cur.iter().any(|b| self.threatens(zone, *b)) {
+            let n = self.lane.next(time);
+            out.push(Call { key: format!("gank-{name}-{n}"), text: text.into(), say: say.into() });
         }
         out
     }
 
-    /// A blip off the mid lane (river or your jungle) near it that closed on the lane since the newest read at least `GANK_MOVE_DT` old: a jungler collapsing on mid. Blips in the lane itself are the mid laner.
-    fn heading_mid(&self, b: Blip) -> bool {
-        let off_mid = |p: Blip| (p.x - p.y).abs();
-        if !matches!(MapZone::at(b.x, b.y), MapZone::River | MapZone::BlueJungle) || off_mid(b) >= consts::GANK_MID_REACH {
+    /// A blip off the lanes (river or a jungle) near `lane` that lurks right beside it (side lanes) or closed on it since the newest read at least `GANK_MOVE_DT` old. Blips in a lane are laners.
+    fn threatens(&self, lane: MapZone, b: Blip) -> bool {
+        if !matches!(MapZone::at(b.x, b.y), MapZone::River | MapZone::BlueJungle | MapZone::RedJungle) {
             return false;
+        }
+        let gap = off_lane(lane, b);
+        if gap <= 0 || gap >= consts::GANK_REACH {
+            return false;
+        }
+        if lane != MapZone::Mid && gap < consts::GANK_LURK {
+            return true;
         }
         let Some((now, _)) = self.history.back() else {
             return false;
@@ -108,7 +129,7 @@ impl GankTracker {
         let Some(p) = old.iter().copied().min_by_key(|&p| dist2(p, b)) else {
             return false;
         };
-        dist2(p, b) <= consts::GANK_MAX_STEP.pow(2) && off_mid(p) - off_mid(b) >= consts::GANK_APPROACH
+        dist2(p, b) <= consts::GANK_MAX_STEP.pow(2) && off_lane(lane, p) - gap >= consts::GANK_APPROACH
     }
 }
 

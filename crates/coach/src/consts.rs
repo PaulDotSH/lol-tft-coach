@@ -284,7 +284,11 @@ pub const GANK_MOVE_DT: f32 = 1.5;
 pub const GANK_MAX_DT: f32 = 6.0;
 /// A blip is tied to one from the previous read within this distance (world units).
 pub const GANK_MAX_STEP: i32 = 3500;
-/// A mid warning needs the blip to have closed on the mid lane by at least this much |x - y|.
-pub const GANK_APPROACH: i32 = 350;
-/// Only blips this close to the mid lane (|x - y|, world units) count toward a mid gank.
-pub const GANK_MID_REACH: i32 = 4500;
+/// A lane warning needs the blip to have closed on your lane by at least this much (world units).
+pub const GANK_APPROACH: i32 = 250;
+/// Only blips within this distance outside your lane count toward a gank on it (world units).
+pub const GANK_REACH: i32 = 2500;
+/// A blip off the lanes within this distance of a side lane (top or bot) warns even standing still.
+pub const GANK_LURK: i32 = 1300;
+/// A side lane is laned within this distance of its map corner (world units); blips there are the laners.
+pub const GANK_LANE_CORNER: i32 = 4400;
