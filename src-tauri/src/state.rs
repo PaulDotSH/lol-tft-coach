@@ -80,6 +80,8 @@ pub struct Shared {
     /// Coachless sign-in, my champion's Coachless builds and the last fetch outcome.
     pub coachless_auth: data::coachless::Auth,
     pub coachless: Cache<CoachlessKey, ChampStats>,
+    /// My Coachless rune page against my lane opponent: (me, lane, them); None = too few games.
+    pub coachless_runes: Cache<(ChampKey, Lane, ChampKey), Option<RuneData>>,
     pub coachless_ok: Mutex<Option<bool>>,
     /// Mayhem Tab scoreboard reader.
     pub tab: crate::tab::TabShared,
@@ -142,6 +144,7 @@ impl Shared {
             ddragon_ok: Mutex::new(None),
             coachless_auth: data::coachless::Auth::load(crate::settings::local_dir("").join("coachless.json")),
             coachless: Mutex::default(),
+            coachless_runes: Mutex::default(),
             coachless_ok: Mutex::new(None),
             tab: Default::default(),
             gank_ctx: Mutex::new(None),
@@ -191,6 +194,7 @@ impl Shared {
         self.vs_counters.lock().unwrap().clear();
         self.matchups.lock().unwrap().clear();
         self.coachless.lock().unwrap().clear();
+        self.coachless_runes.lock().unwrap().clear();
         *self.coachless_ok.lock().unwrap() = None;
     }
 }

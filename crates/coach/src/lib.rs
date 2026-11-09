@@ -52,6 +52,7 @@ pub use picks::AugmentTracker;
 pub use gank::{GankEnemies, GankTracker};
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
+pub use runes::VsRunes;
 pub use threat::lane_opponent;
 pub use tracker::Tracker;
 
@@ -197,6 +198,11 @@ pub struct ChampSelectInput<'a> {
 
 pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
     champ_select::advice(input)
+}
+
+/// `champ_select_advice`'s rune pages with the pages against my lane opponent added.
+pub fn champ_select_runes(input: &ChampSelectInput, vs: &VsRunes) -> Option<RuneAdvice> {
+    champ_select::rune_pages(input, Some(vs))
 }
 
 pub fn recap(eog: &EogStats, benchmarks: &Benchmarks, recommended: &[ItemId], sd: &StaticData) -> Recap {

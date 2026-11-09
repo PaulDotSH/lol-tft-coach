@@ -12,21 +12,59 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
     let cs = inp.cs;
     let mine = cs.my_pick.or(cs.my_hover);
     let rift = cs.mode == Mode::Rift;
+    let draft = if rift { draft::report(inp) } else { None };
+    // The enemy the draft report placed in my lane.
+    let opp = cs.my_lane.zip(draft.as_ref()).and_then(|(l, d)| d.lanes.iter().find(|x| x.lane == l)?.enemy);
     ChampSelectAdvice {
         mode: cs.mode,
         my_lane: cs.my_lane,
         my_champ: mine,
-        picks: if rift { picks(inp, mine) } else { vec![] },
+        picks: if rift { picks(inp, mine, opp) } else { vec![] },
         bans: if rift { bans(inp, mine) } else { vec![] },
         build: mine.and_then(|c| build_plan(inp, c)),
-        runes: if cs.mode == Mode::Mayhem { None } else { mine.and_then(|c| rune_page(inp, c)) },
+        runes: rune_pages(inp, None),
         bench: if rift { vec![] } else { team::bench(inp, mine) },
         enemies: cs.enemies.clone(),
-        draft: if rift { draft::report(inp) } else { None },
+        draft,
         team: if rift { None } else { team::side(inp, mine) },
         memory: vec![],
         matchup: None,
+        tiers: if rift { tier_board(inp, mine, opp) } else { None },
     }
+}
+
+/// My lane's tier list, and its champions ranked by win rate against my lane opponent.
+fn tier_board(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) -> Option<TierBoard> {
+    let (cs, lane) = (inp.cs, inp.cs.my_lane?);
+    let taken = |c: ChampKey| cs.bans.contains(&c) || cs.enemies.contains(&c) || (cs.allies.contains(&c) && Some(c) != mine);
+    let theirs = opp.and_then(|o| inp.enemies.iter().find(|s| s.champ == o));
+    let row = |t: &TierEntry| {
+        let m = theirs.and_then(|s| s.counters.iter().find(|m| m.champ == t.champ && m.games >= MATCHUP_MIN_GAMES));
+        TierPick {
+            champ: t.champ,
+            tier: t.tier.clone(),
+            win_rate: pct(t.win_rate),
+            pick_rate: t.pick_rate,
+            vs_wr: m.map(|m| 100.0 - pct(m.vs_wr)),
+            vs_games: m.map_or(0, |m| m.games),
+            mine: Some(t.champ) == mine,
+        }
+    };
+    let best: Vec<TierPick> = inp.tier_list.iter().filter(|t| lane_ok(inp, t) && !taken(t.champ)).map(row).collect();
+    if best.is_empty() {
+        return None;
+    }
+    let mut counters: Vec<TierPick> = best.iter().filter(|p| p.vs_wr.is_some()).cloned().collect();
+    let key = |p: &TierPick| shrink(p.vs_wr.unwrap_or(50.0), p.vs_games, MATCHUP_SHRINK_K);
+    counters.sort_by(|a, b| key(b).total_cmp(&key(a)).then(a.champ.cmp(&b.champ)));
+    // The first TIER_ROWS, and my champion after them when it is further down.
+    let cut = |mut v: Vec<TierPick>| {
+        let me = v.iter().position(|p| p.mine).filter(|&i| i >= TIER_ROWS).map(|i| v.remove(i));
+        v.truncate(TIER_ROWS);
+        v.extend(me);
+        v
+    };
+    Some(TierBoard { lane, vs: opp, counters: cut(counters), best: cut(best) })
 }
 
 fn lane_ok(inp: &ChampSelectInput, t: &TierEntry) -> bool {
@@ -40,7 +78,8 @@ fn top(mut v: Vec<PickSuggestion>, n: usize) -> Vec<PickSuggestion> {
     v
 }
 
-fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> {
+/// `opp`: the enemy placed in my lane; the others weigh OTHER_ENEMY_W.
+fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) -> Vec<PickSuggestion> {
     let (cs, sd) = (inp.cs, inp.sd);
     let taken = |c: ChampKey| cs.bans.contains(&c) || cs.enemies.contains(&c) || (cs.allies.contains(&c) && Some(c) != mine);
     let revealed: Vec<(&ChampStats, f32, bool)> = cs
@@ -48,7 +87,7 @@ fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> 
         .iter()
         .filter_map(|e| inp.enemies.iter().find(|s| s.champ == *e))
         .map(|s| {
-            let lane = cs.my_lane.is_some() && s.lane == cs.my_lane;
+            let lane = Some(s.champ) == opp;
             (s, if lane { LANE_OPP_W } else { OTHER_ENEMY_W }, lane)
         })
         .collect();
@@ -147,10 +186,12 @@ fn bans(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> {
     top(v, BANS)
 }
 
-fn rune_page(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<RuneAdvice> {
-    let mine = inp.mine.filter(|m| m.champ == champ_key)?;
+/// Rift / ARAM rune pages for my champion (Mayhem has no runes); `vs`: against my lane opponent.
+pub fn rune_pages(inp: &ChampSelectInput, vs: Option<&runes::VsRunes>) -> Option<RuneAdvice> {
+    let me = inp.cs.my_pick.or(inp.cs.my_hover).filter(|_| inp.cs.mode != Mode::Mayhem)?;
+    let mine = inp.mine.filter(|m| m.champ == me)?;
     let foes: Vec<threat::Foe> = inp.cs.enemies.iter().map(|&e| threat::generic_foe(champ(inp.sd, e))).collect();
-    runes::advice(inp.sd, mine, &foes)
+    runes::advice(inp.sd, mine, &foes, vs)
 }
 
 fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> {

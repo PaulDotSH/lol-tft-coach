@@ -28,32 +28,36 @@ data! {
         pub name: String,
         /// Data Dragon image path under `cdn/img/`.
         pub icon: String,
-        /// Why it replaces the most played rune in its row; None when it is the most played.
+        /// Why it replaces the page's own rune in its row; None when it is the page's.
         pub reason: Option<String>,
     }
 
-    pub struct RuneAdvice {
+    /// One rune page to choose from.
+    pub struct RuneOption {
+        /// "vs Zed", "Best WPA", "Most played", "Highest win rate".
+        pub label: String,
+        /// Where the page came from: "Coachless 16.20", "lolalytics 16.21".
+        pub source: String,
+        /// The lane opponent a matchup page was played against.
+        pub vs: Option<ChampKey>,
         /// Keystone first.
         pub primary: Vec<RunePick>,
         pub secondary: Vec<RunePick>,
         pub shards: Vec<RunePick>,
-        /// Of the most played page this one starts from.
+        /// Of the page this one starts from.
         pub win_rate: f32,
         pub games: u32,
-        /// Highest win rate page when its keystone differs: keystone, win rate, games.
-        pub alt: Option<RuneAlt>,
+        /// Other options that came out as this same page: "Most played · lolalytics 16.21".
+        #[serde(default)]
+        pub also: Vec<String>,
+    }
+
+    pub struct RuneAdvice {
+        /// Against my lane opponent first, then Coachless, then lolalytics; equal pages merged.
+        pub options: Vec<RuneOption>,
         /// Summoner spells to take (Coachless only), e.g. ["Flash", "Ignite"].
         #[serde(default)]
         pub summoners: Vec<String>,
-        /// Where the page came from: "Coachless 16.20", "lolalytics 16.21".
-        #[serde(default)]
-        pub source: String,
-    }
-
-    pub struct RuneAlt {
-        pub keystone: RunePick,
-        pub win_rate: f32,
-        pub games: u32,
     }
 
     pub struct BenchRank {
@@ -90,6 +94,35 @@ data! {
         /// Rift: my lane opponent(s) once my lane and champion are known.
         #[serde(default)]
         pub matchup: Option<MatchupPlan>,
+        /// Rift with my lane known: the lane's tier list and its counters to my lane opponent.
+        #[serde(default)]
+        pub tiers: Option<TierBoard>,
+    }
+
+    /// My lane's tier list (lolalytics), banned and taken champions dropped.
+    pub struct TierBoard {
+        pub lane: Lane,
+        /// My lane opponent once revealed and placed in my lane.
+        pub vs: Option<ChampKey>,
+        /// Tier list champions best against `vs` (by win rate against them); my champion
+        /// last when not among them. Empty until their matchups are fetched.
+        pub counters: Vec<TierPick>,
+        /// The tier list, best first; my champion last when not among them.
+        pub best: Vec<TierPick>,
+    }
+
+    pub struct TierPick {
+        pub champ: ChampKey,
+        /// lolalytics tier ("S+", "S", "A", …).
+        pub tier: Option<String>,
+        /// In the lane, percent.
+        pub win_rate: f32,
+        pub pick_rate: f32,
+        /// Win rate against my lane opponent, percent, and its games; None without one.
+        pub vs_wr: Option<f32>,
+        pub vs_games: u32,
+        /// My hovered or picked champion.
+        pub mine: bool,
     }
 
     /// Champ select: my lane opponent(s) with tips; in bot lane both of theirs and my partner.

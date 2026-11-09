@@ -70,18 +70,58 @@ pub fn lane_notes() -> &'static LaneNotes {
     }))
 }
 
+/// Revealed enemies in the lanes I face.
+type Faced = Vec<(Lane, ChampKey)>;
+
+/// Rift: me, my lane and the revealed enemies in the opposing lane(s).
+fn lane_up(cs: &ChampSelect, advice: &ChampSelectAdvice) -> Option<(ChampKey, Lane, Faced)> {
+    let me = cs.my_pick.or(cs.my_hover).filter(|_| cs.mode == Mode::Rift)?;
+    let lanes = advice.draft.as_ref().map_or(&[][..], |d| d.lanes.as_slice());
+    let lane = cs.my_lane.or_else(|| lanes.iter().find(|l| l.ally == Some(me)).map(|l| l.lane))?;
+    let enemy = |l: Lane| lanes.iter().find(|x| x.lane == l).and_then(|x| x.enemy);
+    Some((me, lane, coach::opposing_lanes(lane).iter().filter_map(|&l| Some((l, enemy(l)?))).collect()))
+}
+
+/// Direct opponent: same lane, else (support with their support unknown) their bot laner.
+fn direct(lane: Lane, faced: &[(Lane, ChampKey)]) -> Option<(Lane, ChampKey)> {
+    faced.iter().find(|f| f.0 == lane).or(faced.first()).copied()
+}
+
+fn coachless_runes(sh: &Arc<Shared>, me: ChampKey, lane: Lane, vs: ChampKey, base_wr: f32) -> Option<Arc<Option<RuneData>>> {
+    ensure(sh, |s| &s.coachless_runes, |s| &s.coachless_ok, (me, lane, vs), move || {
+        let sh = sh.clone();
+        async move {
+            let s = sh.settings();
+            let q = data::coachless::Query { champ: me, lane, vs: Some(vs), tier: &s.tier, region: &s.region, first: None, second: None };
+            data::coachless::matchup_runes(&sh.http, &sh.coachless_auth, q, base_wr).await
+        }
+    })
+}
+
+/// My rune pages against my direct lane opponent, as fetched so far.
+pub struct VsPages {
+    pub vs: ChampKey,
+    pub coachless: Option<Arc<Option<RuneData>>>,
+    pub lolalytics: Option<Arc<MatchupBuild>>,
+}
+
+/// `base_wr`: my champion's win rate, which Coachless' WPA is added to. Coachless is asked
+/// only against my own lane's opponent (signed in).
+pub fn vs_runes(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice, base_wr: f32) -> Option<VsPages> {
+    let (me, lane, faced) = lane_up(cs, advice)?;
+    let (l, e) = direct(lane, &faced)?;
+    let coachless = if l == lane && sh.coachless_auth.signed_in() { coachless_runes(sh, me, lane, e, base_wr) } else { None };
+    Some(VsPages { vs: e, coachless, lolalytics: matchup_page(sh, sd, me, e, lane, l) })
+}
+
 /// Matchup card for my lane opponent(s) once my lane and champion are known;
 /// lolalytics and Data Dragon parts join once fetched.
 pub fn matchup(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice) -> Option<MatchupPlan> {
-    let me = cs.my_pick.or(cs.my_hover).filter(|_| cs.mode == Mode::Rift)?;
+    let (me, lane, faced) = lane_up(cs, advice)?;
     let draft = advice.draft.as_ref();
     let lanes = draft.map_or(&[][..], |d| d.lanes.as_slice());
-    let lane = cs.my_lane.or_else(|| lanes.iter().find(|l| l.ally == Some(me)).map(|l| l.lane))?;
-    let enemy = |l: Lane| lanes.iter().find(|x| x.lane == l).and_then(|x| x.enemy);
-    let faced: Vec<(Lane, ChampKey)> = coach::opposing_lanes(lane).iter().filter_map(|&l| Some((l, enemy(l)?))).collect();
     let vs: Vec<(Lane, Vec<Matchup>)> = faced.iter().filter_map(|&(l, _)| Some((l, (*counters_vs(sh, sd, me, lane, l)?).clone()))).collect();
-    // Direct opponent: same lane, else (support with their support unknown) their bot laner.
-    let build = faced.iter().find(|f| f.0 == lane).or(faced.first()).and_then(|&(l, e)| matchup_page(sh, sd, me, e, lane, l));
+    let build = direct(lane, &faced).and_then(|(l, e)| matchup_page(sh, sd, me, e, lane, l));
     let champs: Vec<ChampKey> = faced.iter().map(|f| f.1).collect();
     let spells = crate::ingame::spells(sh, sd, &champs);
     coach::matchup_plan(&coach::MatchupInput {

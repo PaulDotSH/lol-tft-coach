@@ -13,6 +13,26 @@ import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoe
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true };
 
+const rp = (id: number, name: string, icon: string, reason: string | null = null) => ({ id, name, icon: `perk-images/${icon}`, reason });
+const electrocute = rp(8112, 'Electrocute', 'Styles/Domination/Electrocute/Electrocute.png');
+const tasteOfBlood = rp(8139, 'Taste of Blood', 'Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png');
+const grisly = rp(8140, 'Grisly Mementos', 'Styles/Domination/GrislyMementos/GrislyMementos.png');
+const ultimateHunter = rp(8106, 'Ultimate Hunter', 'Styles/Domination/UltimateHunter/UltimateHunter.png');
+const manaflow = rp(8226, 'Manaflow Band', 'Styles/Sorcery/ManaflowBand/ManaflowBand.png');
+const transcendence = rp(8210, 'Transcendence', 'Styles/Sorcery/Transcendence/Transcendence.png');
+const adaptive = rp(5008, 'Adaptive Force', 'StatMods/StatModsAdaptiveForceIcon.png');
+const tenacity = rp(5013, 'Tenacity and Slow Resist', 'StatMods/StatModsTenacityIcon.png', 'CC from Leona, Malphite, Sejuani (53.4% over 1.2k games)');
+
+const tp = (champ: number, tier: string, win_rate: number, pick_rate: number, vs_wr: number, vs_games: number) => ({
+  champ,
+  tier,
+  win_rate,
+  pick_rate,
+  vs_wr,
+  vs_games,
+  mine: false,
+});
+
 const src = (p: Partial<Sources>): Sources => ({
   client: 'ok',
   game: 'off',
@@ -365,34 +385,54 @@ export const fixtures = {
       },
       runes: {
         summoners: ['Flash', 'Ignite'],
-        source: 'Coachless 16.20',
-        primary: [
-          { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
-          { id: 8139, name: 'Taste of Blood', icon: 'perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png', reason: null },
-          { id: 8140, name: 'Grisly Mementos', icon: 'perk-images/Styles/Domination/GrislyMementos/GrislyMementos.png', reason: null },
-          { id: 8106, name: 'Ultimate Hunter', icon: 'perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png', reason: null },
-        ],
-        secondary: [
-          { id: 8226, name: 'Manaflow Band', icon: 'perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png', reason: null },
-          { id: 8210, name: 'Transcendence', icon: 'perk-images/Styles/Sorcery/Transcendence/Transcendence.png', reason: null },
-        ],
-        shards: [
-          { id: 5008, name: 'Adaptive Force', icon: 'perk-images/StatMods/StatModsAdaptiveForceIcon.png', reason: null },
-          { id: 5008, name: 'Adaptive Force', icon: 'perk-images/StatMods/StatModsAdaptiveForceIcon.png', reason: null },
+        options: [
           {
-            id: 5013,
-            name: 'Tenacity and Slow Resist',
-            icon: 'perk-images/StatMods/StatModsTenacityIcon.png',
-            reason: 'CC from Leona, Malphite, Sejuani (53.4% over 1.2k games)',
+            label: 'vs Zed',
+            source: 'Coachless 16.20',
+            vs: 238,
+            primary: [electrocute, tasteOfBlood, grisly, ultimateHunter],
+            secondary: [manaflow, transcendence],
+            shards: [adaptive, adaptive, tenacity],
+            win_rate: 53.4,
+            games: 920,
+            also: ['vs Zed · lolalytics 16.21'],
+          },
+          {
+            label: 'Best WPA',
+            source: 'Coachless 16.20',
+            vs: null,
+            primary: [
+              { id: 8229, name: 'Arcane Comet', icon: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png', reason: null },
+              manaflow,
+              transcendence,
+              { id: 8236, name: 'Gathering Storm', icon: 'perk-images/Styles/Sorcery/GatheringStorm/GatheringStorm.png', reason: null },
+            ],
+            secondary: [
+              { id: 8345, name: 'Biscuit Delivery', icon: 'perk-images/Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png', reason: null },
+              { id: 8347, name: 'Cosmic Insight', icon: 'perk-images/Styles/Inspiration/CosmicInsight/CosmicInsight.png', reason: null },
+            ],
+            shards: [adaptive, adaptive, tenacity],
+            win_rate: 53.6,
+            games: 4210,
+            also: [],
+          },
+          {
+            label: 'Most played',
+            source: 'lolalytics 16.21',
+            vs: null,
+            primary: [
+              electrocute,
+              { id: 8126, name: 'Cheap Shot', icon: 'perk-images/Styles/Domination/CheapShot/CheapShot.png', reason: null },
+              grisly,
+              ultimateHunter,
+            ],
+            secondary: [manaflow, transcendence],
+            shards: [adaptive, adaptive, tenacity],
+            win_rate: 52.1,
+            games: 18240,
+            also: [],
           },
         ],
-        win_rate: 52.1,
-        games: 18240,
-        alt: {
-          keystone: { id: 8229, name: 'Arcane Comet', icon: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png', reason: null },
-          win_rate: 53.6,
-          games: 4210,
-        },
       },
       bench: [],
       team: null,
@@ -400,6 +440,31 @@ export const fixtures = {
         zedCard.record!,
         { champ: 145, games: 2, wins: 2, lane_games: 0, gold_15: null, killed_me: 1, early_kills: 0, same_games: 1, same_wins: 1, last: [true, true] },
       ],
+      tiers: {
+        lane: 'middle',
+        vs: 238,
+        counters: [
+          tp(90, 'S', 51.8, 4.1, 55.6, 1840),
+          tp(1, 'A+', 51.2, 3.0, 55.1, 1210),
+          tp(3, 'A', 50.9, 2.2, 54.7, 960),
+          tp(61, 'S-', 51.0, 6.8, 53.9, 2410),
+          tp(112, 'S+', 52.4, 9.1, 53.2, 2950),
+          tp(103, 'S', 51.6, 10.4, 52.0, 3880),
+          tp(99, 'A+', 50.8, 5.6, 51.7, 1530),
+          tp(910, 'A', 50.6, 3.9, 51.1, 870),
+          { ...tp(134, 'S', 51.4, 6.1, 46.8, 2140), mine: true },
+        ],
+        best: [
+          tp(112, 'S+', 52.4, 9.1, 53.2, 2950),
+          tp(103, 'S', 51.6, 10.4, 52.0, 3880),
+          { ...tp(134, 'S', 51.4, 6.1, 46.8, 2140), mine: true },
+          tp(90, 'S', 51.8, 4.1, 55.6, 1840),
+          tp(61, 'S-', 51.0, 6.8, 53.9, 2410),
+          tp(777, 'A+', 50.4, 11.2, 49.0, 4100),
+          tp(1, 'A+', 51.2, 3.0, 55.1, 1210),
+          tp(84, 'A', 49.9, 8.8, 47.5, 3300),
+        ],
+      },
       matchup: {
         lane: 'middle',
         allies: [134],
@@ -416,6 +481,7 @@ export const fixtures = {
           runes: [8112, 8139, 8140, 8106, 8226, 8210],
           summoners: [4, 12],
           skills: 'QWE',
+          rune_page: null,
         },
         runes: [
           { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
@@ -491,6 +557,7 @@ export const fixtures = {
       runes: null,
       bench: [],
       team: null,
+      tiers: null,
       memory: [nautilusCard.record!],
       enemies: [81, 111],
       draft: null,
@@ -510,6 +577,7 @@ export const fixtures = {
           runes: [8465, 8463, 8473, 8242, 8347, 8345],
           summoners: [4, 3],
           skills: 'QEW',
+          rune_page: null,
         },
         runes: [
           { id: 8465, name: 'Guardian', icon: 'perk-images/Styles/Resolve/Guardian/Guardian.png', reason: null },
@@ -536,6 +604,7 @@ export const fixtures = {
       runes: null,
       bench: [],
       team: null,
+      tiers: null,
       memory: [zoeCard.record!],
       enemies: [22, 142],
       draft: null,
@@ -555,6 +624,7 @@ export const fixtures = {
           runes: [8439, 8446, 8429, 8451, 8347, 8345],
           summoners: [4, 14],
           skills: 'WQE',
+          rune_page: null,
         },
         runes: [
           { id: 8439, name: 'Aftershock', icon: 'perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png', reason: null },
@@ -619,6 +689,7 @@ export const fixtures = {
       ],
       enemies: [],
       draft: null,
+      tiers: null,
       memory: [],
       matchup: null,
       team: {
@@ -678,6 +749,7 @@ export const fixtures = {
       ],
       enemies: [],
       draft: null,
+      tiers: null,
       memory: [],
       matchup: null,
       team: {

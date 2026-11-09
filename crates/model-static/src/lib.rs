@@ -166,10 +166,13 @@ data! {
         pub early: Vec<EarlySet>,
         pub counters: Vec<Matchup>,
         pub benchmarks: Benchmarks,
-        /// Build page rune pages and per-rune stats; None when the page had none.
+        /// lolalytics build page rune pages and per-rune stats; None when the page had none.
         #[serde(default)]
         pub runes: Option<RuneData>,
-        /// Coachless patch ("16.20") when the item slots, boots, runes and summoners came
+        /// Coachless rune page (best WPA) and per-rune stats (Rift, signed in).
+        #[serde(default)]
+        pub coachless_runes: Option<RuneData>,
+        /// Coachless patch ("16.20") when the item slots, boots and summoners came
         /// from Coachless (Rift, signed in); None = lolalytics.
         #[serde(default)]
         pub coachless: Option<String>,
@@ -178,7 +181,7 @@ data! {
         pub summoners: Vec<u32>,
     }
 
-    /// One full rune page from lolalytics.
+    /// One full rune page (lolalytics, or Coachless' best WPA).
     pub struct RunePage {
         /// Keystone first, then the three primary-tree runes.
         pub primary: Vec<RuneId>,
@@ -267,6 +270,9 @@ data! {
         pub core: Vec<ItemId>,
         /// Most played rune page: primary tree (keystone first), then secondary.
         pub runes: Vec<RuneId>,
+        /// The same page with its shards, win rate and games; None when the page had none.
+        #[serde(default)]
+        pub rune_page: Option<RunePage>,
         /// Most played summoner spells (Data Dragon summoner keys: 4 Flash, 14 Ignite, …).
         pub summoners: Vec<u32>,
         /// Skill max order, e.g. "QEW".

@@ -12,6 +12,7 @@
   import TeamSide from './TeamSide.svelte';
   import Memory from './Memory.svelte';
   import Matchup from './Matchup.svelte';
+  import TierBoard from './TierBoard.svelte';
 
   let { cs }: { cs: ChampSelectAdvice } = $props();
   const rift = $derived(cs.mode === 'rift');
@@ -61,6 +62,10 @@
       <Suggestions title="Suggested picks" items={cs.picks} />
       <Suggestions title="Suggested bans" items={cs.bans} ban />
     </div>
+  {/if}
+
+  {#if cs.tiers}
+    <TierBoard board={cs.tiers} />
   {/if}
 
   {#if cs.draft}

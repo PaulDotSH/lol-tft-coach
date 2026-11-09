@@ -592,6 +592,7 @@ mod tests {
             counters: vec![],
             benchmarks: Default::default(),
             runes: None,
+            coachless_runes: None,
             coachless: None,
             summoners: vec![],
         };

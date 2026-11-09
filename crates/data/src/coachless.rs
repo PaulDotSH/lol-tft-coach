@@ -36,6 +36,8 @@ const FLASH: u32 = 4;
 const FLASH_KEEP: f64 = 0.5;
 /// Fewer first-item games than this against the lane opponent: drop the matchup filter.
 const MIN_MATCHUP_GAMES: f64 = 1000.0;
+/// Fewer keystone games than this against the lane opponent: no matchup rune page.
+const MIN_MATCHUP_RUNE_GAMES: f64 = 300.0;
 /// Fewer games than this in a slot: keep lolalytics' slot.
 const MIN_SLOT_GAMES: f64 = 200.0;
 
@@ -295,9 +297,17 @@ impl Api<'_> {
         self.post("ChampionWinprob/GetGlobalItemStatistics", body, parse_rows).await
     }
 
+    async fn keystones(&self, f: &Value) -> anyhow::Result<Vec<Row>> {
+        self.post("Rune/GetKeystoneData", json!({ "commonFilters": f }), parse_rows).await
+    }
+
     async fn runes(&self, f: &Value, base_wr: f32) -> anyhow::Result<RuneData> {
-        let ks = self.post("Rune/GetKeystoneData", json!({ "commonFilters": f }), parse_rows).await?;
-        let key = pick(&ks, MIN_SHARE).ok_or_else(|| anyhow::anyhow!("no keystone"))?;
+        let ks = self.keystones(f).await?;
+        self.page(f, &ks, base_wr).await
+    }
+
+    async fn page(&self, f: &Value, ks: &[Row], base_wr: f32) -> anyhow::Result<RuneData> {
+        let key = pick(ks, MIN_SHARE).ok_or_else(|| anyhow::anyhow!("no keystone"))?;
         let tree = tree_of(key.id);
         let body = json!({ "commonFilters": f, "tree": tree, "keystone": key.id });
         let trees = self.post("Rune/GetSecondaryTreePlaycount", body, parse_rows).await?;
@@ -396,7 +406,8 @@ fn item_stats(rows: &[Row], base_wr: f32) -> Vec<ItemStat> {
     v
 }
 
-/// `base` (lolalytics) with its item slots, boots, runes and summoners from Coachless.
+/// `base` (lolalytics) with its item slots, boots and summoners from Coachless, and
+/// Coachless' rune page beside lolalytics' (`coachless_runes`).
 /// WPA becomes a win rate on top of `base.win_rate`, so the coach scores it as before.
 /// A slot Coachless has too few games for keeps lolalytics' rows.
 pub async fn champ_stats(http: &crate::Http, auth: &Auth, q: Query<'_>, base: &ChampStats) -> anyhow::Result<ChampStats> {
@@ -450,7 +461,7 @@ pub async fn champ_stats(http: &crate::Http, auth: &Auth, q: Query<'_>, base: &C
         Err(e) => tracing::warn!("coachless boots: {e:#}"),
     }
     match runes {
-        Ok(r) => out.runes = Some(r),
+        Ok(r) => out.coachless_runes = Some(r),
         Err(e) => tracing::warn!("coachless runes: {e:#}"),
     }
     match spells {
@@ -459,6 +470,24 @@ pub async fn champ_stats(http: &crate::Http, auth: &Auth, q: Query<'_>, base: &C
     }
     out.coachless = Some(label);
     Ok(out)
+}
+
+/// My rune page against `q.vs` alone (`q.first` / `q.second` unused); None when the matchup
+/// has fewer than MIN_MATCHUP_RUNE_GAMES games (or none at all). WPA is added to `base_wr`.
+pub async fn matchup_runes(http: &crate::Http, auth: &Auth, q: Query<'_>, base_wr: f32) -> anyhow::Result<Option<RuneData>> {
+    anyhow::ensure!(q.vs.is_some(), "no lane opponent");
+    let token = auth.access(http).await?;
+    let api = Api { http, token: &token };
+    let (_, patch) = patch(http, auth.premium()).await?;
+    let f = filters(&q, &patch);
+    // A matchup nobody plays answers `[]`.
+    let ks = match api.keystones(&f).await {
+        Ok(ks) if games(&ks) >= MIN_MATCHUP_RUNE_GAMES => ks,
+        Ok(_) => return Ok(None),
+        Err(e) if e.root_cause().to_string() == "no rows" => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    Ok(Some(api.page(&f, &ks, base_wr).await?))
 }
 
 #[cfg(test)]

@@ -39,6 +39,7 @@ pub fn coachless_sign_out(sh: tauri::State<'_, Arc<Shared>>) {
 fn set(sh: &Shared, t: Option<data::coachless::Tokens>) {
     sh.coachless_auth.set(t);
     sh.coachless.lock().unwrap().clear();
+    sh.coachless_runes.lock().unwrap().clear();
     *sh.coachless_ok.lock().unwrap() = None;
 }
 

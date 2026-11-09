@@ -6,6 +6,6 @@ export type RunePick = { id: number, name: string,
  */
 icon: string, 
 /**
- * Why it replaces the most played rune in its row; None when it is the most played.
+ * Why it replaces the page's own rune in its row; None when it is the page's.
  */
 reason: string | null, };

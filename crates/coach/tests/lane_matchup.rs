@@ -45,6 +45,7 @@ fn build(vs: ChampKey, games: u32) -> MatchupBuild {
         runes: vec![8439, 8463],
         summoners: vec![4, 14],
         skills: "QWE".into(),
+        rune_page: None,
     }
 }
 

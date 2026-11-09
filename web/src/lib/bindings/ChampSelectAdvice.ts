@@ -9,6 +9,7 @@ import type { MatchupPlan } from "./MatchupPlan";
 import type { Mode } from "./Mode";
 import type { PickSuggestion } from "./PickSuggestion";
 import type { RuneAdvice } from "./RuneAdvice";
+import type { TierBoard } from "./TierBoard";
 
 export type ChampSelectAdvice = { mode: Mode, my_lane: Lane | null, my_champ: number | null, picks: Array<PickSuggestion>, bans: Array<PickSuggestion>, build: BuildPlan | null, 
 /**
@@ -34,4 +35,8 @@ memory: Array<MatchupMemory>,
 /**
  * Rift: my lane opponent(s) once my lane and champion are known.
  */
-matchup: MatchupPlan | null, };
+matchup: MatchupPlan | null, 
+/**
+ * Rift with my lane known: the lane's tier list and its counters to my lane opponent.
+ */
+tiers: TierBoard | null, };

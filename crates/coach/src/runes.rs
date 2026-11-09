@@ -1,7 +1,8 @@
-//! Champ select rune page: lolalytics' most played page, with a row swapped
-//! when the enemy team calls for it and the champion's own games back it up.
+//! Champ select rune pages to choose from: against my lane opponent (Coachless, lolalytics'
+//! matchup page), Coachless' best WPA page, lolalytics' most played and highest win rate pages.
+//! Each has a row swapped when the enemy team calls for it and the champion's games back it up.
 
-use crate::{common::fmt_games, consts::*, threat::Foe};
+use crate::{common::*, consts::*, threat::Foe};
 use model::*;
 
 struct Swap {
@@ -13,7 +14,9 @@ struct Swap {
     label: &'static str,
 }
 
-const SWAPS: [Swap; 3] = [
+const SWAPS: [Swap; 4] = [
+    // Sorcery: Nullifying Orb / Manaflow Band / Nimbus Cloak.
+    Swap { row: &[8224, 8226, 8275], to: 8224, why: magic_burst, label: "magic burst from" },
     // Resolve: Conditioning / Second Wind / Bone Plating.
     Swap { row: &[8429, 8444, 8473], to: 8473, why: bursty, label: "burst from" },
     // Precision: Coup de Grace / Cut Down / Last Stand.
@@ -31,6 +34,10 @@ fn bursty(foes: &[Foe]) -> Vec<String> {
     names(foes, |f| f.burst() >= ASSASSIN_FLAG_BURST, RUNE_THREATS)
 }
 
+fn magic_burst(foes: &[Foe]) -> Vec<String> {
+    names(foes, |f| f.magic >= RUNE_MAGIC && f.burst() >= ASSASSIN_FLAG_BURST, RUNE_THREATS)
+}
+
 fn tanks(foes: &[Foe]) -> Vec<String> {
     names(foes, |f| f.has(ChampClass::Tank) || f.armor_tank().max(f.mr_tank()) >= FLAG, RUNE_THREATS)
 }
@@ -45,13 +52,13 @@ fn pick(sd: &StaticData, id: RuneId, reason: Option<String>) -> RunePick {
 }
 
 /// `slot`: 0 = primary tree, 1 = secondary (shards have only 0).
-fn stat(r: &RuneData, id: RuneId, slot: usize) -> Option<&RuneStat> {
-    let s = r.stats.get(&id)?;
+fn stat(r: Option<&RuneData>, id: RuneId, slot: usize) -> Option<&RuneStat> {
+    let s = r?.stats.get(&id)?;
     s.get(slot).or(s.first())
 }
 
-/// Swap `ids[i]` for a row-mate the enemies call for, if the champion's games allow it.
-fn adjust(r: &RuneData, ids: &[RuneId], slot: usize, foes: &[Foe]) -> Vec<(RuneId, Option<String>)> {
+/// Swap `ids[i]` for a row-mate the enemies call for, if the champion's games (`r`) allow it.
+fn adjust(r: Option<&RuneData>, ids: &[RuneId], slot: usize, foes: &[Foe]) -> Vec<(RuneId, Option<String>)> {
     let mut out: Vec<(RuneId, Option<String>)> = ids.iter().map(|&id| (id, None)).collect();
     for s in &SWAPS {
         let Some(i) = out.iter().position(|(id, _)| s.row.contains(id) && *id != s.to) else { continue };
@@ -68,27 +75,93 @@ fn adjust(r: &RuneData, ids: &[RuneId], slot: usize, foes: &[Foe]) -> Vec<(RuneI
     out
 }
 
-pub fn advice(sd: &StaticData, stats: &ChampStats, foes: &[Foe]) -> Option<RuneAdvice> {
-    let r = stats.runes.as_ref()?;
-    let p = &r.popular;
+/// Rune pages against my lane opponent.
+pub struct VsRunes<'a> {
+    pub vs: ChampKey,
+    /// Coachless filtered to the matchup (`popular` = its page).
+    pub coachless: Option<&'a RuneData>,
+    /// lolalytics matchup page.
+    pub lolalytics: Option<&'a MatchupBuild>,
+}
+
+/// A page to offer and the per-rune stats its swaps are checked against.
+struct Candidate<'a> {
+    label: String,
+    source: String,
+    vs: Option<ChampKey>,
+    page: &'a RunePage,
+    stats: Option<&'a RuneData>,
+}
+
+fn option(sd: &StaticData, c: &Candidate, foes: &[Foe]) -> RuneOption {
     let picks = |v: Vec<(RuneId, Option<String>)>| v.into_iter().map(|(id, why)| pick(sd, id, why)).collect();
-    let alt = Some(&r.best)
-        .filter(|b| b.primary.first() != p.primary.first() && b.games >= RUNE_ALT_MIN_GAMES)
-        .and_then(|b| Some(RuneAlt { keystone: pick(sd, *b.primary.first()?, None), win_rate: b.win_rate, games: b.games }));
-    Some(RuneAdvice {
-        primary: picks(adjust(r, &p.primary, 0, foes)),
-        secondary: picks(adjust(r, &p.secondary, 1, foes)),
+    let p = c.page;
+    RuneOption {
+        label: c.label.clone(),
+        source: c.source.clone(),
+        vs: c.vs,
+        primary: picks(adjust(c.stats, &p.primary, 0, foes)),
+        secondary: picks(adjust(c.stats, &p.secondary, 1, foes)),
         // Only the third shard row holds Tenacity; Health Scaling also sits in the second.
         shards: picks(match p.shards.split_at_checked(2) {
-            Some((head, tail)) => head.iter().map(|&id| (id, None)).chain(adjust(r, tail, 0, foes)).collect(),
-            None => adjust(r, &p.shards, 0, foes),
+            Some((head, tail)) => head.iter().map(|&id| (id, None)).chain(adjust(c.stats, tail, 0, foes)).collect(),
+            None => adjust(c.stats, &p.shards, 0, foes),
         }),
         win_rate: p.win_rate,
         games: p.games,
-        alt,
-        summoners: stats.summoners.iter().filter_map(|&id| spell_name(id)).map(str::to_owned).collect(),
-        source: crate::common::build_source(Some(stats)),
-    })
+        also: vec![],
+    }
+}
+
+/// Same runes in the same rows (the secondary tree's two in either order).
+fn same(a: &RuneOption, b: &RuneOption) -> bool {
+    let ids = |v: &[RunePick]| v.iter().map(|r| r.id).collect::<Vec<_>>();
+    let sec = |o: &RuneOption| {
+        let mut v = ids(&o.secondary);
+        v.sort_unstable();
+        v
+    };
+    ids(&a.primary) == ids(&b.primary) && sec(a) == sec(b) && ids(&a.shards) == ids(&b.shards)
+}
+
+pub fn advice(sd: &StaticData, stats: &ChampStats, foes: &[Foe], vs: Option<&VsRunes>) -> Option<RuneAdvice> {
+    let lola = stats.runes.as_ref();
+    let lola_src = lolalytics_source(stats);
+    let cl_src = stats.coachless.as_deref().map_or_else(|| "Coachless".to_owned(), |p| format!("Coachless {p}"));
+    let mut cands: Vec<Candidate> = vec![];
+    if let Some(v) = vs {
+        let label = format!("vs {}", sd.champs.get(&v.vs).map_or("lane opponent", |c| c.name.as_str()));
+        let c = |source: &str, page, stats| Candidate { label: label.clone(), source: source.to_owned(), vs: Some(v.vs), page, stats };
+        if let Some(d) = v.coachless.filter(|d| d.popular.games >= RUNE_VS_MIN_GAMES) {
+            cands.push(c(&cl_src, &d.popular, Some(d)));
+        }
+        let lola_vs = v.lolalytics.filter(|m| m.vs == v.vs).and_then(|m| m.rune_page.as_ref());
+        if let Some(p) = lola_vs.filter(|p| p.games >= RUNE_VS_MIN_GAMES) {
+            cands.push(c(&lola_src, p, lola));
+        }
+    }
+    let own = |label: &str, source: &str, page, stats| Candidate { label: label.to_owned(), source: source.to_owned(), vs: None, page, stats };
+    if let Some(d) = &stats.coachless_runes {
+        cands.push(own("Best WPA", &cl_src, &d.popular, Some(d)));
+    }
+    if let Some(r) = lola {
+        cands.push(own("Most played", &lola_src, &r.popular, lola));
+        if r.best.games >= RUNE_ALT_MIN_GAMES {
+            cands.push(own("Highest win rate", &lola_src, &r.best, lola));
+        }
+    }
+    let mut options: Vec<RuneOption> = vec![];
+    for c in &cands {
+        let o = option(sd, c, foes);
+        match options.iter_mut().find(|x| same(x, &o)) {
+            Some(x) => x.also.push(format!("{} · {}", o.label, o.source)),
+            None => options.push(o),
+        }
+    }
+    if options.is_empty() {
+        return None;
+    }
+    Some(RuneAdvice { options, summoners: stats.summoners.iter().filter_map(|&id| spell_name(id)).map(str::to_owned).collect() })
 }
 
 fn spell_name(id: u32) -> Option<&'static str> {

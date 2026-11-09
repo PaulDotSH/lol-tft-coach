@@ -99,6 +99,7 @@ pub async fn champ_stats(
         counters,
         benchmarks: page.benchmarks,
         runes: page.runes,
+        coachless_runes: None,
         coachless: None,
         summoners: vec![],
     })
@@ -378,24 +379,27 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
         start_wr: num(&s["wr"]).unwrap_or(0.0) as f32,
         core: ["item1", "item2", "item3"].iter().filter_map(|k| first_id(&it[*k])).collect(),
         runes: ids(&set["pri"]).into_iter().chain(ids(&set["sec"])).collect(),
+        rune_page: rune_page(&pick),
         summoners: ids(&pick["sums"]["ids"]),
         skills: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
     })
 }
 
-fn parse_runes(q: &crate::qwik::Qwik) -> Option<RuneData> {
+/// `{runes: {set: {pri, sec, mod}, wr, n}}` of a `pick` or `win` summary.
+fn rune_page(r: &Value) -> Option<RunePage> {
     let ids = |v: &Value| -> Option<Vec<u32>> { v.as_array()?.iter().map(|x| num(x).map(|n| n as u32)).collect() };
-    let page = |r: &Value| {
-        let set = &r["runes"]["set"];
-        Some(RunePage {
-            primary: ids(&set["pri"])?,
-            secondary: ids(&set["sec"])?,
-            shards: ids(&set["mod"])?,
-            win_rate: num(&r["runes"]["wr"])? as f32,
-            games: num(&r["runes"]["n"])? as u32,
-        })
-    };
-    let (popular, best) = q.find_map(5, &["pick", "win"], |v| Some((page(&v["pick"])?, page(&v["win"])?)))?;
+    let set = &r["runes"]["set"];
+    Some(RunePage {
+        primary: ids(&set["pri"])?,
+        secondary: ids(&set["sec"])?,
+        shards: ids(&set["mod"])?,
+        win_rate: num(&r["runes"]["wr"])? as f32,
+        games: num(&r["runes"]["n"])? as u32,
+    })
+}
+
+fn parse_runes(q: &crate::qwik::Qwik) -> Option<RuneData> {
+    let (popular, best) = q.find_map(5, &["pick", "win"], |v| Some((rune_page(&v["pick"])?, rune_page(&v["win"])?)))?;
     // Keyed by rune id; other `{stats}` objects (per-game averages) are arrays.
     let stats = q
         .find_map(4, &["stats"], |v| {
@@ -509,6 +513,8 @@ mod tests {
         assert_eq!((m.start.as_slice(), m.start_games, m.start_wr), ([3865, 2003, 2003].as_slice(), 1776, 57.83));
         assert_eq!(m.core, [3876, 3047, 3190]);
         assert_eq!(m.runes, [8465, 8463, 8473, 8242, 8347, 8345]);
+        let p = m.rune_page.unwrap();
+        assert_eq!((p.shards.as_slice(), p.win_rate, p.games), ([5005, 5001, 5001].as_slice(), 57.95, 1648));
         assert_eq!((m.summoners.as_slice(), m.skills.as_str()), ([4, 7].as_slice(), "QEW"));
     }
 

@@ -2,7 +2,7 @@
 
 mod common;
 
-use coach::{ChampSelectInput, champ_select_advice, recap};
+use coach::{ChampSelectInput, VsRunes, champ_select_advice, champ_select_runes, consts::TIER_ROWS, recap};
 use common::*;
 use model::*;
 
@@ -71,14 +71,55 @@ fn picks_counter_the_lane_opponent() {
 fn off_lane_enemies_weigh_less() {
     let mut c = cs(Mode::Rift);
     c.enemies = vec![ZED];
+    // Fetched for my lane like every enemy, but played top: the draft places him there.
     let mut z = zed_stats();
-    z.lane = Some(Lane::Top);
+    z.lanes = [(Lane::Top, 90.0), (Lane::Middle, 5.0)].into();
     let lane = run(&c, None, &[zed_stats()], &mid_tiers(), None).picks[0].score;
     let off = run(&c, None, &[z], &mid_tiers(), None);
     assert_eq!(off.picks[0].champ, LUX);
     assert!(off.picks[0].reason.ends_with("vs Zed"));
     // Blend weight is the same with a single enemy; scores match.
     assert!((off.picks[0].score - lane).abs() < 1e-3);
+}
+
+fn champs(v: &[TierPick]) -> Vec<ChampKey> {
+    v.iter().map(|p| p.champ).collect()
+}
+
+#[test]
+fn tier_board_ranks_counters_to_the_lane_opponent() {
+    let mut c = cs(Mode::Rift);
+    c.enemies = vec![ZED];
+    c.bans = vec![VLADIMIR];
+    let mut tiers = mid_tiers();
+    tiers[1].tier = Some("S+".into());
+    let t = run(&c, None, &[zed_stats()], &tiers, None).tiers.unwrap();
+    assert_eq!((t.lane, t.vs), (Lane::Middle, Some(ZED)));
+    assert_eq!(champs(&t.best), [AHRI, SYNDRA, LUX], "tier list order; banned, picked and low-sample dropped");
+    assert_eq!(champs(&t.counters), [LUX, AHRI, SYNDRA], "by win rate against Zed");
+    let syndra = &t.counters[2];
+    assert_eq!((syndra.tier.as_deref(), syndra.vs_wr, syndra.vs_games), (Some("S+"), Some(48.0), 3_000));
+    assert_eq!(t.best[0].vs_wr, Some(50.0));
+
+    // Zed plays top: no lane opponent, the tier list alone.
+    let mut z = zed_stats();
+    z.lanes = [(Lane::Top, 90.0)].into();
+    let t = run(&c, None, &[z], &tiers, None).tiers.unwrap();
+    assert_eq!(t.vs, None);
+    assert!(t.counters.is_empty() && t.best.iter().all(|p| p.vs_wr.is_none()));
+}
+
+#[test]
+fn tier_board_keeps_my_champion_in_view() {
+    let mut c = cs(Mode::Rift);
+    c.my_hover = Some(SYNDRA);
+    // Ten champions ranked above the usual mid tier list.
+    let tiers: Vec<TierEntry> = (0..TIER_ROWS as u32 + 2).map(|i| tier(1000 + i, 55.0, 5.0, 10_000)).chain(mid_tiers()).collect();
+    let t = run(&c, None, &[], &tiers, None).tiers.unwrap();
+    assert_eq!(t.best.len(), TIER_ROWS + 1);
+    assert_eq!((t.best[TIER_ROWS].champ, t.best[TIER_ROWS].mine), (SYNDRA, true));
+    assert!(t.best[..TIER_ROWS].iter().all(|p| !p.mine));
+    assert!(run(&cs(Mode::Aram), None, &[], &tiers, None).tiers.is_none());
 }
 
 #[test]
@@ -241,24 +282,101 @@ fn ids(v: &[RunePick]) -> Vec<RuneId> {
     v.iter().map(|r| r.id).collect()
 }
 
+fn labels(r: &RuneAdvice) -> Vec<(&str, &str)> {
+    r.options.iter().map(|o| (o.label.as_str(), o.source.as_str())).collect()
+}
+
 #[test]
 fn runes_follow_the_most_played_page() {
-    let r = rune_run(&[JINX], Mode::Rift).unwrap();
+    let a = rune_run(&[JINX], Mode::Rift).unwrap();
+    assert_eq!(labels(&a), [("Most played", "lolalytics 16.21"), ("Highest win rate", "lolalytics 16.21")]);
+    let r = &a.options[0];
     assert_eq!(ids(&r.primary), vec![8439, 8463, 8429, 8242]);
     assert_eq!(ids(&r.secondary), vec![8347, 8345]);
     assert_eq!(ids(&r.shards), vec![5008, 5008, 5001]);
     assert!(r.primary.iter().chain(&r.shards).all(|p| p.reason.is_none()));
-    let alt = r.alt.unwrap();
-    assert_eq!((alt.keystone.id, alt.games), (8465, 13_000), "Guardian wins more");
+    let best = &a.options[1];
+    assert_eq!((best.primary[0].id, best.win_rate, best.games), (8465, 54.4, 13_000), "Guardian wins more");
     assert!(rune_run(&[JINX], Mode::Mayhem).is_none(), "Mayhem has no runes");
 }
 
 #[test]
 fn runes_answer_burst_and_cc() {
-    let r = rune_run(&[ZED, SYNDRA, LEONA, MALPHITE, THRESH], Mode::Rift).unwrap();
+    let a = rune_run(&[ZED, SYNDRA, LEONA, MALPHITE, THRESH], Mode::Rift).unwrap();
+    let r = &a.options[0];
     assert_eq!(ids(&r.primary), vec![8439, 8463, 8473, 8242], "Bone Plating vs two assassins");
     assert!(r.primary[2].reason.as_deref().unwrap().starts_with("burst from Zed, Syndra"), "{:?}", r.primary[2].reason);
     assert_eq!(ids(&r.shards), vec![5008, 5008, 5013], "Tenacity vs three hard CC");
     // Second Wind wins more but has too few games to be offered.
     assert!(!ids(&r.primary).contains(&8444));
+    // The highest win rate page keeps its Second Wind: Bone Plating wins far less than it.
+    assert_eq!(ids(&a.options[1].primary), vec![8465, 8463, 8444, 8242]);
+    assert_eq!(ids(&a.options[1].shards), vec![5008, 5008, 5013]);
+}
+
+/// Sona with Coachless signed in: a Summon Aery page (best WPA) beside lolalytics'.
+fn sona_coachless() -> ChampStats {
+    let st = |games, win_rate| RuneStat { pick_rate: 10.0, win_rate, games };
+    let mut s = sona_runes();
+    s.coachless = Some("16.20".into());
+    s.summoners = vec![4, 3];
+    let page = RunePage { primary: vec![8214, 8226, 8210, 8237], secondary: vec![8463, 8453], shards: vec![5008, 5008, 5001], win_rate: 53.5, games: 20_000 };
+    let stats = [(8226, vec![st(15_000, 53.0), st(900, 52.0)]), (8224, vec![st(3_000, 52.4), st(500, 52.0)])];
+    s.coachless_runes = Some(RuneData { popular: page.clone(), best: page, stats: stats.into_iter().collect() });
+    s
+}
+
+#[test]
+fn runes_from_both_sources() {
+    let mut c = cs(Mode::Rift);
+    c.my_pick = Some(SONA);
+    c.enemies = vec![JINX];
+    let a = run(&c, Some(&sona_coachless()), &[], &[], None).runes.unwrap();
+    assert_eq!(labels(&a), [("Best WPA", "Coachless 16.20"), ("Most played", "lolalytics 16.21"), ("Highest win rate", "lolalytics 16.21")]);
+    assert_eq!(ids(&a.options[0].primary), vec![8214, 8226, 8210, 8237]);
+    assert_eq!(a.summoners, ["Flash", "Exhaust"]);
+    // Two magic bursters: Nullifying Orb, which Coachless has the games for.
+    c.enemies = vec![SYNDRA, AHRI];
+    let a = run(&c, Some(&sona_coachless()), &[], &[], None).runes.unwrap();
+    let orb = &a.options[0].primary[1];
+    assert_eq!(orb.id, 8224);
+    assert!(orb.reason.as_deref().unwrap().starts_with("magic burst from Syndra, Ahri"), "{:?}", orb.reason);
+}
+
+#[test]
+fn runes_against_the_lane_opponent_come_first() {
+    let mut c = cs(Mode::Rift);
+    c.my_pick = Some(SONA);
+    c.enemies = vec![ZED];
+    let mine = sona_coachless();
+    let sd = sd();
+    let inp = ChampSelectInput { cs: &c, sd: &sd, mine: Some(&mine), enemies: &[], tier_list: &[], mayhem: None, draft: Default::default() };
+    let vs_page = RunePage { primary: vec![8465, 8463, 8473, 8242], secondary: vec![8345, 8347], shards: vec![5008, 5008, 5001], win_rate: 49.0, games: 600 };
+    let vs_cl = RuneData { popular: vs_page.clone(), best: vs_page, stats: Default::default() };
+    // lolalytics' matchup page is its most played page: one option, both named.
+    let lola_vs = MatchupBuild {
+        vs: ZED,
+        games: 900,
+        win_rate: 47.0,
+        start: vec![],
+        start_games: 0,
+        start_wr: 0.0,
+        core: vec![],
+        runes: vec![],
+        rune_page: mine.runes.as_ref().map(|r| RunePage { games: 800, win_rate: 47.5, ..r.popular.clone() }),
+        summoners: vec![],
+        skills: String::new(),
+    };
+    let a = champ_select_runes(&inp, &VsRunes { vs: ZED, coachless: Some(&vs_cl), lolalytics: Some(&lola_vs) }).unwrap();
+    assert_eq!(
+        labels(&a),
+        [("vs Zed", "Coachless 16.20"), ("vs Zed", "lolalytics 16.21"), ("Best WPA", "Coachless 16.20"), ("Highest win rate", "lolalytics 16.21")]
+    );
+    assert_eq!((a.options[0].vs, a.options[0].games), (Some(ZED), 600));
+    assert_eq!(a.options[1].also, ["Most played · lolalytics 16.21"]);
+    assert_eq!((a.options[1].win_rate, a.options[1].games), (47.5, 800));
+    // Too few games in the matchup: not offered.
+    let thin = RuneData { popular: RunePage { games: 100, ..vs_cl.popular.clone() }, ..vs_cl.clone() };
+    let a = champ_select_runes(&inp, &VsRunes { vs: ZED, coachless: Some(&thin), lolalytics: None }).unwrap();
+    assert_eq!(a.options[0].label, "Best WPA");
 }

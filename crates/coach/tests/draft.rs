@@ -52,6 +52,7 @@ fn lane_stats(champ: ChampKey, lane: Lane, wr: f32, lanes: &[(Lane, f32)], count
         counters,
         benchmarks: Default::default(),
         runes: None,
+        coachless_runes: None,
         coachless: None,
         summoners: vec![],
     }

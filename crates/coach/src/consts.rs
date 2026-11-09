@@ -171,6 +171,8 @@ pub const OTHER_ENEMY_W: f32 = 0.3;
 /// Share of the pick score from matchups (rest: tier-list win rate).
 pub const MATCHUP_BLEND: f32 = 0.6;
 pub const PICKS: usize = 5;
+/// Rows in each tier board column.
+pub const TIER_ROWS: usize = 8;
 pub const BANS: usize = 5;
 pub const BAN_COUNTER_W: f32 = 1.0;
 pub const BAN_META_W: f32 = 0.6;
@@ -185,8 +187,12 @@ pub const RUNE_THREATS: usize = 2;
 /// Enemies with CC trait ≥ RUNE_HARD_CC needed for the tenacity shard.
 pub const RUNE_CC_FOES: usize = 3;
 pub const RUNE_HARD_CC: f32 = 0.8;
-/// The highest win rate page is shown when its keystone differs and has this many games.
+/// Enemies with magic share ≥ RUNE_MAGIC (and burst) count towards Nullifying Orb.
+pub const RUNE_MAGIC: f32 = 0.6;
+/// The highest win rate page is offered when it has this many games (and differs).
 pub const RUNE_ALT_MIN_GAMES: u32 = 1000;
+/// A page against my lane opponent needs this many games in the matchup.
+pub const RUNE_VS_MIN_GAMES: u32 = 300;
 
 // ---- draft ----
 /// Lane share (percent) below which a champion is not placed in that lane.

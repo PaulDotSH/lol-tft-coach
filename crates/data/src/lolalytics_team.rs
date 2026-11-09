@@ -91,6 +91,7 @@ pub async fn lane_stats(
         counters: c.counters,
         benchmarks: Default::default(),
         runes: None,
+        coachless_runes: None,
         coachless: None,
         summoners: vec![],
     })

@@ -422,7 +422,7 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
     let mayhem = if cs.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
     let known: Vec<&ChampStats> = mine.as_deref().into_iter().chain(&enemies).collect();
     let (lane_stats, synergy) = crate::draft::fetch(sh, sd, cs, &known);
-    coach::champ_select_advice(&coach::ChampSelectInput {
+    let input = coach::ChampSelectInput {
         cs,
         sd,
         mine: mine.as_deref(),
@@ -430,7 +430,14 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         tier_list: tiers.as_deref().map_or(&[], |t| t.as_slice()),
         mayhem: mayhem.as_deref(),
         draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
-    })
+    };
+    let mut advice = coach::champ_select_advice(&input);
+    // Rune pages against my lane opponent need the lanes the draft report placed.
+    if let Some(v) = mine.as_deref().and_then(|m| crate::draft::vs_runes(sh, sd, cs, &advice, m.win_rate)) {
+        let vs = coach::VsRunes { vs: v.vs, coachless: v.coachless.as_deref().and_then(Option::as_ref), lolalytics: v.lolalytics.as_deref() };
+        advice.runes = coach::champ_select_runes(&input, &vs);
+    }
+    advice
 }
 
 /// `games`: my match history (record against my lane opponents).

@@ -21,11 +21,15 @@ lanes: { [key in Lane]?: number },
  */
 slots: Array<Array<ItemStat>>, boots: Array<ItemStat>, early: Array<EarlySet>, counters: Array<Matchup>, benchmarks: Benchmarks, 
 /**
- * Build page rune pages and per-rune stats; None when the page had none.
+ * lolalytics build page rune pages and per-rune stats; None when the page had none.
  */
 runes: RuneData | null, 
 /**
- * Coachless patch ("16.20") when the item slots, boots, runes and summoners came
+ * Coachless rune page (best WPA) and per-rune stats (Rift, signed in).
+ */
+coachless_runes: RuneData | null, 
+/**
+ * Coachless patch ("16.20") when the item slots, boots and summoners came
  * from Coachless (Rift, signed in); None = lolalytics.
  */
 coachless: string | null, 
