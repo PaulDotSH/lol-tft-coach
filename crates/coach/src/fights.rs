@@ -6,7 +6,7 @@ use crate::analysis::place;
 use model::*;
 
 /// Kills at most this far apart (s) chain into one fight, as in the live review.
-const FIGHT_GAP: f32 = 10.0;
+pub(crate) const FIGHT_GAP: f32 = 10.0;
 /// A frame this close in time (s) says where I was.
 const FRAME_NEAR: f32 = 35.0;
 /// Within this distance of a fight or objective counts as there.
@@ -31,8 +31,13 @@ fn dist(a: (i32, i32), b: (i32, i32)) -> f32 {
 
 /// I was dead at game time `t`.
 fn dead_at(d: &MatchDetail, t: f32) -> bool {
-    d.kills.iter().filter(|k| k.victim == d.me && k.time <= t).any(|k| {
-        let level = d.frames.iter().rev().find(|f| f.time <= k.time).map_or(1, |f| f.players[d.me].level);
+    dead(d, d.me, t)
+}
+
+/// Player `who` was dead at game time `t`.
+pub(crate) fn dead(d: &MatchDetail, who: usize, t: f32) -> bool {
+    d.kills.iter().filter(|k| k.victim == who && k.time <= t).any(|k| {
+        let level = d.frames.iter().rev().find(|f| f.time <= k.time).map_or(1, |f| f.players[who].level);
         t < k.time + respawn(level, k.time)
     })
 }

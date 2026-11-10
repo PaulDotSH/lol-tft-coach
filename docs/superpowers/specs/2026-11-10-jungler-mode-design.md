@@ -1,6 +1,6 @@
 # Jungler mode
 
-Date: 2026-11-10. Status: draft for review.
+Date: 2026-11-10. Status: phase 1 built; phase 2 stopped at the spike gate (see Implementation status).
 
 ## Goal
 
@@ -163,3 +163,80 @@ CampTimer { name: String, respawn_at: f32 }        // phase 2
 - Phase 2: `ocr::minimap::me` on saved frames with hand-marked positions; `Camps`
   with synthetic CS and position sequences.
 - Mock fixture with `jungle` set; checked in the browser mock.
+
+## Implementation status (2026-11-10)
+
+### Built (phase 1)
+
+- `coach::jungle` (`crates/coach/src/jungle.rs`, `jungle/lanes.rs`, `jungle/review.rs`); `GameAdvice.jungle`
+  set by `live_extras` on the Rift when I jungle (`Player.smite` or `position == Jungle`).
+- Pace: level table before 4:00 (`JG_L3_BY` 2:35, `JG_L4_BY` 3:30, "Level 4 at 3:22: on pace", "Level 3 at
+  3:30: one camp behind"), hidden for Swiftplay; 4:00–14:00 CS against the benchmark ("CS 24 behind the average
+  pace (5.0/min vs 7.4): take your camps between ganks", "CS on pace (…)"), nothing without a benchmark.
+- Laner tips dropped for the jungler: the "cs" tip, the laning panel (`lane_matchup::laning` is empty).
+- Lane board: `jungle::board` (static part: CC of my laner, "no dash", "no Flash", lane gold from `LaneDiff`,
+  levels) and `jungle::lanes(board, Option<&MapView>)` (pushed, not seen, enemy jungler seen). `gank::pushed`
+  beside `at_home`; `GankTracker::view` gives the minimap part. The orchestrator puts the board in `GankCtx`;
+  the minimap thread recomputes it every read, stores it in `Shared::jungle_lanes` and pushes it to the UI with the
+  gank calls. Never spoken, not on the overlay.
+- `Player.spells` from the Live API parser (internal names, `SummonerFlash`); `GameSnapshot.swiftplay`.
+- Calls: for the jungler the enemy-jungler call is "Lee Sin seen top side" / "Lee Sin seen top side.". Dragon
+  tip ("jg-objective"): "Dragon in 1:10: back first: 5,000 g buys X" or "… no full item yet, 650 g short of X",
+  from `GoldEta`, 0–90 s before the spawn.
+- Review: `MatchAnalysis.jungle` (`JungleReview`), `laning` is None when it is set. First clear at 3:00/4:00,
+  clear rate 0–5/5–10/10–15 (jungle CS/min and all CS/min against the benchmark), ganks that got a kill per
+  lane, objectives with my presence and the enemy jungler dead or alive, minutes with camps in their jungle,
+  `PhaseRow`s at 5/10/15 with jungle CS against their jungler.
+- UI: `ingame/Jungle.svelte` instead of the laning panel, `idle/JungleReview.svelte` instead of `Laning`;
+  mocks `ingame jungle` and a Diana jungle game in the mock history.
+- Tests: `crates/coach/tests/jungle.rs` (pace, every lane-board signal, the jungler-side ranking, no blips,
+  dragon tip, laner tips gone, review), `gank::pushed`/`view`/wording unit tests, the four gank replays as the
+  jungler snapshotted in `fixtures/coach/gank_jungle_calls.txt` (`UPDATE_SNAPSHOTS=1` rewrites it), the Live API
+  fixture's spells.
+
+### Deviations
+
+- Mobility is a hand list (`consts::NO_DASH`, Data Dragon ids of champions with no dash, blink or leap), not a
+  `traits.mobile` flag; champions missing from it never get "no dash".
+- `JungleAdvice.minimap: bool` added so the card can say "no minimap" (minimap thread off, gank warnings off,
+  game not focused: the static board is shown).
+- The pace line sits at the top of the Jungle card (`JungleAdvice.pace`), not in the tips row.
+- The enemy jungler's side on the board comes from his last named sighting (`GankTracker::view`), the same data as
+  `JunglerSeen`, which keeps the side of the first sighting of an appearance.
+- Rows under the floor say "nothing special" even when the reasons are negative (enemy jungler there).
+- Lane gold for bot sums both `LaneDiff` rows (ADC and support).
+- Swiftplay is read from the Live API's `gameMode` (`SWIFTPLAY`); the snapshot has no queue id.
+- Jungle review fixture: no saved match + timeline of a game I jungled exists on disk (history has one, Shen
+  ranked solo 4017526952, without details). `fixtures/clients/match_game_jungle.json` is synthetic: the flex
+  fixture with me as the blue Diana jungler (puuid and name moved), using `match_timeline_flex.json`.
+
+### Phase 2 spike (saved debug minimap frames)
+
+- Data: 781 minimap PNGs (one per 3 s) in 5 debug sessions; truth from the saved timelines of 3 Swiftplay games
+  (Morgana support red 4025231045, Yasuo mid blue 4025243448, Zed mid blue 4025257442) and fountain frames at
+  ≤ 3 s (incl. Thresh, no timeline): 42 checks, 35 timeline frames within 1.5 s of a PNG and 7 fountain frames.
+- Camera rectangle: pure white (≥ 240) 2 px lines, 92 × 51 px on a 338 px map (16:9 client); found by long white
+  runs, a clipped one completed with the median size. Found on 766 of 781 frames (98 %), on 37 of the 42 checks.
+- Distance to the truth: within 600 units on 31 of 42 checks (74 %; 84 % of the frames where it was found),
+  median 365. The view's centre sits north of the champion: median offset truth − camera (−74, −275). With that
+  offset: 32 of 42 (76 %; leave-one-out 31 of 42), median 248. Misses: no rectangle on 4 of 5 fountain frames at
+  ≤ 2.2 s and once at 14:00, 1.1–1.7k off three times in the support game (camera unlocked), 600–850 twice.
+- Own icon: my ring is the allies' blue (81, 162, 229) and in lane mostly under the enemy laner's red ring; a
+  blue-ring finder put a ring within 900 of the camera on 11 of 42 checks, 7 within 600. Not usable without
+  portrait matching my own champion.
+- Gate (600 units on 90 %) not met: phase 2 stops. `ocr::minimap::me` and `coach::jungle::Camps` are not built;
+  `JungleAdvice.camps` stays empty (the card draws the list when it has rows).
+
+### Left open (needs a real game)
+
+- A real jungle review fixture: after a game where I jungle, start with `run.cmd debug` so the match-history
+  probe saves `…games_<id>.json` and `…game-timelines_<id>.json`; anonymize next to `match_game_flex.json`, swap
+  it in for the synthetic one, and check first clear, ganks per lane and objectives against the game.
+- Pace thresholds: compare `JG_L3_BY`/`JG_L4_BY` with real full clears (normal Rift), and measure a Swiftplay row
+  so the level table can come back there.
+- Lane board in a live jungle game: pushed calls (`PUSH_BAND`/`PUSH_BASE`/`PUSH_PAST`), "not seen" times, the
+  weights and floor, the board updating on the minimap cadence, "no minimap" with the game unfocused.
+- Live API: confirm summoner spell names for upgraded Smite and Unleashed Teleport, and the "no Flash" line.
+- Hear "X seen top side" and see the dragon back tip in a game.
+- Phase 2: record frames (debug mode) of a jungle game with the camera locked and its timeline; try a portrait
+  match of my own champion on the blue rings, with the camera centre plus offset as the prior, and re-run the gate.

@@ -760,6 +760,7 @@ mod tests {
             events: vec![],
             my_stats: None,
             my_abilities: Some([3, 1, 2, 1]),
+            swiftplay: false,
         };
         assert_eq!(ranks(&snap, None, 7), [3, 1, 2, 1]);
         let snap = GameSnapshot { my_abilities: None, ..snap };

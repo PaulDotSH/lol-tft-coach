@@ -47,6 +47,9 @@ data! {
         /// Takes Smite (any upgrade): the jungler, also where positions aren't given.
         #[serde(default)]
         pub smite: bool,
+        /// Summoner spells by internal name ("SummonerFlash", "SummonerDot"); empty when the API omits them.
+        #[serde(default)]
+        pub spells: Vec<String>,
     }
 
     pub struct GameSnapshot {
@@ -64,6 +67,9 @@ data! {
         /// My Q, W, E, R ranks; None if the API omits them.
         #[serde(default)]
         pub my_abilities: Option<[u32; 4]>,
+        /// Swiftplay (the Live API's `SWIFTPLAY` game mode): Rift rules with a faster early game.
+        #[serde(default)]
+        pub swiftplay: bool,
     }
 
     pub enum GameEvent {

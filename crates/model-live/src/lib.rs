@@ -129,6 +129,30 @@ data! {
         pub skill: Option<SkillNext>,
         #[serde(default)]
         pub what_if: Vec<WhatIf>,
+        /// Rift, when I jungle: clear pace and the lane board.
+        #[serde(default)]
+        pub jungle: Option<JungleAdvice>,
+    }
+
+    pub struct JungleAdvice {
+        pub pace: Option<String>,
+        /// Top, mid and bot, most open first.
+        pub lanes: Vec<LaneOpen>,
+        /// The lane board includes what the minimap shows.
+        pub minimap: bool,
+        pub camps: Vec<CampTimer>,
+    }
+
+    pub struct LaneOpen {
+        pub lane: Lane,
+        pub score: f32,
+        pub reasons: Vec<String>,
+        pub enemy: Vec<ChampKey>,
+    }
+
+    pub struct CampTimer {
+        pub name: String,
+        pub respawn_at: f32,
     }
 
     /// One Rift lane pairing; item gold of visible inventories, ally − enemy.

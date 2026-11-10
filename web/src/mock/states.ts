@@ -217,6 +217,7 @@ const riftGame: GameAdvice = {
     { key: 'control-ward', kind: 'vision', text: 'Next back: buy a Control Ward (75 g)' },
   ],
   matchup: [zedLaning],
+  jungle: null,
   skill: { key: 'W', unspent: 0, at_level: 14, priority: 'QWE', source: 'vs Zed, 2.1k games' },
   what_if: [
     {
@@ -359,6 +360,7 @@ const mayhemGame: GameAdvice = {
   calls: [],
   tips: [],
   matchup: [],
+  jungle: null,
   skill: { key: 'E', unspent: 1, at_level: 9, priority: 'QEW', source: 'lolalytics 16.21' },
   what_if: [
     {
@@ -455,6 +457,34 @@ const laningGame: GameAdvice = {
   matchup: [asheLaning, zoeLaning],
   skill: { key: 'R', unspent: 1, at_level: 6, priority: 'QWE', source: 'vs Ashe, 1.2k games' },
   what_if: [],
+};
+
+// Viego jungle at 3:22, blue side: level 4 on pace, Darius pushed up top, Lee Sin just seen bot side.
+const jungleGame: GameAdvice = {
+  ...riftGame,
+  time: 202,
+  my_champ: 234,
+  buy_next: null,
+  alternatives: [],
+  path: [],
+  owned: [1103, 2003],
+  calls: [{ key: 'gank-jg-2', text: 'Lee Sin seen bot side', say: 'Lee Sin seen bot side.' }],
+  tips: [{ key: 'jg-objective', kind: 'back', text: 'Dragon in 1:38: no full item yet, 650 g short of Kindlegem' }],
+  bounties: [],
+  readiness: null,
+  matchup: [],
+  what_if: [],
+  skill: { key: 'E', unspent: 1, at_level: 4, priority: 'QEW', source: 'lolalytics 16.21' },
+  jungle: {
+    pace: 'Level 4 at 3:22: on pace',
+    minimap: true,
+    lanes: [
+      { lane: 'top', score: 4.0, reasons: ['Darius is pushed up', 'Garen has CC'], enemy: [122] },
+      { lane: 'middle', score: 1.0, reasons: ['Lee Sin was just seen bot side', 'lane is even'], enemy: [238] },
+      { lane: 'bottom', score: -2.0, reasons: ['nothing special'], enemy: [222, 412] },
+    ],
+    camps: [],
+  },
 };
 
 export const fixtures = {
@@ -888,6 +918,7 @@ export const fixtures = {
   },
   'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals, plan: riftPlan },
   'ingame start': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: { ...riftGame, time: 35, calls: [], tips: [] }, goal_progress: liveGoals, plan: riftPlan },
+  'ingame jungle': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: jungleGame, goal_progress: liveGoals },
   'ingame laning': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: laningGame, goal_progress: liveGoals },
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
   'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },

@@ -93,6 +93,12 @@ fn player(p: &Value, sd: &StaticData) -> Player {
         dead: p["isDead"] == true,
         respawn_in: num(&p["respawnTimer"]),
         smite: ["summonerSpellOne", "summonerSpellTwo"].iter().any(|s| str_of(&p["summonerSpells"][s]["rawDisplayName"]).contains("Smite")),
+        spells: ["summonerSpellOne", "summonerSpellTwo"]
+            .iter()
+            .map(|s| str_of(&p["summonerSpells"][s]["rawDisplayName"]))
+            .filter(|r| !r.is_empty())
+            .map(|r| r.trim_start_matches("GeneratedTip_SummonerSpell_").trim_end_matches("_DisplayName").to_string())
+            .collect(),
     }
 }
 
@@ -212,6 +218,7 @@ pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
         events,
         my_stats: champion_stats(&active["championStats"]),
         my_abilities: abilities(&active["abilities"]),
+        swiftplay: game["gameMode"] == "SWIFTPLAY",
     })
 }
 

@@ -6,4 +6,8 @@ export type Player = { riot_id: string, champ: number, team: Team, position: Lan
 /**
  * Takes Smite (any upgrade): the jungler, also where positions aren't given.
  */
-smite: boolean, };
+smite: boolean, 
+/**
+ * Summoner spells by internal name ("SummonerFlash", "SummonerDot"); empty when the API omits them.
+ */
+spells: Array<string>, };

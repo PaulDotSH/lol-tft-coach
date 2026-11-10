@@ -13,6 +13,7 @@
   import NoteCard from './NoteCard.svelte';
   import PastCompare from './PastCompare.svelte';
   import Laning from './Laning.svelte';
+  import JungleReview from './JungleReview.svelte';
   import Phases from './Phases.svelte';
   import GoldChart from './GoldChart.svelte';
   import Scoreboard from './Scoreboard.svelte';
@@ -211,7 +212,9 @@
             </p>
           {/if}
         </section>
-        {#if a.laning}
+        {#if a.jungle}
+          <JungleReview j={a.jungle} rich={a.rich_marks} />
+        {:else if a.laning}
           <Laning l={a.laning} rich={a.rich_marks} />
         {:else if a.phases.length}
           <Phases rows={a.phases} opponent={a.opponent != null ? name(a.opponent) : null} rich={a.rich_marks} />

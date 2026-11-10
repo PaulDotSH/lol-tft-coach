@@ -1,5 +1,6 @@
 // Match history samples: AppState.history and the analyze_game result.
 // analysis.json is the real review of a recorded flex game (`--example review`).
+import type { JungleReview } from '../lib/bindings/JungleReview';
 import type { MatchAnalysis } from '../lib/bindings/MatchAnalysis';
 import type { PastGame } from '../lib/bindings/PastGame';
 import recorded from './analysis.json';
@@ -46,10 +47,44 @@ export const history: PastGame[] = [
   game(5, { queue_id: 450, mode: 'aram', champ: 81, lane: null, win: false, kills: 9, deaths: 11, assists: 17, duration_s: 1210 }),
   game(6, { queue_id: 420, champ: 134, lane: 'middle', win: true, kills: 8, deaths: 2, assists: 7, cs: 241, duration_s: 1530 }),
   game(7, { champ: 111, win: false, remake: true, kills: 0, deaths: 1, assists: 0, duration_s: 214 }),
+  game(8, { champ: 131, lane: 'jungle', win: true, kills: 7, deaths: 3, assists: 9, cs: 182, duration_s: 1786 }),
 ];
+
+// The recorded flex game reviewed as its blue-side jungler (`fixtures/clients/match_game_jungle.json`).
+const jungle: JungleReview = {
+  enemy: 234,
+  first_clear: [
+    { minute: 3, level: 4, jungle_cs: 20 },
+    { minute: 4, level: 4, jungle_cs: 24 },
+  ],
+  clear: [
+    { from: 0, to: 5, jungle_per_min: 5.6, cs_per_min: 5.6 },
+    { from: 5, to: 10, jungle_per_min: 7.6, cs_per_min: 7.8 },
+    { from: 10, to: 15, jungle_per_min: 9.6, cs_per_min: 10.6 },
+  ],
+  benchmark: 6.4,
+  ganks: [
+    { lane: 'middle', ganks: 1, kills: 1, deaths: 0 },
+    { lane: 'bottom', ganks: 2, kills: 2, deaths: 1 },
+  ],
+  objectives: [
+    { time: 503, kind: 'Grubs', detail: '×3', ours: true, presence: 'there', enemy_jungler_dead: false },
+    { time: 526, kind: 'Dragon', detail: 'Hextech', ours: false, presence: 'there', enemy_jungler_dead: false },
+    { time: 932, kind: 'Dragon', detail: 'Infernal', ours: true, presence: 'there', enemy_jungler_dead: true },
+    { time: 1289, kind: 'Dragon', detail: 'Ocean', ours: true, presence: 'there', enemy_jungler_dead: false },
+    { time: 1693, kind: 'Baron', detail: null, ours: true, presence: 'there', enemy_jungler_dead: false },
+  ],
+  invades: [3, 4, 5, 8, 9, 14],
+  versus: [
+    { minute: 5, cs: 28, level: 4, opp_cs: 24, opp_level: 4, gold_lead: 617 },
+    { minute: 10, cs: 66, level: 7, opp_cs: 56, opp_level: 7, gold_lead: 931 },
+    { minute: 15, cs: 114, level: 10, opp_cs: 76, opp_level: 9, gold_lead: 1785 },
+  ],
+};
 
 /** The recorded review, wearing the clicked game's header when it is another one. */
 export function analysisFor(id: number): MatchAnalysis {
   const g = history.find((h) => h.game_id === id);
+  if (g?.lane === 'jungle') return { ...reviewed, game: g, live: false, laning: null, jungle };
   return g && id !== reviewed.game.game_id ? { ...reviewed, game: g, live: false } : reviewed;
 }

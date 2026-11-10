@@ -20,4 +20,8 @@ my_stats: ChampionStats | null,
 /**
  * My Q, W, E, R ranks; None if the API omits them.
  */
-my_abilities: [number, number, number, number] | null, };
+my_abilities: [number, number, number, number] | null, 
+/**
+ * Swiftplay (the Live API's `SWIFTPLAY` game mode): Rift rules with a faster early game.
+ */
+swiftplay: boolean, };

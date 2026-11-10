@@ -391,3 +391,48 @@ pub const WHATIF_LANE_W: f32 = 1.5;
 pub const WHATIF_DMG_W: f32 = 0.1;
 pub const WHATIF_EHP_W: f32 = 0.06;
 pub const WHATIF_ROUGH_W: f32 = 0.5;
+
+// ---- jungler (`jungle/`). First guesses, like the objective timers. ----
+/// Clear pace before 4:00: level 3 by 2:35, level 4 by 3:30 (the scuttle crabs).
+pub const JG_L3_BY: f32 = 155.0;
+pub const JG_L4_BY: f32 = 210.0;
+pub const JG_LEVELS_UNTIL: f32 = 240.0;
+pub const JG_CS_UNTIL: f32 = 840.0;
+/// CS behind the benchmark that the pace line calls behind.
+pub const JG_CS_BEHIND: f32 = 10.0;
+/// A laner past the middle of their lane: within this of the lane line, beyond our fountain, and this far past the
+/// map's centre line toward our side (world units).
+pub const PUSH_BAND: i32 = 2200;
+pub const PUSH_BASE: i32 = 2500;
+pub const PUSH_PAST: i32 = 1000;
+/// Lane board weights; rows under the floor say "nothing special".
+pub const JG_W_PUSHED: f32 = 3.0;
+pub const JG_W_UNSEEN: f32 = -1.5;
+pub const JG_W_CC: f32 = 1.0;
+pub const JG_W_NO_DASH: f32 = 1.0;
+pub const JG_W_NO_FLASH: f32 = 1.5;
+pub const JG_W_GOLD: f32 = 1.0;
+pub const JG_W_BEHIND: f32 = -1.5;
+pub const JG_W_LEVEL: f32 = 0.75;
+pub const JG_W_JUNGLER_HERE: f32 = -3.0;
+pub const JG_W_JUNGLER_AWAY: f32 = 1.0;
+pub const JG_LANE_FLOOR: f32 = 1.0;
+pub const JG_REASONS: usize = 2;
+/// Allied laner CC (traits) that sets up a gank.
+pub const JG_CC: f32 = 0.6;
+/// Item-gold gap between the laners that makes a lane uneven.
+pub const JG_GOLD_EDGE: i32 = 500;
+/// An enemy laner unseen this long (s) may be roaming; seen within this long (s), still pushed.
+pub const JG_UNSEEN_S: f32 = 15.0;
+pub const JG_PUSHED_S: f32 = 3.0;
+pub const JG_SEEN_FRESH_S: f32 = 20.0;
+/// Champions without a dash, blink, leap or untargetable step (Data Dragon ids); unknown champions never count.
+pub const NO_DASH: &[&str] = &[
+    "Annie", "Anivia", "Ashe", "Blitzcrank", "Brand", "Cassiopeia", "Chogath", "Darius", "Draven", "DrMundo", "Garen", "Gangplank", "Heimerdinger",
+    "Hwei", "Illaoi", "Janna", "Jhin", "Jinx", "Karma", "Karthus", "Kayle", "Kennen", "KogMaw", "Lillia", "Lulu", "Lux", "Malzahar", "Mel",
+    "Milio", "MissFortune", "Mordekaiser", "Morgana", "Nami", "Nasus", "Neeko", "Olaf", "Orianna", "Rammus", "Renata", "Rumble", "Ryze", "Senna",
+    "Seraphine", "Sett", "Shyvana", "Singed", "Sivir", "Sona", "Soraka", "Swain", "Syndra", "Taric", "Teemo", "Trundle", "TwistedFate", "Twitch",
+    "Udyr", "Varus", "Veigar", "Velkoz", "Viktor", "Vladimir", "Volibear", "Xayah", "Xerath", "Yorick", "Zilean", "Zyra",
+];
+/// The objective back tip shows this long (s) before Dragon spawns.
+pub const JG_OBJECTIVE_TIP_S: f32 = 90.0;
