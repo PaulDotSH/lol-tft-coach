@@ -3,10 +3,9 @@
 //! Env: `TFT_MODEL` (dinov2-small.onnx, required for looks), `TFT_ME` (my name),
 //! `TFT_LIB` (library file, loaded when present and saved at the end), `TFT_LABELS` (JSON lines
 //! of every named piece, for auditing), `TFT_STABLE=1` (wait for two still reads, as live),
-//! `TFT_CROPS` (eval crops of my confirmed pieces, see `common/crops.rs`).
+//! `TFT_CROPS` (eval crops of my confirmed pieces, see `tft_vision::crops`).
 
-#[path = "common/crops.rs"]
-mod crops;
+use tft_vision::crops;
 
 use std::io::Write;
 use tft_coach::board::Named;

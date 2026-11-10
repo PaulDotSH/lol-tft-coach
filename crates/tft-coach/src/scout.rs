@@ -57,7 +57,7 @@ fn copies(star: u32) -> u32 {
 }
 
 /// Same player name, allowing one OCR slip in longer names.
-fn same_name(a: &str, b: &str) -> bool {
+pub(crate) fn same_name(a: &str, b: &str) -> bool {
     let norm = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect::<String>();
     let (a, b) = (norm(a), norm(b));
     a == b || (a.len() >= 6 && a.len() == b.len() && a.chars().zip(b.chars()).filter(|(x, y)| x != y).count() <= 1)
@@ -70,7 +70,7 @@ pub struct Held {
     pub y: f32,
     /// None: the looks and the panel couldn't name it.
     pub api: Option<Api>,
-    /// How it was named: "=" by the trait panel, "~" by looks, "≈" by a fight's seed vote, "?" not.
+    /// How it was named: "=" by the trait panel, "~" by looks, "^" by the classifier head, "≈" by a fight's seed vote, "?" not.
     pub how: &'static str,
     pub star: u32,
     pub bench: bool,
@@ -329,7 +329,7 @@ impl Scout {
     }
 
     /// My opponent's red bars, named by learnt looks (as on my board, else centred on this read's
-    /// mean), else by the seed vote: each bar's seed similarities summed over this fight's still
+    /// mean), else by the classifier head, else by the seed vote: each bar's seed similarities summed over this fight's still
     /// reads (a bar is the same across reads by bench slot or SAME_BAR), named among the units
     /// `allowed` for them (their plate's player, else the one the learnt names point to).
     /// The read naming the most copies stands for the round (units die and hide as the fight goes
@@ -348,8 +348,15 @@ impl Scout {
             .iter()
             .zip(&matches)
             .map(|(u, c)| {
-                let api = board::by_matches(c, set, false).or_else(|| by_centred_looks(lib, &u.emb, &center, set));
-                Held { x: u.x, y: u.y, how: if api.is_some() { "~" } else { "?" }, api, star: u.star, bench: u.bench.is_some() }
+                let looks = board::by_matches(c, set, false).or_else(|| by_centred_looks(lib, &u.emb, &center, set));
+                let (api, how) = match looks {
+                    Some(a) => (Some(a), "~"),
+                    None => match lib.head_name(&u.emb).filter(|a| set.units.contains_key(a)) {
+                        Some(a) => (Some(a), "^"),
+                        None => (None, "?"),
+                    },
+                };
+                Held { x: u.x, y: u.y, how, api, star: u.star, bench: u.bench.is_some() }
             })
             .collect();
         if self.votes_round != round {
@@ -445,12 +452,12 @@ fn by_centred_looks(lib: &Library, emb: &[f32], center: &[f32], set: &TftSetData
 }
 
 /// PvE rounds (minions, monsters): 1-2..1-4, then the 7th round of every later stage.
-fn pve((stage, round): (u32, u32)) -> bool {
+pub(crate) fn pve((stage, round): (u32, u32)) -> bool {
     (stage == 1 && round >= 2) || (stage >= 2 && round == 7)
 }
 
 /// Carousel rounds: 1-1, then the 4th round of every later stage.
-fn carousel((stage, round): (u32, u32)) -> bool {
+pub(crate) fn carousel((stage, round): (u32, u32)) -> bool {
     (stage, round) == (1, 1) || (stage >= 2 && round == 4)
 }
 

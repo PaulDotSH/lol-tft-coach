@@ -6,3 +6,6 @@ version.workspace = true
 [dependencies]
 tft-model.workspace = true
 half.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -3,7 +3,9 @@
 //! Pushes `TftState` on the `tft` event. Independent of the LoL orchestrator,
 //! which stays quiet in TFT. Units are told apart by an image model fetched once
 //! (`%LOCALAPPDATA%\lol-coach\models`) and looks learnt over games (`tft\looks.bin`); items by
-//! the Set's item icons (Community Dragon, in the HTTP cache).
+//! the Set's item icons (Community Dragon, in the HTTP cache). With "Collect TFT unit crops" on
+//! (always in debug mode) each game's unit crops go to `%LOCALAPPDATA%\lol-coach\dev\crops\<start>\`
+//! (`tft_vision::crops`), the newest CROPS_KEEP games kept.
 
 use crate::debug;
 use clients::lcu::Lcu;
@@ -27,8 +29,12 @@ const HISTORY_COUNT: u32 = 30;
 const LOOKS_SAVE: Duration = Duration::from_secs(120);
 /// Built-in looks of every unit from 3D renders (TFL2; empty: no seed yet).
 const LOOKS_SEED: &[u8] = include_bytes!("../../fixtures/tft/looks_seed.bin");
+/// Built-in classifier head for other players' units (TFH1; empty: none passed the gate yet, enemy naming by it off).
+const UNIT_HEAD: &[u8] = include_bytes!("../../fixtures/tft/head.bin");
 /// The image model download may take a while (88 MB).
 const MODEL_TIMEOUT: Duration = Duration::from_secs(600);
+/// Games of unit crops kept.
+const CROPS_KEEP: usize = 40;
 
 pub struct TftShared {
     state: Mutex<TftState>,
@@ -124,6 +130,38 @@ fn save_looks(lib: &tft_coach::Library) {
     }
 }
 
+/// One game's unit crops, the folder made on the first write.
+struct CropWriter {
+    root: std::path::PathBuf,
+    game: u64,
+    crops: Option<tft_vision::crops::Crops>,
+    failed: bool,
+}
+
+impl CropWriter {
+    fn new(root: std::path::PathBuf, game: u64) -> CropWriter {
+        CropWriter { root, game, crops: None, failed: false }
+    }
+
+    /// After `tracker.observe(snap)`: the read's crops (frames named by capture time, as the replays' captures).
+    fn write(&mut self, f: &ocr::Frame, snap: &TftSnapshot, tracker: &tft_coach::Tracker) {
+        if self.crops.is_none() && !self.failed {
+            match tft_vision::crops::Crops::for_game(&self.root, self.game, CROPS_KEEP) {
+                Ok(c) => self.crops = Some(c),
+                Err(e) => {
+                    tracing::warn!("tft crops {:?}: {e:#}", self.root);
+                    self.failed = true;
+                }
+            }
+        }
+        if let Some(c) = &mut self.crops
+            && let Err(e) = c.observe(f, &snap.at.to_string(), snap, tracker)
+        {
+            tracing::warn!("tft crops {:?}: {e:#}", c.dir());
+        }
+    }
+}
+
 /// Item icon templates for the set.
 async fn fetch_items(http: &data::Http, set: &TftSetData) -> anyhow::Result<tft_vision::ItemIcons> {
     let bodies = tft_data::item_icons(http, set).await;
@@ -150,6 +188,7 @@ async fn fetch_model() -> anyhow::Result<std::path::PathBuf> {
 }
 
 fn start_reader(
+    sh: Arc<crate::state::Shared>,
     tft: Arc<TftShared>,
     set: Arc<TftSetData>,
     meta: Arc<TftMeta>,
@@ -168,12 +207,14 @@ fn start_reader(
             }
         });
         let mut vision = tft_vision::Reader::new(&set).with_me(me).with_embedder(embedder);
-        let library = std::fs::read(looks_path()).ok().and_then(|b| tft_coach::Library::from_bytes(&b)).unwrap_or_default().with_seed(LOOKS_SEED);
+        let library = std::fs::read(looks_path()).ok().and_then(|b| tft_coach::Library::from_bytes(&b)).unwrap_or_default().with_seed(LOOKS_SEED).with_head(UNIT_HEAD);
         let seed = library.seeded();
-        tracing::info!("tft: {} looks of {} units known, seed {} looks of {} units", library.len(), library.units(), seed.0, seed.1);
+        tracing::info!("tft: {} looks of {} units known, seed {} looks of {} units, head {}", library.len(), library.units(), seed.0, seed.1, library.has_head());
         let mut tracker = tft_coach::Tracker::default().with_library(library);
         let (mut saved, mut saved_len) = (Instant::now(), tracker.library().len());
         let mut keep: Option<String> = None;
+        let start = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        let mut crops = CropWriter::new(crate::settings::local_dir("dev").join("crops"), start);
         let hooks: Box<dyn tft_coach::ModeHooks> = match TftMode::of_queue(queue) {
             // Choncc or Treat until 2026-11-17: delete with the tft-choncc crate.
             TftMode::Choncc => Box::new(tft_choncc::ChonccHooks),
@@ -184,9 +225,9 @@ fn start_reader(
             if !vision.has_items() {
                 vision.set_items(tft.items.lock().unwrap().clone());
             }
-            let snap = vision.read();
-            *tft.offer.lock().unwrap() = snap.as_ref().map_or(vec![], |s| s.augment_offer.clone());
-            if let Some(snap) = snap {
+            let read = vision.read_with_frame();
+            *tft.offer.lock().unwrap() = read.as_ref().map_or(vec![], |s| s.0.augment_offer.clone());
+            if let Some((snap, frame)) = read {
                 debug::dump("tft-snapshot", Duration::from_secs(5), &snap);
                 tracker.observe(&snap, &set);
                 let advice = tft_coach::advise(&tft_coach::CoachInput {
@@ -200,6 +241,9 @@ fn start_reader(
                 keep = advice.comps.first().map(|c| c.comp.clone());
                 debug::dump("tft-advice", Duration::from_secs(5), &advice);
                 tft.state.lock().unwrap().advice = Some(advice);
+                if debug::on() || sh.settings().tft_crops {
+                    crops.write(&frame, &snap, &tracker);
+                }
             }
             if saved.elapsed() > LOOKS_SAVE && tracker.library().len() != saved_len {
                 save_looks(tracker.library());
@@ -362,7 +406,7 @@ pub async fn run(app: AppHandle, sh: Arc<crate::state::Shared>, tft: Arc<TftShar
             (TftPhase::InGame, Some(s), Some(m), Some(q)) if reader.is_none() => {
                 tracing::info!("tft: reading the screen (queue {q})");
                 tft.state.lock().unwrap().advice = None;
-                reader = Some(start_reader(tft.clone(), s.clone(), m.clone(), q, me.clone(), model.clone()));
+                reader = Some(start_reader(sh.clone(), tft.clone(), s.clone(), m.clone(), q, me.clone(), model.clone()));
             }
             (TftPhase::InGame, ..) => {}
             _ => {
@@ -446,6 +490,51 @@ mod tests {
 
     fn p(progress: &str) -> TftPresence {
         TftPresence { queue: Some(1100), progress: progress.into(), name: None }
+    }
+
+    fn tree(dir: &std::path::Path) -> Vec<(String, Vec<u8>)> {
+        let mut out = vec![];
+        for g in ["", "combat", "mine", "scout"] {
+            let d = dir.join(g);
+            for e in std::fs::read_dir(&d).unwrap().filter_map(|e| e.ok()).filter(|e| e.path().is_file()) {
+                out.push((format!("{g}/{}", e.file_name().to_string_lossy()), std::fs::read(e.path()).unwrap()));
+            }
+        }
+        out.sort();
+        out
+    }
+
+    #[test]
+    fn the_app_writes_the_crops_the_replays_write() {
+        let tmp = std::env::temp_dir().join(format!("lol-coach-crops-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let frame = ocr::Frame { width: 2560, height: 1440, bgra: (0..2560 * 1440 * 4).map(|i| (i % 251) as u8).collect() };
+        let foe = |x: f32| SeenUnit { x, y: 300.0, star: 2, bench: None, full: true, items: vec![], emb: vec![0.5, -0.25, x / 1000.0] };
+        let rows = |b: u32| vec![("LeoDp".to_string(), 80), ("Kabeas".to_string(), b)];
+        let base = TftSnapshot { hp: Some(70), ..TftSnapshot::default() };
+        let snaps = [
+            TftSnapshot { at: 1, stage: Some((3, 1)), lobby: rows(60), ..base.clone() },
+            TftSnapshot { at: 2, stage: Some((3, 2)), lobby: rows(60), foes: vec![foe(900.0), foe(1100.0)], enemies: 2, viewing: Some("Kabeas".into()), ..base.clone() },
+            TftSnapshot { at: 3, stage: Some((3, 2)), lobby: rows(60), foes: vec![foe(905.0), foe(1100.0)], enemies: 2, ..base.clone() },
+            TftSnapshot { at: 4, stage: Some((3, 3)), lobby: rows(52), ..base.clone() },
+        ];
+        let set = TftSetData::default();
+        let (mut t, mut replay) = (tft_coach::Tracker::default().single_reads(), tft_vision::crops::Crops::open(tmp.join("replay")).unwrap());
+        for s in &snaps {
+            t.observe(s, &set);
+            replay.observe(&frame, &s.at.to_string(), s, &t).unwrap();
+        }
+        let (mut t, mut app) = (tft_coach::Tracker::default().single_reads(), CropWriter::new(tmp.join("app"), 1794000000));
+        for s in &snaps {
+            t.observe(s, &set);
+            app.write(&frame, s, &t);
+        }
+        let (a, b) = (tree(&tmp.join("replay")), tree(&tmp.join("app").join("1794000000")));
+        assert_eq!(a.iter().filter(|f| f.0.starts_with("combat/") && f.0.ends_with(".png")).count(), 2);
+        assert_eq!(a, b);
+        let fights = String::from_utf8(a.iter().find(|f| f.0 == "/fights.jsonl").unwrap().1.clone()).unwrap();
+        assert_eq!(fights.trim(), r#"{"candidates":["Kabeas"],"opponent":"Kabeas","round":[3,2]}"#);
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]

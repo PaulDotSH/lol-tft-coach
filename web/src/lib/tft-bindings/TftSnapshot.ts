@@ -65,4 +65,8 @@ viewing: string | null,
 /**
  * Units with red HP bars (my combat opponent's, PvE monsters); `emb` only while every bar is full.
  */
-foes: Array<SeenUnit>, };
+foes: Array<SeenUnit>, 
+/**
+ * The other players' rows of the player list: (name, HP), top to bottom.
+ */
+lobby: Array<[string, number]>, };

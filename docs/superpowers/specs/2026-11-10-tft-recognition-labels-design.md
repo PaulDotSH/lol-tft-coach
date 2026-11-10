@@ -1,6 +1,6 @@
 # TFT unit recognition, round two: real labels
 
-Date: 2026-11-10. Status: draft for review. Follows
+Date: 2026-11-10. Status: approved; track A signals 1/3/4, track B collection and autolabel v2, and the head loader built (see Implementation status). Follows
 `2026-10-25-tft-render-recognition-design.md`, whose approaches 1 and 2 failed the gate.
 
 ## Goal
@@ -196,7 +196,96 @@ more; otherwise drop the track.
   unit with no copies left in the pool is never named.
 - The gate report itself is the acceptance test and is pasted into "Measured".
 
+## Measured (2026-11-10)
+
+**The saved captures are gone.** Round one's full frames (`%LOCALAPPDATA%\lol-coach\debug\tft\<game>\`)
+are no longer on disk (nor anywhere under the user profile); what remains is the eval set
+(`dev\render\eval\<game>\`: each fight's first-read crops, embeddings, `crops.jsonl`), the hand
+labels (`tools/tft-render/eval/labels.jsonl`) and the client match history. So:
+
+- The eval set has **25 fights** over the three hand-labelled games (5 + 6 + 14), all in labelled
+  rounds, not 81 (the round-one figure counted something no longer reproducible).
+- **Signal 1** (plate at any moment of the fight) can't be counted: only the first read of each fight
+  was kept. On that read a plate shows in **5 of 25** fights (round one's rate).
+- **Signal 3** (HP rows) can't be measured: no player-list HP was saved. Built and unit-tested only.
+- **Signal 2 spike** (does the player list mark my opponent?) can't be done: no saved combat frame
+  shows the player list. Left open; needs one debug game with frames.
+- **Signals 1 (first read) + 4 (alive at that round, from history `last_round`) + 5 (best
+  explanation, BOARD_MARGIN 0.5, renders-only MLP head)**, `autolabel.py` v2 on the three games:
+
+| game | fights | linked | plate | one alive candidate | best fit | checkable | right | wrong |
+|---|---|---|---|---|---|---|---|---|
+| 20261025-024840 | 5 | 3 | 1 | 0 | 2 | 4 | 2 | 0 |
+| 20261025-031617 | 6 | 4 | 1 | 0 | 3 | 3 | 2 | 0 |
+| 20261025-153256 | 14 | 6 | 3 | 1 | 2 | 12 | 6 | 0 |
+| **all** | **25** | **13 (52 %)** | 5 | 1 | 7 | 19 | **10** | **0** |
+
+  "Checkable": the hand labels name one alive player whose final board holds most of the fight's
+  labelled units (at least half). Every checkable link was right (0 of 10 wrong, 0 %); 3 linked
+  fights weren't checkable. Elimination alone leaves 6.4 other players alive per fight on average,
+  so it shrinks the set little before stage 5. **Track A gate (≥ 80 % linked, ≤ 2 % wrong): wrong
+  rate met, link rate missed (52 %)**, before signals 1-at-any-moment, 2 and 3, which need a new game.
+- **Autolabel v2 labels** (LABEL_ROUNDS 4, LABEL_MARGIN 1.0, Hungarian with "none", star constraint)
+  with the renders-only head: 10 combat labels kept of 162 crops, 2 agreeing with the hand labels and
+  5 not (3 on unlabelled crops). **Track B label gate (≥ 90 % agreement) missed**; the links are right
+  but the renders-only head ranks a board's units badly (top-1 0.36). The labeller is meant to run
+  with the renders + real crops head; that training run is out of this step.
+- Match history names game folders by local time: on 2026-10-25 (DST change) `20261025-024840`
+  matched its game only an hour off, which round one's `autolabel.py` missed; v2 tries ±1 h.
+
 ## Out of scope
 
 My own board's recognition, items, the HP-bar and star readers, streamer VODs, and
 any use of the Riot API beyond what the client's local match history already gives.
+
+## Implementation status (2026-11-10)
+
+Built (branch `feat/tft-labels`):
+
+- **Track A.** `TftSnapshot.lobby: Vec<(String, u32)>`: each player list name paired with the HP
+  number on its row (`tft-vision`, `lobby`; centres within ROW_DY = 30 px). `tft_coach::fights`
+  (`Tracker::fights()`): a roster by first sighting (`PlayerIdx`), `Fight { round, candidates, opponent }`;
+  the opponent from any read of the fight with exactly one plate (all such reads agreeing); on the
+  second read of the next round the HP rows (each confirmed by two agreeing reads, as my own HP)
+  shrink the candidates: won → players whose HP dropped, narrowed to `expected_drop(stage, survivors)`
+  when that leaves any; lost → players whose HP held; dead (0 HP at the start) are out; a plate the HP
+  rows contradict is dropped; no candidate left with an odd number alive is a ghost fight, skipped.
+  Tests in `crates/tft-coach/tests/fights.rs` and the vision unit tests.
+- **Track B collection.** Setting `tft_crops` ("Collect TFT unit crops", off by default, always on in
+  debug mode). The writer moved from `examples/common/crops.rs` to `tft_vision::crops`, shared by the
+  replays (`TFT_CROPS`, `eval_crops`) and the app (`tft.rs` `CropWriter`, after each read's advice);
+  lines gain `player`/`link`, fights go to `fights.jsonl`; the folder is pruned to the newest 40 games.
+  Test: `the_app_writes_the_crops_the_replays_write` (same frames through `Crops::open` + `observe`, as
+  `eval_crops`, and through the app writer: identical files), plus a prune test.
+- **Autolabel v2** (`tools/tft-render/autolabel.py`) and its synthetic tests
+  (`tools/tft-render/test_autolabel.py`: final-board crops label every crop; outside LABEL_ROUNDS none;
+  star constraints; one slot per crop; links; head export).
+- **Head in Rust** (`tft_coach::head`, `Library::with_head` / `classify_head` / `head_name`): TFH1
+  format with the naming thresholds in its header; `fixtures/tft/head.bin` is an empty placeholder, so
+  head naming stays off; when present it names a fight's red bars after learnt looks and before the
+  seed vote (`how` "^"). `head.py --export head.bin` writes the file and its parity cases;
+  `--tiny-fixture` wrote `fixtures/tft/head_tiny.bin` + `head_tiny_parity.json` (114 cases), which the
+  Rust parity test checks (top-1 equal, probability within 5e-3); the shipped head is checked the same
+  way once it exists.
+
+Deviations:
+
+- No captures on disk: signals 1 and 3 and the signal 2 spike unmeasured (see Measured); 25 fights, not 81.
+- `Library::classify` is unchanged; the head path is separate (`classify_head`, `head_name`), since
+  its probabilities and the looks' similarities have different thresholds.
+- `Fight` lives in `tft-coach` (not `tft-model`): it isn't sent to the UI.
+- App game folders are named by the reader's start in unix seconds (no match id is known live);
+  `autolabel.py` matches both name styles to the history by time.
+- The "missing-file guard" is an empty `head.bin` (as `looks_seed.bin`), not a missing file.
+- Player damage per stage (`fights::STAGE_DAMAGE`, `UNIT_DAMAGE`) are unmeasured Set 18 guesses, used
+  only when they leave a candidate.
+- `board_replay` still writes only `mine` (it shares a folder with `scout_replay`); `eval_crops` is the
+  replay that writes every group through the same `observe` as the app.
+
+Open:
+
+1. Play one game in debug mode (crops on) with frame dumps: measure signal 1 at any moment, signal 3
+   (HP rows read, candidates per fight) and do the signal 2 spike; check ROW_DY and the damage table.
+2. Training runs (renders + real crops head, reject class), autolabel with that head, the gate report
+   with the real-crop column, `head.py --export` once the gate is met.
+3. Track C decoding, track D renders, collecting new games.

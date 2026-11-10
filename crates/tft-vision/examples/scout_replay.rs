@@ -6,10 +6,9 @@
 //! end unless `TFT_LIB_KEEP=1`), `TFT_STABLE=1` (two still reads, as live), `TFT_LABELS` (JSON
 //! lines of every named unit of others, for auditing), `TFT_EMBS` (JSON lines of every bar's
 //! embedding, green and red, for measuring looks offline), `TFT_CROPS` (eval crops of others'
-//! units, see `common/crops.rs`).
+//! units, see `tft_vision::crops`).
 
-#[path = "common/crops.rs"]
-mod crops;
+use tft_vision::crops;
 
 use std::io::Write;
 
@@ -49,6 +48,7 @@ fn main() -> anyhow::Result<()> {
         let file = p.rsplit(['/', '\\']).next().unwrap_or(p).to_string();
         if let Some(c) = &mut crops {
             c.others(&f, file.trim_end_matches(".png"), &snap, &tracker)?;
+            c.fights(&tracker)?;
         }
         if let Some(f) = &mut embs {
             for (red, u) in snap.units.iter().map(|u| (false, u)).chain(snap.foes.iter().map(|u| (true, u))) {

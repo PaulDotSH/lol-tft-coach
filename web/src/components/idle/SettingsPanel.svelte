@@ -53,6 +53,11 @@
     <input id="gank" type="checkbox" checked={settings.gank_warn} onchange={(e) => set('gank_warn', e.currentTarget.checked)} />
     <label for="rec">Record games as test fixtures</label>
     <input id="rec" type="checkbox" checked={settings.record_fixtures} onchange={(e) => set('record_fixtures', e.currentTarget.checked)} />
+    <label for="crops">
+      Collect TFT unit crops
+      <small>saves unit pictures of each fight and scouted board for training unit recognition; always on in debug mode</small>
+    </label>
+    <input id="crops" type="checkbox" checked={settings.tft_crops} onchange={(e) => set('tft_crops', e.currentTarget.checked)} />
   </div>
 </section>
 

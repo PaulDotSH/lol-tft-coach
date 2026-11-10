@@ -26,4 +26,9 @@ overlay: boolean,
 /**
  * Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
  */
-gank_warn: boolean, };
+gank_warn: boolean, 
+/**
+ * Save TFT unit crops of every fight and scouted board for training unit recognition
+ * (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
+ */
+tft_crops: boolean, };

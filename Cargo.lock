@@ -4420,6 +4420,7 @@ name = "tft-coach"
 version = "0.1.0"
 dependencies = [
  "half",
+ "serde_json",
  "tft-model",
 ]
 
