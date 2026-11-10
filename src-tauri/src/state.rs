@@ -58,8 +58,11 @@ pub struct Shared {
     /// Augment names in the League client's language (LCU), added to `ocr_names` when they
     /// differ from the English ones.
     pub local_augment_names: Mutex<Option<Arc<HashMap<AugmentId, String>>>>,
-    /// Last OCR offer and when it was seen.
-    pub offered: Mutex<(Vec<AugmentId>, Instant)>,
+    /// Last OCR offer (its cards in screen order) and when it was seen.
+    pub offered: Mutex<(Vec<ocr::offer::Card>, Instant)>,
+    /// A Mayhem offer should be on screen (an augment round reached, no pick since): the OCR thread
+    /// may read the wider band when the strip shows nothing.
+    pub offer_expected: Mutex<bool>,
     pub ocr_state: Mutex<SourceState>,
     /// Last lolalytics / u.gg fetch outcome.
     pub lola_ok: Mutex<Option<bool>>,
@@ -94,6 +97,9 @@ pub struct Shared {
     /// League install folder (from the client), and the minimap settings read from it.
     pub league_install: Mutex<Option<std::path::PathBuf>>,
     minimap_cfg: Mutex<Option<(clients::league_cfg::MinimapSettings, Instant)>>,
+    /// Where the screen readers found their elements (`calib.json`) and how they are doing.
+    pub calib: Mutex<crate::calib::Calib>,
+    pub health: Mutex<crate::health::Health>,
 }
 
 impl Shared {
@@ -122,6 +128,7 @@ impl Shared {
                 goal_progress: vec![],
                 history: vec![],
                 ranked: vec![],
+                readers: vec![],
             }),
             sd: RwLock::new(None),
             mayhem: Mutex::default(),
@@ -131,6 +138,7 @@ impl Shared {
             ocr_names: Mutex::new(None),
             local_augment_names: Mutex::new(None),
             offered: Mutex::new((vec![], Instant::now())),
+            offer_expected: Mutex::new(false),
             ocr_state: Mutex::new(SourceState::Off),
             lola_ok: Mutex::new(None),
             ugg_ok: Mutex::new(None),
@@ -153,7 +161,19 @@ impl Shared {
             portraits: Mutex::default(),
             league_install: Mutex::new(None),
             minimap_cfg: Mutex::new(None),
+            calib: Mutex::new(crate::calib::Calib::load(&crate::settings::local_dir("").join("calib.json"))),
+            health: Mutex::default(),
         }
+    }
+
+    /// Calibration key of a `w`×`h` League window under the player's HUD scale.
+    pub fn calib_key(&self, w: u32, h: u32) -> String {
+        crate::calib::key(w, h, self.minimap_settings().hud_scale)
+    }
+
+    /// Unix ms now, for reader health.
+    pub fn now_ms() -> u64 {
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
     }
 
     /// League's minimap scale and flip, from the install folder when known; cached.

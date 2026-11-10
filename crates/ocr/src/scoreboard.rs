@@ -6,7 +6,7 @@
 //! by min(w/1600, h/1200); the grid pitch was measured on a 1080p capture.
 //! Pure: works on captured frames positioned in client coordinates.
 
-use crate::Frame;
+use crate::{Found, Frame};
 use model_core::{AugmentId, ItemId, Rarity, Team};
 use std::collections::HashMap;
 
@@ -31,6 +31,16 @@ const ITEM_SLOTS: usize = 7;
 const BOARD: [f32; 4] = [37.0, 262.0, 1563.0, 779.0];
 /// Search radius around the predicted grid, source units.
 const SEARCH: f32 = 12.0;
+/// [`Geometry::fit`]: scales tried (of the window's default), coarse then fine steps, and the
+/// coarse search radius in source units (a coarse step's error plus an off-centre board).
+const FIT_RANGE: (f32, f32) = (0.6, 1.6);
+const FIT_COARSE: f32 = 0.04;
+const FIT_FINE: f32 = 0.01;
+const FIT_SEARCH: f32 = 40.0;
+/// Rows the coarse pass correlates per column.
+const FIT_ROWS: [usize; 3] = [0, 2, 4];
+/// A fitted board's centre stays within this share of the window of its centre.
+const FIT_CENTRE: f32 = 0.1;
 
 /// A row's grid counts as present at this outline correlation and border contrast (luma).
 /// Lowered from 0.35: late-game boards with filled cells cover most borders (0.30–0.47);
@@ -65,15 +75,46 @@ pub struct Rect {
 /// Source units → client pixels for one client size.
 #[derive(Debug, Clone, Copy)]
 pub struct Geometry {
-    s: f32,
-    cx: f32,
-    cy: f32,
+    /// Pixels per source unit.
+    pub s: f32,
+    /// Client pixel of the source centre.
+    pub cx: f32,
+    pub cy: f32,
 }
 
 impl Geometry {
     pub fn new(w: u32, h: u32) -> Self {
         let s = (w as f32 / SRC_W).min(h as f32 / SRC_H);
         Geometry { s, cx: w as f32 / 2.0, cy: h as f32 / 2.0 }
+    }
+
+    /// Scale and centre of the board in `f` (placed at `origin` in a `client`-sized window). The two
+    /// augment columns are found independently around `prior`'s centre at scales across the sanity
+    /// range: their distance over the expected distance is the scale, their midpoint the centre.
+    /// None unless the fitted geometry shows a grid on `OPEN_ROWS` rows with its scale 0.6-1.6 of the
+    /// window's default and its centre within 10 % of the window's. `Found::scale` is relative to that default.
+    pub fn fit(f: &Frame, origin: (i32, i32), client: (u32, u32), prior: &Geometry) -> Option<(Geometry, Found)> {
+        let img = Img::new(f, origin);
+        let base = Geometry::new(client.0, client.1);
+        let [left, right] = [0, 1].map(|h| fit_column(&img, prior, base.s, h));
+        let (left, right) = (left?, right?);
+        let x = |rows: &[(usize, (f32, f32))]| {
+            let mut v: Vec<f32> = rows.iter().map(|r| r.1.0).collect();
+            v.sort_by(f32::total_cmp);
+            v[v.len() / 2]
+        };
+        let (xl, xr) = (x(&left), x(&right));
+        let s = (xr - xl) / (AUG_X[1] - AUG_X[0]);
+        let cx = (xl + xr) / 2.0 - ((AUG_X[0] + AUG_X[1]) / 2.0 - SRC_W / 2.0) * s;
+        let ys: Vec<f32> = left.iter().chain(&right).map(|&(r, (_, y))| y - (AUG_Y + r as f32 * ROW_PITCH - SRC_H / 2.0) * s).collect();
+        let cy = ys.iter().sum::<f32>() / ys.len() as f32;
+        let g = Geometry { s, cx, cy };
+        let (w, h, k) = (client.0 as f32, client.1 as f32, s / base.s);
+        if !(FIT_RANGE.0..=FIT_RANGE.1).contains(&k) || (cx - w / 2.0).abs() > FIT_CENTRE * w || (cy - h / 2.0).abs() > FIT_CENTRE * h {
+            return None;
+        }
+        let n = found(&grids(&img, &g, &[0, 1]));
+        (n >= OPEN_ROWS).then(|| (g, Found { rect: g.board(), scale: k, score: n as f32 / 10.0 }))
     }
 
     fn pt(&self, x: f32, y: f32) -> (f32, f32) {
@@ -359,10 +400,8 @@ fn outline(img: &Img, o: (f32, f32), s: f32, vertical: bool, horizontal: bool) -
     acc
 }
 
-/// Top-left of the row's first cell when its grid outline is there.
-fn find_grid(img: &Img, g: &Geometry, half: usize, row: usize) -> Option<(f32, f32)> {
-    let (s, p) = (g.s, g.grid(half, row));
-    let r = (SEARCH * s).ceil() as i32;
+/// Best spot within `r` pixels of `p` for a grid outline at scale `s`: (top-left, correlation, contrast).
+fn best_grid(img: &Img, p: (f32, f32), s: f32, r: i32) -> ((f32, f32), f32, f32) {
     let best = |at: &dyn Fn(i32) -> (f32, f32), v: bool, h: bool| {
         (-r..=r)
             .map(|d| (outline(img, at(d), s, v, h).value(), d))
@@ -374,7 +413,64 @@ fn find_grid(img: &Img, g: &Geometry, half: usize, row: usize) -> Option<(f32, f
     let dy = best(&|d| (p.0 + dx as f32, p.1 + d as f32), false, true);
     let o = (p.0 + dx as f32, p.1 + dy as f32);
     let acc = outline(img, o, s, true, true);
-    (acc.value() >= GRID_NCC && acc.amplitude() >= GRID_AMP).then_some(o)
+    (o, acc.value(), acc.amplitude())
+}
+
+fn is_grid(ncc: f32, amp: f32) -> bool {
+    ncc >= GRID_NCC && amp >= GRID_AMP
+}
+
+/// Top-left of the row's first cell when its grid outline is there.
+fn find_grid(img: &Img, g: &Geometry, half: usize, row: usize) -> Option<(f32, f32)> {
+    let (o, ncc, amp) = best_grid(img, g.grid(half, row), g.s, (SEARCH * g.s).ceil() as i32);
+    is_grid(ncc, amp).then_some(o)
+}
+
+/// One half's augment column: the scale (of `FIT_RANGE` x `base`) whose outline correlates best on a
+/// few rows around `prior`'s centre, refined in fine steps; the rows found at the best fine scale.
+fn fit_column(img: &Img, prior: &Geometry, base: f32, half: usize) -> Option<Vec<(usize, (f32, f32))>> {
+    let mut coarse = (f32::MIN, 0.0, (0.0, 0.0));
+    let mut s = base * FIT_RANGE.0;
+    while s <= base * FIT_RANGE.1 {
+        let g = Geometry { s, ..*prior };
+        let r = (FIT_SEARCH * s).ceil() as i32;
+        let spots: Vec<(usize, (f32, f32), f32)> = FIT_ROWS
+            .iter()
+            .map(|&row| {
+                // The radius spans a cell pitch: the whole outline tells the grid from itself shifted by a cell.
+                let (o, ..) = best_grid(img, g.grid(half, row), s, r);
+                (-1..=1)
+                    .flat_map(|i| (-1..=1).map(move |j| (o.0 + i as f32 * PITCH_X * s, o.1 + j as f32 * PITCH_Y * s)))
+                    .map(|o| (row, o, outline(img, o, s, true, true).value()))
+                    .fold((row, o, f32::MIN), |a, b| if b.2 > a.2 { b } else { a })
+            })
+            .collect();
+        let score: f32 = spots.iter().map(|p| p.2).sum();
+        if score > coarse.0 {
+            let mut x: Vec<f32> = spots.iter().map(|p| p.1.0).collect();
+            let mut y: Vec<f32> = spots.iter().map(|p| p.1.1 - p.0 as f32 * ROW_PITCH * s).collect();
+            x.sort_by(f32::total_cmp);
+            y.sort_by(f32::total_cmp);
+            coarse = (score, s, (x[x.len() / 2], y[y.len() / 2]));
+        }
+        s *= 1.0 + FIT_COARSE;
+    }
+    let (_, sc, at) = coarse;
+    let steps = (FIT_COARSE / FIT_FINE).round() as i32;
+    (-steps..=steps)
+        .map(|j| {
+            let s = sc * (1.0 + j as f32 * FIT_FINE);
+            let rows: Vec<(usize, (f32, f32), f32)> = (0..5)
+                .filter_map(|row| {
+                    let (o, ncc, amp) = best_grid(img, (at.0, at.1 + row as f32 * ROW_PITCH * s), s, (SEARCH * s).ceil() as i32);
+                    is_grid(ncc, amp).then_some((row, o, ncc))
+                })
+                .collect();
+            (rows.iter().map(|r| r.2).sum::<f32>(), rows)
+        })
+        .filter(|c| !c.1.is_empty())
+        .max_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, rows)| rows.into_iter().map(|(row, o, _)| (row, o)).collect())
 }
 
 /// Diagnostics: (half, row, outline correlation, border contrast) at the best spot per row.
@@ -977,6 +1073,48 @@ mod tests {
         // Ultrawide keeps the height scale and stays centred.
         let u = Geometry::new(3440, 1440);
         assert!((u.grid(0, 0).0 - (1720.0 - 748.0 * 1.2)).abs() < 0.01);
+    }
+
+    /// A board drawn at `k` x the window's default scale, its centre moved by (dx, dy) pixels.
+    fn drawn(w: u32, h: u32, k: f32, dx: f32, dy: f32) -> (Canvas, Geometry) {
+        let d = Geometry::new(w, h);
+        let g = Geometry { s: d.s * k, cx: d.cx + dx, cy: d.cy + dy };
+        let mut canvas = Canvas::new(w, h, 11);
+        canvas.board(&g);
+        for (row, slot, id, rarity) in [(0, 0, 1001, G), (2, 1, 1305, S), (3, 0, 1331, P)] {
+            canvas.augment(&g, 1, row, slot, &png(id), rarity);
+        }
+        (canvas, g)
+    }
+
+    #[test]
+    fn fit_recovers_scale_and_centre() {
+        for (w, h, k, dx, dy) in [(1920, 1080, 0.85, 0.0, 0.0), (2560, 1440, 1.2, 0.0, 0.0), (1920, 1080, 1.0, 30.0, -20.0), (2560, 1440, 0.85, -25.0, 15.0)] {
+            let (canvas, want) = drawn(w, h, k, dx, dy);
+            let t = Instant::now();
+            let (g, found) = Geometry::fit(&canvas.frame, (0, 0), (w, h), &Geometry::new(w, h)).unwrap_or_else(|| panic!("{w}x{h} {k} not fitted"));
+            println!("{w}x{h} at {k}, ({dx}, {dy}): {g:?} {found:?} in {:?}", t.elapsed());
+            assert!((found.scale - k).abs() < 0.01, "{w}x{h} {k}: {found:?}");
+            assert!((g.cx - want.cx).abs() < 2.0 && (g.cy - want.cy).abs() < 2.0, "{w}x{h} {k}: {g:?} vs {want:?}");
+            assert!(found.score >= 0.8);
+            let open = |g: &Geometry| {
+                let [a, b] = [g.column(0), g.column(1)];
+                let (fa, fb) = (canvas.crop(a), canvas.crop(b));
+                is_open([(&fa, (a.x, a.y)), (&fb, (b.x, b.y))], g)
+            };
+            assert!(open(&g), "{w}x{h} {k}: fitted board not open");
+            if k != 1.0 {
+                assert!(!open(&Geometry::new(w, h)), "{w}x{h} {k}: the default geometry already reads it");
+            }
+        }
+    }
+
+    #[test]
+    fn fit_finds_nothing_without_a_board() {
+        for (w, h) in [(1920, 1080), (2560, 1440)] {
+            let canvas = Canvas::new(w, h, 3);
+            assert!(Geometry::fit(&canvas.frame, (0, 0), (w, h), &Geometry::new(w, h)).is_none(), "{w}x{h}");
+        }
     }
 
     /// Manual false-positive check on full screenshots: `SCREENSHOTS=a.png;b.png cargo test -p ocr -- --ignored real_closed`.

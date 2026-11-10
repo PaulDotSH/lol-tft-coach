@@ -99,6 +99,21 @@ pub fn map_square(frame: &Frame, flipped: bool) -> MapSquare {
     if w == 0 || h == 0 || frame.bgra.len() < w * h * 4 {
         return MapSquare { x: 0.0, y: 0.0, side: w.min(h) as f32 };
     }
+    if let Some(sq) = find_square(frame) {
+        return sq;
+    }
+    let widget = w as f32 / CAPTURE_PAD;
+    let side = widget * MAP_OF_WIDGET;
+    let x = if flipped { widget * MAP_SIDE_MARGIN } else { w as f32 - widget * MAP_SIDE_MARGIN - side };
+    MapSquare { x, y: h as f32 - widget * MAP_BOTTOM_MARGIN - side, side }
+}
+
+/// The map square by its black padding; None when the padding isn't there (the fallback place is used).
+pub fn find_square(frame: &Frame) -> Option<MapSquare> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    if w == 0 || h == 0 || frame.bgra.len() < w * h * 4 {
+        return None;
+    }
     let (mut rows, mut cols) = (vec![0u32; h], vec![0u32; w]);
     for (i, p) in frame.bgra.as_chunks::<4>().0.iter().take(w * h).enumerate() {
         if p[0].max(p[1]).max(p[2]) <= BLACK_MAX {
@@ -113,13 +128,10 @@ pub fn map_square(frame: &Frame, flipped: bool) -> MapSquare {
     if let (Some((x0, x1)), Some((y0, y1))) = (span(&cols, h), span(&rows, w)) {
         let (sw, sh) = ((x1 - x0 + 1) as f32, (y1 - y0 + 1) as f32);
         if (sw - sh).abs() <= 0.03 * sw && sw >= 0.6 * w.min(h) as f32 {
-            return MapSquare { x: x0 as f32, y: y0 as f32, side: (sw + sh) / 2.0 };
+            return Some(MapSquare { x: x0 as f32, y: y0 as f32, side: (sw + sh) / 2.0 });
         }
     }
-    let widget = w as f32 / CAPTURE_PAD;
-    let side = widget * MAP_OF_WIDGET;
-    let x = if flipped { widget * MAP_SIDE_MARGIN } else { w as f32 - widget * MAP_SIDE_MARGIN - side };
-    MapSquare { x, y: h as f32 - widget * MAP_BOTTOM_MARGIN - side, side }
+    None
 }
 
 fn is_red(&[b, g, r, _]: &[u8; 4]) -> bool {
@@ -476,6 +488,7 @@ mod tests {
         let sq = map_square(&f, false);
         assert!((sq.side - 338.0).abs() < 4.0 && (392.0 - sq.x - sq.side - 16.0).abs() < 2.0, "{sq:?}");
         assert!(map_square(&f, true).x < 20.0);
+        assert_eq!(find_square(&f), None);
     }
 
     fn fixture(path: &str) -> Rgba {
@@ -498,6 +511,7 @@ mod tests {
         for n in ["red_side_0108", "blue_side_0236", "blue_side_0802"] {
             let sq = map_square(&minimap(n), false);
             assert!((sq.x - 35.0).abs() <= 1.0 && (sq.y - 34.0).abs() <= 1.0 && (sq.side - 338.0).abs() <= 1.5, "{n}: {sq:?}");
+            assert_eq!(find_square(&minimap(n)), Some(sq), "{n}");
         }
     }
 

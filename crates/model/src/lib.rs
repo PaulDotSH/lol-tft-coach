@@ -20,6 +20,11 @@ enums! {
     pub enum Phase { NoClient, Idle, ChampSelect, Loading, InGame, PostGame }
 
     pub enum SourceState { Off, Ok, Degraded, Error }
+
+    /// A screen reader's last word on its element: found where expected, found elsewhere (another
+    /// scale or place), not found in a whole game it should have shown in, not in use, or not checked
+    /// yet (this session, or since a patch changed the layout).
+    pub enum ReaderState { Ok, Shifted, NotFound, Off, Unverified }
 }
 
 data! {
@@ -59,6 +64,18 @@ data! {
         /// Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
         #[serde(default = "yes")]
         pub gank_warn: bool,
+    }
+
+    /// One screen reader's health (Settings, "Screen reading").
+    pub struct ReaderHealth {
+        /// "Augment offer", "Tab scoreboard", "Minimap".
+        pub name: String,
+        pub state: ReaderState,
+        /// e.g. "found at 0.92× (HUD scale)", "not checked since 16.22".
+        pub detail: Option<String>,
+        /// Unix ms of the last find this session.
+        #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+        pub last_ok: Option<u64>,
     }
 
     /// One rank badge over an offered augment card. Ranks only, never win rates.
@@ -131,6 +148,9 @@ data! {
         /// LP over my ranked games, Solo/Duo then Flex.
         #[serde(default)]
         pub ranked: Vec<RankTrend>,
+        /// Screen readers and whether they find their elements.
+        #[serde(default)]
+        pub readers: Vec<ReaderHealth>,
     }
 }
 

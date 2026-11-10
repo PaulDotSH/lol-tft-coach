@@ -1,6 +1,7 @@
-//! The player's minimap settings from League's `PersistedSettings.json`
+//! The player's minimap and HUD settings from League's `PersistedSettings.json`
 //! (`files[Game.cfg].sections[HUD].settings`, each `{ "name", "value" }`), so the minimap's
-//! on-screen size and orientation are known without any clicks. Read-only.
+//! on-screen size and orientation, and the HUD scale the screen readers calibrate under,
+//! are known without any clicks. Read-only.
 
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -14,9 +15,11 @@ pub struct MinimapSettings {
     pub scale: f32,
     /// "Flip minimap" option on.
     pub flipped: bool,
+    /// HUD scale slider (`GlobalScale`, 0..=1); None when the file doesn't say.
+    pub hud_scale: Option<f32>,
 }
 
-const DEFAULTS: MinimapSettings = MinimapSettings { scale: DEFAULT_SCALE, flipped: false };
+const DEFAULTS: MinimapSettings = MinimapSettings { scale: DEFAULT_SCALE, flipped: false, hud_scale: None };
 
 /// None when `json` isn't valid JSON; missing settings take defaults (DEFAULT_SCALE, not flipped).
 pub fn parse(json: &str) -> Option<MinimapSettings> {
@@ -27,7 +30,8 @@ pub fn parse(json: &str) -> Option<MinimapSettings> {
         .unwrap_or(DEFAULT_SCALE)
         .clamp(0.0, 2.0);
     let flipped = find(&v, &|k| k.eq_ignore_ascii_case("FlipMiniMap")).is_some_and(|s| truthy(&s));
-    Some(MinimapSettings { scale, flipped })
+    let hud_scale = find(&v, &|k| k.eq_ignore_ascii_case("GlobalScale")).and_then(|s| s.trim().parse::<f32>().ok()).filter(|s| s.is_finite()).map(|s| s.clamp(0.0, 1.0));
+    Some(MinimapSettings { scale, flipped, hud_scale })
 }
 
 /// Reads `<install_dir>\Config\PersistedSettings.json` first when given, then the fallback install paths; defaults when none can be read.
@@ -85,7 +89,7 @@ mod tests {
 
     #[test]
     fn real_file_values() {
-        assert_eq!(parse(&fixture()), Some(MinimapSettings { scale: 1.0, flipped: false }));
+        assert_eq!(parse(&fixture()), Some(MinimapSettings { scale: 1.0, flipped: false, hud_scale: None }));
     }
 
     #[test]
@@ -98,13 +102,20 @@ mod tests {
     #[test]
     fn legacy_key_value_shape() {
         let j = r#"{"sections":[{"settings":[{"key":"MinimapScale","value":"0.8"},{"key":"FlipMiniMap","value":"true"}]}]}"#;
-        assert_eq!(parse(j), Some(MinimapSettings { scale: 0.8, flipped: true }));
+        assert_eq!(parse(j), Some(MinimapSettings { scale: 0.8, flipped: true, hud_scale: None }));
     }
 
     #[test]
     fn spectator_scale_and_move_self_do_not_count() {
-        let j = r#"[{"name":"MinimapScaleSpectator","value":"1.5"},{"name":"MinimapMoveSelf","value":"1"}]"#;
+        let j = r#"[{"name":"MinimapScaleSpectator","value":"1.5"},{"name":"MinimapMoveSelf","value":"1"},{"name":"GlobalScaleReplay","value":"0.5"}]"#;
         assert_eq!(parse(j), Some(DEFAULTS));
+    }
+
+    #[test]
+    fn hud_scale_from_global_scale() {
+        let j = r#"{"files":[{"name":"Game.cfg","sections":[{"name":"HUD","settings":[{"name":"GlobalScaleReplay","value":"1.0000"},{"name":"GlobalScale","value":"0.1000"}]}]}]}"#;
+        assert_eq!(parse(j).and_then(|s| s.hud_scale), Some(0.1));
+        assert_eq!(parse(r#"[{"name":"GlobalScale","value":"7"}]"#).and_then(|s| s.hud_scale), Some(1.0));
     }
 
     #[test]

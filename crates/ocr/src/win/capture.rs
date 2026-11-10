@@ -6,14 +6,6 @@ use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetClientRect, GetForegroundWindow, GetWindowTextW, IsIconic};
 use windows::core::{PCWSTR, w};
 
-/// Fractions of the client area holding the three augment card *titles* (and the
-/// category tag under them). Measured on real 1440p Mayhem offers, normal and
-/// prismatic: cards span x 22–78 %, titles sit at y ≈ 41 %, descriptions start at
-/// ≈ 47 %. Only this strip is read, so chat, kill feed and pings (which often
-/// name augments) can't produce false offers.
-const REGION_X: (f32, f32) = (0.18, 0.82);
-const REGION_Y: (f32, f32) = (0.365, 0.462);
-
 /// Top-down 32-bit DIB section selected into its own memory DC.
 pub(crate) struct Dib {
     pub dc: HDC,
@@ -119,12 +111,8 @@ pub fn capture_league() -> Option<Frame> {
             return None;
         }
     }
-    let (cw, ch) = (rc.right as f32, rc.bottom as f32);
-    let x = origin.x + (cw * REGION_X.0) as i32;
-    let y = origin.y + (ch * REGION_Y.0) as i32;
-    let w = (cw * (REGION_X.1 - REGION_X.0)) as i32;
-    let h = (ch * (REGION_Y.1 - REGION_Y.0)) as i32;
-    grab_screen(x, y, w, h)
+    let r = crate::offer::rect(rc.right.max(0) as u32, rc.bottom.max(0) as u32, crate::offer::STRIP);
+    grab_screen(origin.x + r.x, origin.y + r.y, r.w, r.h)
 }
 
 /// DIB sections kept per capture thread, newest last: each poll grabs the same few sizes
