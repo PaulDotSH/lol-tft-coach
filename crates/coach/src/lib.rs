@@ -23,6 +23,7 @@ mod memory;
 mod modes;
 mod needs;
 mod picks;
+mod plan;
 mod recap;
 mod resists;
 mod runes;
@@ -52,6 +53,7 @@ pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal
 pub use ranked::{ladder, rank_trends};
 pub use trends::trends;
 pub use picks::AugmentTracker;
+pub use plan::{Curve, PlanInput as GamePlanInput, game_plan, roster_draft};
 pub use gank::{GankEnemies, GankTracker, SightLog, Sighting};
 use model::*;
 pub use shop::{eta as gold_eta, shopping};

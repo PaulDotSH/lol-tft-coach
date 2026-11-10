@@ -40,6 +40,25 @@ pub const SKILL_MATCHUP_MIN: u32 = 200;
 /// No row from this level on while Q, W and E have no rank (a champion without points to place).
 pub const SKILL_NONE_LEVEL: u32 = 3;
 
+// ---- game plan ----
+/// Game-length buckets with fewer games are merged into a neighbour.
+pub const PLAN_MIN_GAMES: u32 = 200;
+/// A bucket's win rate minus the champion's own is shrunk toward 0 by games / (games + this).
+pub const PLAN_SHRINK_K: f32 = 400.0;
+/// Under this many points between the teams a phase reads "even".
+pub const PLAN_EVEN: f32 = 0.7;
+/// A champion is named as a side's scaler (early or late) from this many points.
+pub const PLAN_SCALER_MIN: f32 = 1.5;
+/// Champions named per phase on the scaling line.
+pub const PLAN_NAMES: usize = 2;
+/// Phase boundaries in minutes: early before the first, late from the second.
+pub const PLAN_RIFT_PHASES: [u32; 2] = [25, 35];
+pub const PLAN_ARAM_PHASES: [u32; 2] = [15, 20];
+/// Full card for this long into the game (s), then the folded line.
+pub const PLAN_SHOW_S: f32 = 120.0;
+/// Enemies named on the record line.
+pub const PLAN_RECORD_MAX: usize = 3;
+
 // ---- needs ----
 /// Bounds on the armor/MR need multiplier from my current resists.
 pub const RESIST_TILT_MIN: f32 = 0.5;

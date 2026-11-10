@@ -483,5 +483,6 @@ pub fn ahri_stats() -> ChampStats {
         skill_order: "QWEQQRQWQWRWWEE".into(),
         skill_order_games: 5_000,
         skill_priority: "QWE".into(),
+        by_length: vec![],
     }
 }

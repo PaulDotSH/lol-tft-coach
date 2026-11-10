@@ -51,6 +51,8 @@ pub struct Shared {
     pub sd: RwLock<Option<Arc<StaticData>>>,
     pub mayhem: Cache<(), MayhemData>,
     pub stats: Cache<StatsKey, ChampStats>,
+    /// Game-plan card: win rate by game length per champion (build page) and the lane it is for.
+    pub lengths: Cache<StatsKey, coach::Curve>,
     pub tiers: Cache<Lane, Vec<TierEntry>>,
     pub augments: Cache<ChampKey, ChampAugments>,
     /// Augment pool names for the OCR thread; None = OCR idle.
@@ -130,10 +132,12 @@ impl Shared {
                 history: vec![],
                 ranked: vec![],
                 readers: vec![],
+                plan: None,
             }),
             sd: RwLock::new(None),
             mayhem: Mutex::default(),
             stats: Mutex::default(),
+            lengths: Mutex::default(),
             tiers: Mutex::default(),
             augments: Mutex::default(),
             ocr_names: Mutex::new(None),
@@ -209,6 +213,7 @@ impl Shared {
 
     pub fn clear_stats(&self) {
         self.stats.lock().unwrap().clear();
+        self.lengths.lock().unwrap().clear();
         self.tiers.lock().unwrap().clear();
         self.lane_stats.lock().unwrap().clear();
         self.aram_tiers.lock().unwrap().clear();

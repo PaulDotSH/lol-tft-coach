@@ -29,6 +29,45 @@ async fn main() -> anyhow::Result<()> {
     println!("coach tick: {:?}", t.elapsed());
     print_game(&sd, &a);
 
+    // Game plan for the fixture's ten champions, lanes from their positions.
+    let t = Instant::now();
+    let mut length = std::collections::HashMap::new();
+    for p in &snap.players {
+        match data::lolalytics::length_stats(&http, &sd.champs[&p.champ], p.position, snap.mode, "emerald_plus", "all", &patch).await {
+            Ok(c) => {
+                length.insert(p.champ, c);
+            }
+            Err(e) => println!("length {}: {e:#}", sd.champ_name(p.champ)),
+        }
+    }
+    let side = |ally: bool| snap.players.iter().filter(|p| (p.team == me.team) == ally).map(|p| (p.champ, p.position)).collect::<Vec<_>>();
+    let (allies, foes) = (side(true), side(false));
+    let keys = |v: &[(ChampKey, Option<Lane>)]| v.iter().map(|x| x.0).collect::<Vec<_>>();
+    let draft = coach::roster_draft(&sd, &keys(&allies), &keys(&foes));
+    let notes = data::notes::lane_notes()?;
+    let plan = coach::game_plan(&coach::GamePlanInput { allies: &allies, enemies: &foes, length: &length, draft: Some(&draft), matchup: None, memory: &[], notes: &notes, sd: &sd, mode: snap.mode });
+    println!("
+== Game plan ({:?}) ==", t.elapsed());
+    for (c, (lane, b)) in &length {
+        let rows: Vec<String> = b.iter().map(|w| format!("{}:{}/{}", w.from_min, w.games, w.wins)).collect();
+        println!("curve {:<12} {:?} {}", sd.champ_name(*c), lane, rows.join(" "));
+    }
+    match &plan {
+        Some(p) => {
+            for ph in &p.phases {
+                println!("phase {:<5} {:>2}-{:<4} edge {:+.2}{}", ph.name, ph.from_min, ph.to_min.map_or("".into(), |m| m.to_string()), ph.edge, if ph.even { " (even)" } else { "" });
+            }
+            for s in &p.scalers {
+                println!("scaler {:<12} ally {} early {:+.2} late {:+.2}{}", sd.champ_name(s.champ), s.ally, s.early, s.late, if s.off_lane { " (main-lane data)" } else { "" });
+            }
+            for l in &p.lines {
+                println!("{:<8} {}", l.kind, l.text);
+            }
+            println!("fold: {} | {} | {} of {} champions", p.fold, p.source, p.curves, p.champs);
+        }
+        None => println!("no plan (no curves)"),
+    }
+
     // Mayhem: same snapshot treated as Mayhem with a fake 3-card offer.
     let m = data::ugg::mayhem(&http, &sd.version).await?;
     let aug = data::ugg::champ_augments(&http, &m.patch, me.champ).await?;

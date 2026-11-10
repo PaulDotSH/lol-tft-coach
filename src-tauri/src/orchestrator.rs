@@ -71,7 +71,13 @@ struct Memo {
     client: Option<(u32, u32)>,
     /// Reader health was settled for this game.
     health_done: bool,
+    /// Game-plan card, and what it was built from (rebuilt when that changes: a curve landed).
+    plan: Option<GamePlan>,
+    plan_key: Option<PlanKey>,
 }
+
+/// Lineups, curves ready, draft and lane card win rate known, record rows.
+type PlanKey = (Vec<(ChampKey, Option<Lane>)>, usize, bool, bool, usize);
 
 impl Memo {
     fn new_game(&mut self) {
@@ -194,6 +200,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                             let me = cs.my_pick.or(cs.my_hover);
                             advice.memory = coach::matchup_memory(games.as_deref().map_or(&[], |g| g.as_slice()), &cs.enemies, cs.mode, me);
                             advice.matchup = crate::draft::matchup(&sh, &sd, &cs, &advice);
+                            select_plan(&sh, &sd, &cs, &advice, &mut memo);
                             debug::dump("champ-select-advice", Duration::from_secs(5), &advice);
                             champ_select = Some(advice);
                         }
@@ -319,6 +326,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         let history = macro_sync.games().map(|g| g.to_vec()).unwrap_or_default();
         let ranked = rank_log.tick(lcu.as_ref(), phase);
         let goal_progress = if game.is_some() { memo.goal_progress.clone() } else { vec![] };
+        let plan = if matches!(phase, Phase::ChampSelect | Phase::Loading | Phase::InGame) { memo.plan.clone() } else { None };
         push(&app, &sh, &mut last_json, move |st| {
             st.phase = phase;
             st.sources = sources;
@@ -331,6 +339,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             st.history = history;
             st.ranked = ranked;
             st.readers = readers;
+            st.plan = plan;
         });
 
         let tick = match phase {
@@ -610,9 +619,92 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
         }
     let sights = sh.sights.lock().unwrap().clone();
     memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &settings.goals, watch.then_some(&sights));
+    game_plan(sh, sd, snap, &advice, &memory, lane, memo);
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice
+}
+
+/// Win rate by game length for one champion (its build page), fetched in the background.
+fn length(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<Lane>, mode: Mode) -> Option<Arc<coach::Curve>> {
+    let lane = if mode == Mode::Rift { lane } else { None };
+    let (c, patch) = (sd.champs.get(&champ)?, sh.patch()?);
+    ensure(sh, |s| &s.lengths, |s| &s.lola_ok, StatsKey { champ, lane, mode }, move || {
+        let (http, s, c) = (sh.http.clone(), sh.settings(), c.clone());
+        async move { data::lolalytics::length_stats(&http, &c, lane, mode, &s.tier, &s.region, &patch).await }
+    })
+}
+
+/// Build the game-plan card into `memo` unless its inputs are unchanged. A card that can't be
+/// built yet (no curve fetched) leaves the last one standing.
+#[allow(clippy::too_many_arguments)]
+fn build_plan(
+    sh: &Arc<Shared>,
+    sd: &StaticData,
+    memo: &mut Memo,
+    allies: Vec<(ChampKey, Option<Lane>)>,
+    enemies: Vec<(ChampKey, Option<Lane>)>,
+    mode: Mode,
+    draft: Option<&DraftReport>,
+    matchup: Option<&MatchupPlan>,
+    memory: &[MatchupMemory],
+) {
+    let length: std::collections::HashMap<ChampKey, coach::Curve> =
+        allies.iter().chain(&enemies).filter_map(|&(c, l)| Some((c, (*length(sh, sd, c, l, mode)?).clone()))).collect();
+    let lane_wr = matchup.is_some_and(|m| m.cards.iter().any(|c| c.vs_wr.is_some()));
+    let key: PlanKey = (allies.iter().chain(&enemies).copied().collect(), length.len(), draft.is_some(), lane_wr, memory.len());
+    if memo.plan_key.as_ref() == Some(&key) {
+        return;
+    }
+    let plan = coach::game_plan(&coach::GamePlanInput {
+        allies: &allies,
+        enemies: &enemies,
+        length: &length,
+        draft,
+        matchup,
+        memory,
+        notes: crate::draft::lane_notes(),
+        sd,
+        mode,
+    });
+    if plan.is_some() {
+        memo.plan = plan;
+    }
+    memo.plan_key = Some(key);
+}
+
+/// Champ select preview: Rift once all ten champions are shown, lanes as the draft placed them.
+fn select_plan(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice, memo: &mut Memo) {
+    let Some(d) = advice.draft.as_ref().filter(|d| cs.mode == Mode::Rift && d.allies.champs.len() == 5 && d.enemies.champs.len() == 5) else {
+        (memo.plan, memo.plan_key) = (None, None);
+        return;
+    };
+    let lineup = |s: &DraftSide, ally: bool| -> Vec<(ChampKey, Option<Lane>)> {
+        s.champs.iter().map(|&c| (c, d.lanes.iter().find(|l| (if ally { l.ally } else { l.enemy }) == Some(c)).map(|l| l.lane))).collect()
+    };
+    build_plan(sh, sd, memo, lineup(&d.allies, true), lineup(&d.enemies, false), cs.mode, Some(d), advice.matchup.as_ref(), &advice.memory);
+}
+
+/// In game, from the Live API roster: lanes from `position`, the comps rebuilt from the
+/// champions, my lane from the laning panel's cards.
+fn game_plan(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, advice: &GameAdvice, memory: &[MatchupMemory], lane: Option<Lane>, memo: &mut Memo) {
+    let Some(me) = snap.players.get(snap.me) else { return };
+    let rift = snap.mode == Mode::Rift;
+    let side = |ally: bool| -> Vec<(ChampKey, Option<Lane>)> {
+        snap.players.iter().filter(|p| (p.team == me.team) == ally).map(|p| (p.champ, p.position.filter(|_| rift))).collect()
+    };
+    let (allies, enemies) = (side(true), side(false));
+    let keys = |v: &[(ChampKey, Option<Lane>)]| v.iter().map(|x| x.0).collect::<Vec<_>>();
+    let draft = coach::roster_draft(sd, &keys(&allies), &keys(&enemies));
+    let matchup = lane.filter(|_| rift && !advice.matchup.is_empty()).map(|l| MatchupPlan {
+        lane: l,
+        allies: vec![me.champ],
+        partner: None,
+        cards: advice.matchup.clone(),
+        build: None,
+        runes: vec![],
+    });
+    build_plan(sh, sd, memo, allies, enemies, snap.mode, Some(&draft), matchup.as_ref(), memory);
 }
 
 /// Mayhem augment cards on screen right now (OCR, screen order); empty when none.

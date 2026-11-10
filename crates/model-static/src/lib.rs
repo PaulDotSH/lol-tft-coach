@@ -148,6 +148,13 @@ data! {
         pub default_lane: Option<Lane>,
     }
 
+    /// lolalytics build page game-length bucket: games ending at `from_min` up to the next bucket's start.
+    pub struct LengthWin {
+        pub from_min: u32,
+        pub games: u32,
+        pub wins: u32,
+    }
+
     pub struct ChampStats {
         pub champ: ChampKey,
         pub lane: Option<Lane>,
@@ -187,6 +194,9 @@ data! {
         /// lolalytics most played max order ("QEW"); empty when unknown.
         #[serde(default)]
         pub skill_priority: String,
+        /// lolalytics build page games and wins by game length, shortest first; empty when unknown.
+        #[serde(default)]
+        pub by_length: Vec<LengthWin>,
     }
 
     /// One full rune page (lolalytics, or Coachless' best WPA).

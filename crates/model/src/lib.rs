@@ -158,6 +158,9 @@ data! {
         /// Screen readers and whether they find their elements.
         #[serde(default)]
         pub readers: Vec<ReaderHealth>,
+        /// Game-plan card: champ select preview (Rift, all ten shown), loading and in game.
+        #[serde(default)]
+        pub plan: Option<GamePlan>,
     }
 }
 

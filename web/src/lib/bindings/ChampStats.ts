@@ -3,6 +3,7 @@ import type { Benchmarks } from "./Benchmarks";
 import type { EarlySet } from "./EarlySet";
 import type { ItemStat } from "./ItemStat";
 import type { Lane } from "./Lane";
+import type { LengthWin } from "./LengthWin";
 import type { Matchup } from "./Matchup";
 import type { Mode } from "./Mode";
 import type { RuneData } from "./RuneData";
@@ -44,4 +45,8 @@ skill_order: string, skill_order_games: number,
 /**
  * lolalytics most played max order ("QEW"); empty when unknown.
  */
-skill_priority: string, };
+skill_priority: string, 
+/**
+ * lolalytics build page games and wins by game length, shortest first; empty when unknown.
+ */
+by_length: Array<LengthWin>, };

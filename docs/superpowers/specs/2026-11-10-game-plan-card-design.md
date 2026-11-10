@@ -131,3 +131,56 @@ only the difference between champions is used, never the raw rate.
   record line without memory.
 - Smoke example prints the plan for one real ten-champion roster.
 - Mock fixtures for champ select and in game gain `plan`; checked in the browser.
+
+## Implementation status (2026-11-10)
+
+Built:
+
+- `LengthWin` and `by_length` on `PageStats` / `ChampStats`, parsed in `parse_build_page` from
+  the same `time` / `timeWin` object as `avg_minutes`. Tests on the saved Ahri mid page (the seven
+  counts above) and the Ahri ARAM page (96/63, 213/128, 141/64, 45/23, 5/2, 2/2, 1/0; sums to
+  the header's 503 games).
+- `lolalytics::length_stats`: build page only, same URL as `champ_stats` (shared disk cache);
+  fetched per champion through `state::ensure` into `Shared::lengths`.
+- `crates/coach/src/plan.rs`: `game_plan`, `roster_draft`; constants `PLAN_*` in `consts.rs`;
+  tests in `crates/coach/tests/plan.rs`.
+- Orchestrator: champ select preview (Rift, 5 + 5 in the draft report, lanes as the draft placed
+  them), kept through loading, rebuilt in game from the Live API roster; `Memo.plan` rebuilt only
+  when its inputs change (lineups, curves ready, lane win rate, record rows). `AppState.plan`.
+- `GamePlan.svelte`: three-segment bar with points, scaler portraits under early / late, the
+  lines, the note and source; full card in champ select (under the draft panel), while loading and
+  before `show_s` (120 s), then the folded line that expands on click. Mock fixtures
+  `champselect rift`, `loading`, `ingame start` (full) and `ingame rift` (folded) checked in the
+  browser.
+- Smoke example prints the plan for the live fixture's ten champions.
+
+Deviations:
+
+- `PlanInput.length` holds a `Curve = (Option<Lane>, Vec<LengthWin>)`: the lane the page is for,
+  so the card can mark a champion whose data is its main lane's. `length_stats` returns the same
+  pair; it uses the last 30 days when the patch has under `MIN_GAMES` games, and the main-lane page
+  (no `lane`, lane None) when the lane has under `LANE_MIN_GAMES` (1,000). The main-lane page does
+  not name its lane, so the card marks such a champion with `*` and "main-lane data" in its tooltip
+  rather than the lane's name.
+- `GamePlan` also carries `fold` (the folded line, built in `coach`), `curves` / `champs` (for
+  "9 of 10 champions") and `show_s`; `PlanPhase` carries `even`; `Scaler` carries `off_lane`.
+- Merging: a bucket under `PLAN_MIN_GAMES` merges into its smaller neighbour, smallest first; a
+  merged bucket counts in the phase of its biggest part. Shrinkage `PLAN_SHRINK_K` = 400 games.
+- A histogram bucket missing from the page counts as 0 games.
+- In game the comp line comes from `roster_draft` (both teams' comp from the champions alone, no
+  lane or synergy data), and the lane line from the laning panel's cards (no matchup page).
+- Mayhem keeps every line; the scaling line starts "ARAM data, augments not included." and the
+  source reads "lolalytics ARAM data".
+- The in-game and loading cards are placed in `App.svelte` above the dashboard instead of inside
+  `InGame.svelte`. A rebuild that yields no card (no curve fetched yet) keeps the previous one.
+
+Left for real games:
+
+- Rift: the champ select preview appears once all ten champions are in, its edge and scalers match
+  the ten build pages by hand (win rate per bucket minus the champion's own), and the card carries
+  through the loading screen into the game.
+- ARAM and Mayhem: the card appears once the game loads (enemies hidden in champ select), with
+  the ARAM boundaries (15 / 20 min) and, in Mayhem, the "ARAM data" wording.
+- The full card folds at 2:00; starting the app after 2:00 shows only the folded line.
+- An off-meta pick (e.g. a support Wukong) shows the main-lane mark; nine extra pages per game
+  arrive within a few seconds and `partial` clears once they do.

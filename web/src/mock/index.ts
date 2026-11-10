@@ -105,6 +105,7 @@ function lookup(champ: number, lane: ChampStats['lane'], mode: ChampStats['mode'
     skill_order: 'QEWQQRQEQEREEWW',
     skill_order_games: Math.round(2000 + r() * 8000),
     skill_priority: 'QEW',
+    by_length: [],
   };
 }
 

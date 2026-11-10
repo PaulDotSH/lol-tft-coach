@@ -10,6 +10,7 @@ import { macroFewGames, macroReport } from './macro';
 import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
 import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
+import { riftPlan } from './plan';
 import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoeCard, zoeLaning } from './matchup';
 
 export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false };
@@ -82,6 +83,7 @@ const base = {
     { name: 'Tab scoreboard', state: 'shifted', detail: 'found at 0.92× (HUD scale)', last_ok: 1_794_058_100_000 },
     { name: 'Minimap', state: 'unverified', detail: 'not checked since 16.21', last_ok: null },
   ] as ReaderHealth[],
+  plan: null,
   champ_select: null,
   game: null,
   recap: null,
@@ -365,6 +367,7 @@ export const fixtures = {
   idle: { ...base, phase: 'idle', recap, sources: src({}) },
   'champselect rift': {
     ...base,
+    plan: riftPlan,
     phase: 'champselect',
     sources: src({ message: 'lolalytics: patch 16.21 sample small, using last 30 days', lolalytics: 'degraded' }),
     champ_select: {
@@ -783,12 +786,13 @@ export const fixtures = {
       },
     },
   },
-  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals },
+  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals, plan: riftPlan },
+  'ingame start': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: { ...riftGame, time: 35, calls: [], tips: [] }, goal_progress: liveGoals, plan: riftPlan },
   'ingame laning': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: laningGame, goal_progress: liveGoals },
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
   'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },
   'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull, goal_progress: liveGoals.slice(1) },
-  loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
+  loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }), plan: riftPlan },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
   'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, history: [], sources: src({}) },
 } satisfies Record<string, AppState>;

@@ -58,6 +58,7 @@ fn lane_stats(champ: ChampKey, lane: Lane, wr: f32, lanes: &[(Lane, f32)], count
         skill_order: String::new(),
         skill_order_games: 0,
         skill_priority: String::new(),
+        by_length: vec![],
     }
 }
 

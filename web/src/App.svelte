@@ -3,6 +3,7 @@
   import InGame from './components/ingame/InGame.svelte';
   import ChampSelect from './components/select/ChampSelect.svelte';
   import Idle from './components/idle/Idle.svelte';
+  import GamePlan from './components/GamePlan.svelte';
   import { isTauri } from './lib/api';
   import { store } from './lib/store.svelte';
   import { tft } from './lib/tft-store.svelte';
@@ -24,10 +25,12 @@
     {#if t}
       <Tft state={t} />
     {:else if s.phase === 'ingame' && s.game}
+      {#if s.plan}<div class="plan"><GamePlan plan={s.plan} /></div>{/if}
       <InGame game={s.game} />
     {:else if s.phase === 'champselect' && s.champ_select}
       <ChampSelect cs={s.champ_select} />
     {:else}
+      {#if s.phase === 'loading' && s.plan}<div class="plan"><GamePlan plan={s.plan} full /></div>{/if}
       <Idle state={s} />
     {/if}
   </main>
@@ -48,6 +51,9 @@
     flex-direction: column;
     padding: var(--gap);
     min-height: 0;
+  }
+  .plan {
+    margin-bottom: var(--gap);
   }
   .boot {
     margin: auto;
