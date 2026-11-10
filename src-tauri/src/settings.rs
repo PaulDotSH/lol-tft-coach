@@ -37,6 +37,6 @@ mod tests {
         assert!(!Settings::default().overlay);
         let old: Settings = toml::from_str("tier = \"all\"\nregion = \"all\"\nocr_enabled = true\nrecord_fixtures = false\n").unwrap();
         assert!(!old.overlay);
-        assert!(old.audio && old.gank_warn);
+        assert!(old.audio && old.gank_warn && old.game_note);
     }
 }

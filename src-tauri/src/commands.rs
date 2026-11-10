@@ -83,8 +83,15 @@ pub async fn analyze_game(sh: Sh<'_>, game_id: u64) -> Result<MatchAnalysis, Str
     let recap = selfcoach::recap_for(g);
     tracing::info!("analysed game {game_id} (live recap: {})", recap.is_some());
     let mut a = coach::analyze_match(&d, &sd, stats.as_deref(), recap.as_ref());
-    let past = sh.ui.lock().unwrap().history.clone();
+    let (past, phase, session) = {
+        let ui = sh.ui.lock().unwrap();
+        (ui.history.clone(), ui.phase, ui.trends.as_ref().and_then(|t| t.session.clone()))
+    };
     coach::compare_past(&mut a, &past, &sd);
+    if sh.settings().game_note && matches!(phase, Phase::Idle | Phase::PostGame) {
+        let augments = (a.game.mode == Mode::Mayhem).then(|| orchestrator::mayhem(&sh, &sd)).flatten().map(|m| m.augment_names.clone()).unwrap_or_default();
+        a.note = coach::brief::note(&a, session.as_ref(), &sd, &augments);
+    }
     Ok(a)
 }
 

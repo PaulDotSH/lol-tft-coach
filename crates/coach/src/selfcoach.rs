@@ -291,7 +291,7 @@ pub(crate) fn review_deaths(deaths: &[DeathNote], kills: &[(f32, bool)], shop_on
 }
 
 /// "the enemy jungle", "bot lane".
-fn the(place: &str) -> String {
+pub(crate) fn the(place: &str) -> String {
     if place.ends_with("lane") { place.to_string() } else { format!("the {place}") }
 }
 

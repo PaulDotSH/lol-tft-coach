@@ -11,9 +11,13 @@ const SESSION_GAP_MS: u64 = 2 * 3600 * 1000;
 const SUMMARY_LATE_S: u64 = 600;
 /// A mistake repeats when it shows in at least this many games (and half of them).
 const REPEAT_MIN: u32 = 2;
-const EARLY_DEATH_S: u32 = 600;
-const BEHIND_AT_15: i32 = -500;
-const MANY_DEATHS: u32 = 6;
+pub(crate) const EARLY_DEATH_S: u32 = 600;
+pub(crate) const BEHIND_AT_15: i32 = -500;
+pub(crate) const MANY_DEATHS: u32 = 6;
+pub(crate) const NO_CONTROL: &str = "No Control Wards bought";
+pub(crate) const DIED_EARLY: &str = "Died before 10:00";
+pub(crate) const BEHIND_15: &str = "Behind your lane opponent at 15:00";
+pub(crate) const MANY: &str = "Died 6 or more times";
 
 fn end_ms(g: &PastGame) -> u64 {
     g.created + g.duration_s as u64 * 1000
@@ -38,10 +42,10 @@ pub fn session(games: &[&PastGame], summaries: &[GameSummary], goals: &[Goal]) -
         (v.iter().filter(|&&b| b).count() as u32, v.len() as u32)
     };
     let checks: [(&str, (u32, u32)); 4] = [
-        ("No Control Wards bought", count(&|g| g.control_wards.map(|n| n == 0))),
-        ("Died before 10:00", count(&|g| g.death_times.as_ref().map(|d| d.iter().any(|&t| t < EARLY_DEATH_S)))),
-        ("Behind your lane opponent at 15:00", count(&|g| g.gold_diff_15.map(|d| d <= BEHIND_AT_15))),
-        ("Died 6 or more times", count(&|g| Some(g.deaths >= MANY_DEATHS))),
+        (NO_CONTROL, count(&|g| g.control_wards.map(|n| n == 0))),
+        (DIED_EARLY, count(&|g| g.death_times.as_ref().map(|d| d.iter().any(|&t| t < EARLY_DEATH_S)))),
+        (BEHIND_15, count(&|g| g.gold_diff_15.map(|d| d <= BEHIND_AT_15))),
+        (MANY, count(&|g| Some(g.deaths >= MANY_DEATHS))),
     ];
     let mut repeats: Vec<SessionRepeat> = checks
         .into_iter()

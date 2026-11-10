@@ -378,10 +378,39 @@ data! {
         /// Rift: my lane (bot lane: both duos) up to 14:00.
         #[serde(default)]
         pub laning: Option<Laning>,
+        /// The coach's note, when the setting is on and the review was built after the game.
+        #[serde(default)]
+        pub note: Option<GameNote>,
+    }
+
+    /// One numbered line of the fact sheet a game's note is built from.
+    pub struct Fact {
+        pub id: u32,
+        pub kind: FactKind,
+        pub good: Option<bool>,
+        pub text: String,
+    }
+
+    pub struct NoteLine {
+        pub text: String,
+        /// Ids of the facts it is built from.
+        pub facts: Vec<u32>,
+        pub good: Option<bool>,
+    }
+
+    /// A few connected takeaways and one focus, composed by rules from the fact sheet only.
+    pub struct GameNote {
+        pub takeaways: Vec<NoteLine>,
+        pub focus: Option<NoteLine>,
+        /// The facts its lines cite.
+        pub facts: Vec<Fact>,
+        pub rules_v: u32,
     }
 }
 
 enums! {
     /// Self-coaching goal / trend metric.
     pub enum GoalKind { Cs10, EarlyDeaths, Vision, Unspent, BuyNext }
+
+    pub enum FactKind { Result, Lane, Takeaway, Focus, Deaths, Fights, Objectives, Economy, Vision, Items, Habit }
 }

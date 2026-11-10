@@ -1,0 +1,41 @@
+1. [Result] Victory as Nautilus (support) in 29:46, 4/3/22.
+2. [Result] Your share of your team: kill participation 65%, damage 11%, gold 15%.
+3. [Lane] Ashe and Nautilus vs Aphelios and Braum: Won lane: +461 gold at 14:00, ahead from 8:00.
+4. [Lane] First backs: Ashe 5:00 (1,100 gold spent), Nautilus 9:00 (1,400 gold spent), Aphelios 5:00 (1,550 gold spent), Braum 6:00 (950 gold spent).
+5. [Economy] At 10:00: you 17 CS, level 6; Braum 20 CS, level 6; gold +487 vs Braum.
+6. [Economy] At 15:00: you 29 CS, level 8; Braum 27 CS, level 8; gold +345 vs Braum.
+7. [Economy] Team gold against theirs: most ahead +13,232 at 29:46.
+8. [Vision] Vision score 77 (2.59/min), 25 wards placed, 0 Control Wards bought; Braum placed 43 wards.
+9. [Takeaway] No Control Wards bought.
+10. [Takeaway] Placed 25 wards vs 43 for Braum.
+11. [Takeaway] Kill participation 65%.
+12. [Takeaway] Your team took 3 of 4 dragons.
+13. [Focus] Focus: At most 1 death before 14:00. You died 2× before 14:00 outside fights your team won.
+14. [Deaths] Death at 4:21 in the river to Aphelios (with Qiyana and Braum), holding 554 gold.
+15. [Deaths] Death at 11:00 in bot lane to Braum (with Viego, Qiyana and Aphelios), holding 621 gold.
+16. [Deaths] Death at 23:18 in the river to Viego (with Qiyana, Aphelios and Braum), holding 128 gold; your team won the trade.
+17. [Deaths] 1 of 3 deaths were trades: your team won the fight.
+18. [Fights] Fight at 3:52 in bot lane: kills 1–1; you were there.
+19. [Fights] Fight at 4:21 in the river: kills 0–1; you were there and died first.
+20. [Fights] Fight at 7:34 in the enemy jungle: kills 3–1; you were there; then your team took Grubs.
+21. [Fights] Fight at 8:01 in the river: kills 1–1; you were elsewhere; then your team took Grubs.
+22. [Fights] Fight at 8:56 in the river: kills 2–0; you were there.
+23. [Fights] Fight at 10:57 in bot lane: kills 1–2; you were there.
+24. [Fights] Fight at 13:18 in bot lane: kills 2–1; you were there.
+25. [Fights] Fight at 13:59 in the river: kills 1–2; you were elsewhere.
+26. [Fights] Fight at 15:01 in bot lane: kills 3–1; you were there; then your team took Dragon.
+27. [Fights] Fight at 16:27 in bot lane: kills 1–0; you were there.
+28. [Fights] Fight at 18:06 in bot lane: kills 1–1; you were there.
+29. [Fights] Fight at 19:47 in the enemy jungle: kills 3–1; you were there.
+30. [Fights] Fight at 21:38 in the enemy jungle: kills 3–0; you were there.
+31. [Fights] Fight at 23:18 in the river: kills 4–1; you were there and died first.
+32. [Fights] Fight at 25:07 in mid lane: kills 0–2; you were there.
+33. [Fights] Fight at 26:49 in the enemy jungle: kills 4–1; you were there.
+34. [Fights] Fight at 28:45 in mid lane: kills 4–1; you were there.
+35. [Fights] Fight at 29:37 in the enemy base: kills 1–0; you were there.
+36. [Objectives] Objectives, your team vs theirs: dragons 3–1, barons 1–0, grubs 3–0, towers 9–4.
+37. [Objectives] They took Dragon (Hextech) at 8:46; you were there.
+38. [Habit] This session, in 3 of 4 games: Died before 10:00.
+39. [Habit] This session, in 3 of 4 games: No Control Wards bought.
+40. [Habit] This session, in 3 of 4 games: Behind your lane opponent at 15:00.
+41. [Habit] This session, in 3 of 4 games: Died 6 or more times.

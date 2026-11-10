@@ -1716,5 +1716,99 @@
         "spent": 950
       }
     ]
+  },
+  "note": {
+    "takeaways": [
+      {
+        "text": "Vision fell short: 25 wards placed against 43 for Braum, and 0 Control Wards bought.",
+        "facts": [
+          8
+        ],
+        "good": false
+      },
+      {
+        "text": "You won your lane (+461 gold at 14:00, ahead from 8:00) and kept it going in the fights at 21:38 in the enemy jungle, 23:18 in the river and 26:49 in the enemy jungle.",
+        "facts": [
+          3,
+          31,
+          32,
+          34
+        ],
+        "good": true
+      },
+      {
+        "text": "Damage 407/min vs 341 average on Nautilus.",
+        "facts": [
+          11
+        ],
+        "good": true
+      }
+    ],
+    "focus": {
+      "text": "At most 1 death before 14:00. Two early deaths came outside fights your team won: 4:21 in the river to Aphelios and 11:00 in bot lane to Braum.",
+      "facts": [
+        14,
+        15,
+        16
+      ],
+      "good": null
+    },
+    "facts": [
+      {
+        "id": 3,
+        "kind": "lane",
+        "good": true,
+        "text": "Ashe and Nautilus vs Aphelios and Braum: Won lane: +461 gold at 14:00, ahead from 8:00."
+      },
+      {
+        "id": 8,
+        "kind": "vision",
+        "good": null,
+        "text": "Vision score 77 (2.59/min), 25 wards placed, 0 Control Wards bought; Braum placed 43 wards."
+      },
+      {
+        "id": 11,
+        "kind": "takeaway",
+        "good": true,
+        "text": "Damage 407/min vs 341 average on Nautilus."
+      },
+      {
+        "id": 14,
+        "kind": "focus",
+        "good": null,
+        "text": "Focus: At most 1 death before 14:00. You died 2× before 14:00 outside fights your team won."
+      },
+      {
+        "id": 15,
+        "kind": "deaths",
+        "good": false,
+        "text": "Death at 4:21 in the river to Aphelios (with Qiyana and Braum), holding 554 gold."
+      },
+      {
+        "id": 16,
+        "kind": "deaths",
+        "good": false,
+        "text": "Death at 11:00 in bot lane to Braum (with Viego, Qiyana and Aphelios), holding 621 gold."
+      },
+      {
+        "id": 31,
+        "kind": "fights",
+        "good": true,
+        "text": "Fight at 21:38 in the enemy jungle: kills 3–0; you were there."
+      },
+      {
+        "id": 32,
+        "kind": "fights",
+        "good": true,
+        "text": "Fight at 23:18 in the river: kills 4–1; you were there and died first."
+      },
+      {
+        "id": 34,
+        "kind": "fights",
+        "good": true,
+        "text": "Fight at 26:49 in the enemy jungle: kills 4–1; you were there."
+      }
+    ],
+    "rules_v": 1
   }
 }
