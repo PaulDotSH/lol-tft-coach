@@ -5,6 +5,7 @@ import type { Fight } from "./Fight";
 import type { Focus } from "./Focus";
 import type { GameNote } from "./GameNote";
 import type { GoldPoint } from "./GoldPoint";
+import type { JungleReview } from "./JungleReview";
 import type { KillMark } from "./KillMark";
 import type { Laning } from "./Laning";
 import type { MatchPlayer } from "./MatchPlayer";
@@ -53,4 +54,8 @@ laning: Laning | null,
 /**
  * The coach's note, when the setting is on and the review was built after the game.
  */
-note: GameNote | null, };
+note: GameNote | null, 
+/**
+ * Rift, when I jungled: replaces `laning`.
+ */
+jungle: JungleReview | null, };

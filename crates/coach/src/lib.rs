@@ -14,6 +14,7 @@ mod enemy_augments;
 mod fights;
 mod gank;
 mod items;
+pub mod jungle;
 mod lane_matchup;
 mod laning;
 mod macro_coach;
@@ -55,7 +56,7 @@ pub use ranked::{ladder, rank_trends};
 pub use trends::trends;
 pub use picks::AugmentTracker;
 pub use plan::{Curve, PlanInput as GamePlanInput, game_plan, roster_draft};
-pub use gank::{GankEnemies, GankTracker, SightLog, Sighting};
+pub use gank::{GankEnemies, GankTracker, MapView, Seen, SightLog, Sighting};
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
 pub use runes::VsRunes;
@@ -162,6 +163,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         matchup: vec![],
         skill: skills::advice(snap, sd, stats, matchup),
         what_if,
+        jungle: None,
     }
 }
 
@@ -189,6 +191,7 @@ pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
     spikes::annotate(&mut advice.threats, snap, tracker, ults);
     calls::annotate(advice, snap, sd);
     tips::annotate(advice, snap, sd, tracker);
+    jungle::annotate(advice, snap, sd, tracker);
     let me = snap.players.get(snap.me).map_or(0, |p| p.champ);
     advice.matchup = lane_matchup::laning(advice, snap, &CardData { sd, notes, me, spells, memory });
 }

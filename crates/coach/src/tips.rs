@@ -101,6 +101,7 @@ pub fn annotate(a: &mut GameAdvice, snap: &GameSnapshot, sd: &StaticData, tracke
     if rift
         && t >= CS_FROM
         && me.position != Some(Lane::Support)
+        && !crate::jungle::is_jungler(me)
         && let (Some(diff), Some(avg)) = (a.me.cs_diff, a.me.cs_benchmark)
         && diff <= -CS_BEHIND
     {

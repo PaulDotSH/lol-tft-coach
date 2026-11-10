@@ -254,6 +254,7 @@ mod tests {
             dead: false,
             respawn_in: 0.0,
             smite: false,
+            spells: vec![],
         }
     }
 
@@ -272,6 +273,7 @@ mod tests {
             events: vec![],
             my_stats: None,
             my_abilities: None,
+            swiftplay: false,
         }
     }
 

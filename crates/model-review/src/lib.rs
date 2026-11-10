@@ -401,6 +401,56 @@ data! {
         /// The coach's note, when the setting is on and the review was built after the game.
         #[serde(default)]
         pub note: Option<GameNote>,
+        /// Rift, when I jungled: replaces `laning`.
+        #[serde(default)]
+        pub jungle: Option<JungleReview>,
+    }
+
+    pub struct JungleReview {
+        /// Their jungler.
+        pub enemy: Option<ChampKey>,
+        /// At 3:00 and 4:00.
+        pub first_clear: Vec<ClearMark>,
+        pub clear: Vec<ClearRate>,
+        /// My champion's CS per minute (minions and monsters).
+        pub benchmark: Option<f32>,
+        /// Lanes where a gank got a kill before 14:00.
+        pub ganks: Vec<GankLane>,
+        pub objectives: Vec<JungleObjective>,
+        /// Minutes I took camps in their jungle.
+        pub invades: Vec<u32>,
+        /// Against their jungler at 5, 10 and 15 minutes; `cs` is jungle CS.
+        pub versus: Vec<PhaseRow>,
+    }
+
+    pub struct ClearMark {
+        pub minute: u32,
+        pub level: u32,
+        pub jungle_cs: u32,
+    }
+
+    pub struct ClearRate {
+        pub from: u32,
+        pub to: u32,
+        pub jungle_per_min: f32,
+        /// Minions and monsters, to compare with the benchmark.
+        pub cs_per_min: f32,
+    }
+
+    pub struct GankLane {
+        pub lane: Lane,
+        pub ganks: u32,
+        pub kills: u32,
+        pub deaths: u32,
+    }
+
+    pub struct JungleObjective {
+        pub time: f32,
+        pub kind: String,
+        pub detail: Option<String>,
+        pub ours: bool,
+        pub presence: Option<Presence>,
+        pub enemy_jungler_dead: bool,
     }
 
     /// One numbered line of the fact sheet a game's note is built from.

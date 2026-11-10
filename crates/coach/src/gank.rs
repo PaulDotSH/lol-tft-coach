@@ -58,6 +58,17 @@ fn at_home(lane: Lane, b: Blip) -> bool {
     zone == home || zone == MapZone::RedBase || Side::of_lane(Some(lane)) == Some(Side::of(b)) || off_lane(home, b) < consts::ROAM_SLACK
 }
 
+/// Whether a laner of `lane` at `b` is on our half of their lane, past its middle toward our turret.
+fn pushed(lane: Lane, b: Blip) -> bool {
+    let (along, off) = match lane {
+        Lane::Top => (b.y, b.x),
+        Lane::Bottom | Lane::Support => (b.x, b.y),
+        Lane::Middle => ((b.x + b.y) / 2, (b.x - b.y).abs()),
+        Lane::Jungle => return false,
+    };
+    off < consts::PUSH_BAND && along > consts::PUSH_BASE && b.x + b.y < MAP_END - consts::PUSH_PAST
+}
+
 /// Where a roamer is: a lane by name, else the side of the map.
 fn whereabouts(b: Blip) -> &'static str {
     match MapZone::at(b.x, b.y) {
@@ -96,6 +107,14 @@ impl Side {
         }
     }
 
+    fn lane(self) -> Lane {
+        match self {
+            Side::Top => Lane::Top,
+            Side::Mid => Lane::Middle,
+            Side::Bot => Lane::Bottom,
+        }
+    }
+
     fn name(self) -> &'static str {
         match self {
             Side::Top => "top side",
@@ -130,6 +149,21 @@ impl Episode {
         self.last = Some(time);
         self.n
     }
+}
+
+/// An enemy as the minimap last showed them: when, the side of the map, and whether pushed up their lane.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Seen {
+    pub time: f32,
+    pub side: Lane,
+    pub pushed: bool,
+}
+
+/// What the lane board reads off the minimap at `time`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MapView {
+    pub time: f32,
+    pub seen: HashMap<ChampKey, Seen>,
 }
 
 #[derive(Default)]
@@ -205,6 +239,15 @@ impl GankTracker {
             })
             .collect();
         self.history.push_back((time, blips));
+    }
+
+    pub fn view(&self, time: f32, enemies: &GankEnemies) -> MapView {
+        let seen = self
+            .named
+            .iter()
+            .map(|(&c, &(t, b))| (c, Seen { time: t, side: Side::of(b).lane(), pushed: enemies.lanes.get(&c).is_some_and(|&l| pushed(l, b)) }))
+            .collect();
+        MapView { time, seen }
     }
 
     pub fn last_names(&self) -> Vec<Option<ChampKey>> {
@@ -317,7 +360,9 @@ impl GankTracker {
             }
         }
         let j = self.jungler.filter(|j| j.spoken && time - j.last <= consts::JUNGLER_SHOW_S)?;
-        let (text, say) = if Side::of_lane(lane) == Some(j.side) {
+        let (text, say) = if lane == Some(Lane::Jungle) {
+            (format!("{name} seen {}", j.side.name()), format!("{name} seen {}.", j.side.name()))
+        } else if Side::of_lane(lane) == Some(j.side) {
             (format!("{name} {} — near your lane, play safe", j.side.name()), format!("{name} {}. Play safe.", j.side.name()))
         } else {
             (format!("{name} spotted {}", j.side.name()), format!("{name} {}.", j.side.name()))
@@ -442,6 +487,53 @@ mod tests {
         for reads in [&mid[..], &raptors[..], &base[..]] {
             assert!(seen(SYLAS, reads, Some(Lane::Middle)).is_empty(), "{reads:?}");
         }
+    }
+
+    fn b(x: i32, y: i32) -> Blip {
+        Blip { x, y, champ: None }
+    }
+
+    #[test]
+    fn a_laner_past_the_middle_toward_our_turret_is_pushed() {
+        assert!(pushed(Lane::Top, b(1000, 10400)), "at our top outer turret");
+        assert!(pushed(Lane::Middle, b(5900, 6400)), "at our mid outer turret");
+        assert!(pushed(Lane::Bottom, b(10500, 1000)), "at our bot outer turret");
+        assert!(pushed(Lane::Support, b(10500, 1000)));
+    }
+
+    #[test]
+    fn a_laner_at_the_middle_or_on_their_half_is_not_pushed() {
+        assert!(!pushed(Lane::Top, b(1200, 13600)), "top corner");
+        assert!(!pushed(Lane::Top, b(TOP_LANE.0, TOP_LANE.1)), "their half of top");
+        assert!(!pushed(Lane::Middle, b(7400, 7400)), "mid centre");
+        assert!(!pushed(Lane::Bottom, b(13600, 1200)), "bot corner");
+        assert!(!pushed(Lane::Jungle, b(1000, 10400)));
+    }
+
+    #[test]
+    fn a_laner_off_their_lane_or_in_our_fountain_is_not_pushed() {
+        assert!(!pushed(Lane::Top, b(3500, 7000)), "in our jungle");
+        assert!(!pushed(Lane::Top, b(600, 600)), "fountain");
+        assert!(!pushed(Lane::Middle, b(5900, 6400 + 2000)));
+        assert!(!pushed(Lane::Bottom, b(RIVER_FAR.0, RIVER_FAR.1)));
+    }
+
+    #[test]
+    fn the_view_says_who_is_pushed_and_where_the_jungler_was() {
+        let mut t = tracker();
+        t.observe(&[(1000, 10400, Some(SYLAS)), (ENEMY_BOT_JUNGLE.0, ENEMY_BOT_JUNGLE.1, Some(JINX))], true, 600.0);
+        t.observe(&[(7400, 7400, Some(NAMI))], true, 605.0);
+        let v = t.view(606.0, &GankEnemies { lanes: HashMap::from([(SYLAS, Lane::Top), (NAMI, Lane::Middle), (JINX, Lane::Jungle)]), ..roster() });
+        assert_eq!(v.seen[&SYLAS], Seen { time: 600.0, side: Lane::Top, pushed: true });
+        assert_eq!(v.seen[&NAMI], Seen { time: 605.0, side: Lane::Middle, pushed: false });
+        assert_eq!(v.seen[&JINX].side, Lane::Bottom);
+    }
+
+    #[test]
+    fn the_jungler_hears_where_their_jungler_was_seen() {
+        let w = jinx_at(&mut tracker(), TOP_SIDE_JUNGLE, 100.0, Some(Lane::Jungle));
+        let c = w.iter().find(|c| c.key.starts_with("gank-jg-")).unwrap();
+        assert_eq!((c.text.as_str(), c.say.as_str()), ("Jinx seen top side", "Jinx seen top side."));
     }
 
     #[test]

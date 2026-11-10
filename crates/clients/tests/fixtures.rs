@@ -159,6 +159,9 @@ fn live_full_game() {
     assert!(jinx.dead && (jinx.respawn_in - 18.6).abs() < 1e-3);
     let smite: Vec<usize> = (0..10).filter(|&i| g.players[i].smite).collect();
     assert_eq!(smite, [1, 6], "the two junglers take Smite");
+    assert_eq!(g.players[1].spells, ["SummonerFlash", "SummonerSmite"]);
+    assert!(g.players.iter().all(|p| p.spells.len() == 2));
+    assert!(!g.swiftplay);
 
     use GameEvent::*;
     let ev = &g.events;

@@ -127,7 +127,7 @@ fn has_name(text: &str, name: &str) -> bool {
     })
 }
 
-fn thousands(n: u32) -> String {
+pub(crate) fn thousands(n: u32) -> String {
     if n >= 1000 { format!("{},{:03}", n / 1000, n % 1000) } else { n.to_string() }
 }
 

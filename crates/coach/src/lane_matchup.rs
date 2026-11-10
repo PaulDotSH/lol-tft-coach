@@ -130,7 +130,7 @@ pub fn plan(i: &PlanInput) -> Option<MatchupPlan> {
 /// laner (bot laner first). Win rates come from `advice.matchups`.
 pub fn laning(advice: &GameAdvice, snap: &GameSnapshot, d: &CardData) -> Vec<MatchupCard> {
     let Some(me) = snap.players.get(snap.me) else { return vec![] };
-    if snap.mode != Mode::Rift {
+    if snap.mode != Mode::Rift || crate::jungle::is_jungler(me) {
         return vec![];
     }
     let enemies = || snap.players.iter().filter(|p| p.team != me.team);

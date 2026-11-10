@@ -1,0 +1,51 @@
+# red_support
+ 2:02 gank-mid-1 | Enemy heading mid. Counter-gank.
+ 4:17 gank-jungle-1 | Enemy invading your jungle.
+ 6:28 gank-mid-2 | Enemy heading mid. Counter-gank.
+ 9:44 gank-jungle-2 | Enemy invading your jungle.
+ 9:45 gank-mid-3 | Enemy heading mid. Counter-gank.
+10:32 gank-mid-4 | Enemy heading mid. Counter-gank.
+11:53 gank-jungle-3 | Enemy invading your jungle.
+13:39 gank-jungle-4 | Enemy invading your jungle.
+# blue_mid
+ 8:02 gank-mid-1 | Enemy heading mid. Counter-gank.
+# blue_mid_named
+ 0:54 gank-jg-1 | Lillia seen bot side.
+ 1:52 gank-jg-2 | Lillia seen bot side.
+ 4:36 gank-roam-67-1 | Vayne roaming top side.
+ 5:04 gank-jg-3 | Lillia seen mid.
+ 5:14 gank-mid-1 | Nami heading mid. Counter-gank.
+ 5:47 gank-jg-4 | Lillia seen bot side.
+ 5:50 gank-mid-2 | Sylas heading mid. Counter-gank.
+ 5:54 gank-roam-67-2 | Vayne roaming top.
+ 8:00 gank-roam-67-3 | Vayne roaming top side.
+ 8:03 gank-jg-5 | Lillia seen bot side.
+ 8:24 gank-roam-36-1 | Dr. Mundo roaming bot side.
+ 8:58 gank-roam-67-4 | Vayne roaming top.
+ 9:29 gank-jungle-1 | Enemy invading your jungle.
+ 9:43 gank-roam-36-2 | Dr. Mundo roaming bot side.
+ 9:55 gank-roam-67-5 | Vayne roaming top.
+ 9:58 gank-jg-6 | Lillia seen bot side.
+10:39 gank-jg-7 | Lillia seen bot side.
+10:39 gank-roam-517-1 | Sylas roaming top.
+11:57 gank-roam-517-2 | Sylas roaming bot.
+12:25 gank-jg-8 | Lillia seen mid.
+13:39 gank-jg-9 | Lillia seen mid.
+# blue_support_named
+ 0:30 gank-jg-1 | Wukong seen bot side.
+ 3:26 gank-jg-2 | Wukong seen top side.
+ 5:28 gank-jg-3 | Wukong seen mid.
+ 5:36 gank-jungle-1 | Wukong invading your jungle.
+ 5:40 gank-mid-1 | Enemy heading mid. Counter-gank.
+ 7:17 gank-jg-4 | Wukong seen bot side.
+ 7:55 gank-mid-2 | Zilean heading mid. Counter-gank.
+ 9:12 gank-jg-5 | Wukong seen mid.
+ 9:33 gank-jungle-2 | Enemy invading your jungle.
+ 9:39 gank-mid-3 | Jax heading mid. Counter-gank.
+10:53 gank-jg-6 | Wukong seen bot side.
+11:57 gank-jg-7 | Wukong seen mid.
+12:03 gank-roam-26-1 | Zilean roaming top side.
+12:08 gank-roam-15-1 | Sivir roaming mid.
+12:49 gank-jg-8 | Wukong seen top side.
+13:36 gank-jg-9 | Wukong seen bot side.
+13:43 gank-jungle-3 | Enemy invading your jungle.

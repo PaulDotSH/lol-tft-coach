@@ -42,7 +42,6 @@ ranked: Array<RankTrend>,
  */
 readers: Array<ReaderHealth>, 
 /**
-
  * Game-plan card: champ select preview (Rift, all ten shown), loading and in game.
  */
 plan: GamePlan | null, };

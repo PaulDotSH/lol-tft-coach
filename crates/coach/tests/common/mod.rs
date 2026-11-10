@@ -350,6 +350,7 @@ pub fn player(champ: ChampKey, team: Team, position: Option<Lane>) -> Player {
         dead: false,
         respawn_in: 0.0,
         smite: false,
+        spells: vec![],
     }
 }
 
@@ -392,7 +393,7 @@ pub fn lobby(enemies: [(ChampKey, Lane); 5]) -> Vec<Player> {
 }
 
 pub fn snap(players: Vec<Player>, events: Vec<GameEvent>) -> GameSnapshot {
-    GameSnapshot { time: 900.0, mode: Mode::Rift, map: 11, me: 0, my_gold: 500.0, players, events, my_stats: None, my_abilities: None }
+    GameSnapshot { time: 900.0, mode: Mode::Rift, map: 11, me: 0, my_gold: 500.0, players, events, my_stats: None, my_abilities: None, swiftplay: false }
 }
 
 pub fn kill(time: f32, killer: usize, victim: usize) -> GameEvent {

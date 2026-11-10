@@ -8,6 +8,7 @@ import type { GoldDiff } from "./GoldDiff";
 import type { GoldEta } from "./GoldEta";
 import type { GoldSink } from "./GoldSink";
 import type { ItemPick } from "./ItemPick";
+import type { JungleAdvice } from "./JungleAdvice";
 import type { LiveTip } from "./LiveTip";
 import type { MatchupCard } from "./MatchupCard";
 import type { MatchupTip } from "./MatchupTip";
@@ -78,4 +79,8 @@ matchup: Array<MatchupCard>,
 /**
  * Which ability to level next; None when the skill order can't describe my champion.
  */
-skill: SkillNext | null, what_if: Array<WhatIf>, };
+skill: SkillNext | null, what_if: Array<WhatIf>, 
+/**
+ * Rift, when I jungle: clear pace and the lane board.
+ */
+jungle: JungleAdvice | null, };

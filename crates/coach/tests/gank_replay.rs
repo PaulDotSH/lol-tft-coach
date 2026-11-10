@@ -127,3 +127,37 @@ fn mid_hears_jinx_from_the_river() {
     assert!(mid.iter().any(|t| (478..=483).contains(t)), "{w:?}");
     assert!(mid.len() <= 3, "{w:?}");
 }
+
+fn unnamed(game: &str) -> String {
+    let reads: Reads = serde_json::from_str(game).unwrap();
+    let named: Vec<_> = reads.into_iter().map(|(t, b)| (t, b.into_iter().map(|(x, y)| (x, y, None::<ChampKey>)).collect::<Vec<_>>())).collect();
+    serde_json::to_string(&named).unwrap()
+}
+
+/// Every replay heard as the jungler, snapshotted in `fixtures/coach/gank_jungle_calls.txt`.
+#[test]
+fn the_jungler_hears_invades_roams_and_their_jungler() {
+    let none = GankEnemies::default();
+    let games = [
+        ("red_support", unnamed(RED_SUPPORT), false, &none),
+        ("blue_mid", unnamed(BLUE_MID), true, &none),
+        ("blue_mid_named", BLUE_MID_NAMED.to_string(), true, &zed_game()),
+        ("blue_support_named", BLUE_SUPPORT_NAMED.to_string(), true, &thresh_game()),
+    ];
+    let mut out = String::new();
+    for (name, reads, blue, enemies) in games {
+        out.push_str(&format!("# {name}\n"));
+        for (t, k, s) in replay_named(&reads, blue, Some(Lane::Jungle), enemies) {
+            out.push_str(&format!("{:>2}:{:02} {k} | {s}\n", t / 60, t % 60));
+        }
+    }
+    let path = format!("{}/../../fixtures/coach/gank_jungle_calls.txt", env!("CARGO_MANIFEST_DIR"));
+    if std::env::var_os("UPDATE_SNAPSHOTS").is_some() {
+        std::fs::write(&path, &out).unwrap();
+    }
+    let want = std::fs::read_to_string(&path).unwrap().replace("\r\n", "\n");
+    assert_eq!(out, want);
+    assert!(out.contains("Lillia seen ") && out.contains("Wukong seen "), "the jungler call says where their jungler was seen");
+    assert!(!out.contains("Play safe") && !out.contains("spotted"), "no laner wording");
+    assert!(out.contains("invading your jungle"));
+}

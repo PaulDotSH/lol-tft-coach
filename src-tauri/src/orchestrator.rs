@@ -587,11 +587,16 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
         blue: me.team == Team::Order,
         lane,
         enemies: Arc::new(gank_enemies(sh, sd, snap, me.team)),
+        board: advice.jungle.as_ref().and_then(|_| coach::jungle::board(snap, sd, &advice.gold)).map(Arc::new),
     });
     if watch {
         let calls = sh.gank_calls.lock().unwrap();
         if calls.1.elapsed() < MINIMAP_TTL {
             inject_gank(&mut advice, &calls.0);
+        }
+        let lanes = sh.jungle_lanes.lock().unwrap();
+        if lanes.1.elapsed() < MINIMAP_TTL {
+            inject_lanes(&mut advice, &lanes.0);
         }
     }
     let since = memo.client.zip(sh.patch()).and_then(|((w, h), patch)| sh.calib.lock().unwrap().unverified("lol", &sh.calib_key(w, h), &patch));
@@ -864,6 +869,15 @@ fn inject_gank(advice: &mut GameAdvice, calls: &[Call]) {
     advice.calls.splice(0..0, calls.iter().cloned());
 }
 
+fn inject_lanes(advice: &mut GameAdvice, lanes: &[LaneOpen]) {
+    if let Some(j) = advice.jungle.as_mut()
+        && !lanes.is_empty()
+    {
+        j.lanes = lanes.to_vec();
+        j.minimap = true;
+    }
+}
+
 /// Minimap vision thread: reads enemy blips off the minimap while the orchestrator asks for it
 /// (on the Rift, gank warnings on) and the game is in the foreground, tracks them and
 /// pushes gank warnings to the UI as soon as they change. Never sends input or takes focus.
@@ -874,6 +888,7 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
             let mut tracker = coach::GankTracker::default();
             let mut sights = coach::SightLog::default();
             let mut said: Vec<Call> = vec![];
+            let mut shown: Vec<LaneOpen> = vec![];
             loop {
                 let ctx = sh.gank_ctx.lock().unwrap().clone();
                 let Some(ctx) = ctx else {
@@ -881,6 +896,7 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                     sights = coach::SightLog::default();
                     *sh.sights.lock().unwrap() = coach::SightLog::default();
                     said.clear();
+                    shown.clear();
                     *sh.minimap_state.lock().unwrap() = SourceState::Off;
                     std::thread::sleep(MINIMAP_IDLE);
                     continue;
@@ -939,17 +955,22 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                 }
                 *sh.minimap_state.lock().unwrap() = SourceState::Ok;
                 *sh.gank_calls.lock().unwrap() = (calls.clone(), Instant::now());
-                if calls.iter().map(|c| &c.key).ne(said.iter().map(|c| &c.key)) {
+                let lanes = ctx.board.as_ref().map_or(vec![], |b| coach::jungle::lanes(b, Some(&tracker.view(time, &ctx.enemies))));
+                *sh.jungle_lanes.lock().unwrap() = (lanes.clone(), Instant::now());
+                let new_calls = calls.iter().map(|c| &c.key).ne(said.iter().map(|c| &c.key));
+                if new_calls || lanes != shown {
                     let json = {
                         let mut st = sh.ui.lock().unwrap();
                         let Some(g) = st.game.as_mut() else { continue };
                         inject_gank(g, &calls);
+                        inject_lanes(g, &lanes);
                         serde_json::to_string(&*st).unwrap_or_default()
                     };
                     if !json.is_empty() {
                         let _ = app.emit_str("state", json);
                     }
                     said = calls;
+                    shown = lanes;
                 }
             }
         })

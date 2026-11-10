@@ -20,6 +20,7 @@
   import Bounties from './Bounties.svelte';
   import Tips from './Tips.svelte';
   import Laning from './Laning.svelte';
+  import Jungle from './Jungle.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
@@ -43,7 +44,7 @@
     <BuildPath owned={game.owned} path={game.path} source={game.build_source} />
   </div>
   <div class="threats">
-    {#if game.matchup.length}<Laning cards={game.matchup} me={game.my_champ} at={game.time} />{/if}
+    {#if game.jungle}<Jungle j={game.jungle} />{:else if game.matchup.length}<Laning cards={game.matchup} me={game.my_champ} at={game.time} />{/if}
     {#if game.tab_hint}<TabHint hint={game.tab_hint} />{/if}
     {#if game.readiness}<Readiness r={game.readiness} />{/if}
     <Threats threats={game.threats} />

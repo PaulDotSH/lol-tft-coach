@@ -129,6 +129,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
     } else {
         vec![]
     };
+    let jungle = crate::jungle::review(d, &marks, benchmarks.as_ref().and_then(|b| b.cs_per_min));
     let mut a = MatchAnalysis {
         game: g.clone(),
         players,
@@ -150,8 +151,9 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         rich_marks,
         vs_past: None,
         focus: None,
-        laning: crate::laning::laning(d),
+        laning: if jungle.is_some() { None } else { crate::laning::laning(d) },
         note: None,
+        jungle,
     };
     a.takeaways = takeaways(&a, d, sd, team_kills);
     if let Some(i) = a.review.notes.iter().position(|n| n.contains(" came out of fog"))
