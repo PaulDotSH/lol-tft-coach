@@ -141,6 +141,8 @@ data_default! {
         pub viewing: Option<String>,
         /// Units with red HP bars (my combat opponent's, PvE monsters); `emb` only while every bar is full.
         pub foes: Vec<SeenUnit>,
+        /// The other players' rows of the player list: (name, HP), top to bottom.
+        pub lobby: Vec<(String, u32)>,
     }
 }
 

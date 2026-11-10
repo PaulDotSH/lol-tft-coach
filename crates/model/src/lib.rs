@@ -67,6 +67,10 @@ data! {
         /// Write the coach's note in a game's review (rules only, after the game).
         #[serde(default = "yes")]
         pub game_note: bool,
+        /// Save TFT unit crops of every fight and scouted board for training unit recognition
+        /// (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
+        #[serde(default)]
+        pub tft_crops: bool,
     }
 
     /// One screen reader's health (Settings, "Screen reading").
@@ -163,6 +167,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false }
     }
 }

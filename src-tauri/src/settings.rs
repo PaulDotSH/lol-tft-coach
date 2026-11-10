@@ -38,5 +38,6 @@ mod tests {
         let old: Settings = toml::from_str("tier = \"all\"\nregion = \"all\"\nocr_enabled = true\nrecord_fixtures = false\n").unwrap();
         assert!(!old.overlay);
         assert!(old.audio && old.gank_warn && old.game_note);
+        assert!(!old.tft_crops && !Settings::default().tft_crops);
     }
 }

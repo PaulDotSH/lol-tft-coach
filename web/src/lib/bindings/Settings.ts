@@ -30,4 +30,10 @@ gank_warn: boolean,
 /**
  * Write the coach's note in a game's review (rules only, after the game).
  */
-game_note: boolean, };
+game_note: boolean, 
+/**
+
+ * Save TFT unit crops of every fight and scouted board for training unit recognition
+ * (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
+ */
+tft_crops: boolean, };
