@@ -376,3 +376,18 @@ pub const NOTE_SCORE_PATTERN: f32 = 4.0;
 pub const NOTE_SCORE_AWAY: f32 = 3.0;
 pub const NOTE_SCORE_GOOD: f32 = 2.0;
 pub const NOTE_SCORE_PLAIN: f32 = 1.0;
+
+// ---- item what-if (`whatif.rs`). First guesses, check against lolalytics slot win rates. ----
+pub const BURST_AUTOS: f32 = 2.0;
+pub const SUSTAIN_S: f32 = 10.0;
+pub const WHATIF_BURST_STACKS: f32 = 0.5;
+pub const CRIT_BASE: f32 = 1.75;
+pub const CURRENT_HP_SHARE: f32 = 0.7;
+pub const AMP_VS_HP_FULL: f32 = 1500.0;
+pub const KIT_ON_HIT_FLAT: f32 = 30.0;
+pub const KIT_ON_HIT_AP: f32 = 0.3;
+pub const WHATIF_BURST_TRAIT: f32 = 0.5;
+pub const WHATIF_LANE_W: f32 = 1.5;
+pub const WHATIF_DMG_W: f32 = 0.1;
+pub const WHATIF_EHP_W: f32 = 0.06;
+pub const WHATIF_ROUGH_W: f32 = 0.5;

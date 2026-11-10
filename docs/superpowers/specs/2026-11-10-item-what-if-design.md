@@ -10,9 +10,10 @@ the enemies in this game: "Rabadon's: +14 % to Ahri, +6 % to Malphite · Void St
 mix. Today these choices are scored by tags and a reference penetration gain
 (`resists::Targets::gain`); the simulator makes the reason physical.
 
-Stopping condition for v1: numbers shown for Buy next + alternatives, display only,
-for every champion with a kit profile, with unit tests on hand-calculated cases. The
-item score is not changed in v1 (see "Feeding the score").
+Stopping condition for v1: numbers shown for Buy next + alternatives for every champion
+with a kit profile (or a class profile, marked rough), with unit tests on hand-calculated
+cases, and the threat-weighted gain feeding the item score (changed by the user on
+2026-11-10, see "Feeding the score").
 
 ## Decisions
 
@@ -23,6 +24,8 @@ item score is not changed in v1 (see "Feeding the score").
 | What is compared | Relative change (%) of two reference outputs, burst and sustained, per enemy and threat-weighted. Never an absolute "you deal 1,432". |
 | Where it runs | `coach::whatif`, pure, inside `game_advice`. |
 | Scope | Rift, ARAM, Mayhem. In Mayhem, stat augments are already in my live stats; augment procs are not modelled and the row says so. |
+| Enemy weights | Each enemy weighs by their in-game threat (`Foe.score`: item gold, KDA, level, CS, kills on me, lane opponent), `NEED_W_FLOOR + score / 100`, and the lane opponent once more by `WHATIF_LANE_W` (1.5) on top, so the laner counts most even when not the most fed. The laner leads the per-enemy table. (User, 2026-11-10.) |
+| Score | The weighted gain is a term in the item score for Buy next and the alternatives (see "Feeding the score"). `Targets::gain` stays the fallback without a what-if. (User, 2026-11-10.) |
 
 Alternatives considered for ability numbers: Data Dragon spell `vars` (mostly empty
 since the tooltip rework), Meraki Analytics JSON (a new third-party source, parsed
@@ -141,20 +144,30 @@ WhatIf { item, damage: f32, per_enemy: Vec<(ChampKey, f32)>, ehp: f32,
   damage items ("+9 % dmg"), the EHP gain for defensive ones ("+18 % EHP"), both when
   an item gives both. Hover or the build-path panel shows the per-enemy table.
 - Not in the overlay, not spoken.
-- Sorting stays the coach's. When the numbers disagree with the order (an
-  alternative gains 5 points more damage than Buy next) nothing is reordered in v1;
-  the numbers are simply visible.
+- Sorting is the coach's, with the what-if term inside the score (below).
 
-## Feeding the score (after v1)
+## Feeding the score
 
-Only once the display has been used in real games:
+Done in v1 at the user's request (2026-11-10):
 
-1. `examples/whatif_agree.rs`: for the 30 most played champions, compare the
-   simulator's ranking of second and third items with lolalytics' slot win rates
-   against tanky and squishy enemy sets. Report agreement.
-2. If it agrees (target: the lolalytics-best item is in the simulator's top 3 in
-   70 % of cases), replace `Targets::gain`'s reference pen gain in `score_all` with
-   the simulated gain, weight in `consts.rs`.
+- `items::score_all` adds `k × (WHATIF_DMG_W × damage × (1 − peel) + WHATIF_EHP_W × ehp)`
+  to the situational part of each candidate's score, for the first decision only (Buy
+  next and the alternatives: the inventory scored is my real one). `damage` is the
+  leading output's threat-weighted gain, `ehp` the EHP gain against their weighted
+  damage mix; `peel` is my champion's `traits.peel`, so enchanters are not pushed into
+  damage items; `k` is 1, or `WHATIF_ROUGH_W` (0.5) for a class profile. Weights in
+  `consts.rs` (`WHATIF_DMG_W` 0.1, `WHATIF_EHP_W` 0.06).
+- With a what-if, the armor-pen and magic-pen need answers no longer add to the score
+  (the simulation already counts penetration); they still pick the reason line
+  ("Magic pen: Malphite ~300 MR"). Without one (no `my_stats`, no profile and no class
+  fallback, no enemy with base stats) the score is today's, with `Targets::gain`.
+- Later path slots are scored as before: the path is a guess built on hypothetical
+  items, and the simulation runs on my live stats only.
+
+Still open: `examples/whatif_agree.rs` (for the 30 most played champions, compare the
+simulator's ranking of second and third items with lolalytics' slot win rates against
+tanky and squishy enemy sets; target: the lolalytics-best item in the simulator's top 3
+in 70 % of cases), then tune the weights from it and from real games.
 
 ## Errors and gaps
 
@@ -186,3 +199,69 @@ Only once the display has been used in real games:
 - Every champion key in `kits.toml` and item id in `item_effects.toml` exists in the
   Data Dragon fixture (catches renames per patch).
 - Smoke example prints the table for one Rift and one ARAM case.
+
+## Implementation status (2026-11-10)
+
+Built (branch `feat/item-whatif`):
+
+- `tools/kits/gen.py` (standard library only): Data Dragon `championFull.json` gives each
+  spell's tooltip, max rank and cooldowns; the Community Dragon bin gives the
+  calculations. For each damage tag in the tooltip (`<magicDamage>`, `<physicalDamage>`,
+  `<trueDamage>`) the first value of that type per spell is evaluated as base per rank
+  plus ratios (named values, coefficients, stat-by-value, products and sums with a
+  constant factor, effect values, level interpolation, modified calculations). Run once
+  for every champion on Community Dragon 16.21 / Data Dragon 16.21.1; output
+  `crates/coach/kits.toml`, header marked GENERATED and UNCHECKED with the patch.
+  Saved bin: `fixtures/data/cdragon-ahri-16_21.bin.json`, tested by
+  `tools/kits/test_gen.py` (`python -I tools/kits/test_gen.py`).
+- Coverage: 173 champions, 171 with at least one parsed damage spell, 2 rough (Jayce,
+  Ryze: class fallback). Spells skipped by the generator: 43 toggles or stances
+  (cooldown under 2 s, e.g. Jinx Q), 16 percent-of-health values, 10 crit-scaled values,
+  and a handful of resource, level-breakpoint and buff-counter calculations. No hand pass.
+- `crates/coach/item_effects.toml`: 45 items. `coach::whatif`: `with_item`, burst and
+  sustained outputs, EHP, `Sim` (inputs once per tick, one `eval` per item);
+  `GameAdvice.what_if` for Buy next then the alternatives; the score term above.
+- UI: `WhatIfFigure.svelte` on every `BuyNext.svelte` row (main pick and alternatives):
+  "+9 % dmg", "+18 % EHP" or both, "~" when rough; hover or focus opens the per-enemy
+  table (burst, 10 s, laner first and marked, weighted row), the EHP line, the rough and
+  Mayhem notes. Formatting in `web/src/lib/whatif.ts` (node tests). Mock data on the Rift
+  and Mayhem games. The smoke example prints the table for the Rift fixture, Mayhem and
+  an ARAM case.
+
+Deviations from the text above:
+
+- Base AD is not in `BaseStats`: `kits.toml` carries `base_ad` and `ad_per_level` per
+  champion (Community Dragon root record, Data Dragon fallback) for bonus-AD ratios.
+- Class profiles live in `kits.toml` as `[_Mage]`, `[_Marksman]`, ... (per-key medians
+  of the parsed champions with that primary Data Dragon tag), not hand-written.
+- Kit entries: one `[[X.spell]]` per damage type a spell deals (Ahri Q is a magic and a
+  true entry) instead of `hits` with a comment; `hits` only from a tooltip multiplier;
+  ratios may be per-rank arrays; ratios on target max HP (`target_max_hp`) are hand-only;
+  no `[X.autos]` is generated (default `traits.on_hit`). A kit's on-hit share deals
+  `on_hit × (30 + 0.3 AP)` magic per attack (`KIT_ON_HIT_*`).
+- `item_effects.toml` has more fields than listed (`kind`, stat effects `ap`, `hp`, `mr`,
+  `crit`, `base_ad_bonus`, `ad_per_bonus_hp`, `ap_per_bonus_hp`; `amp_magic`,
+  `amp_in_combat`, `on_hit_hp`, `burn_s`, `proc_base_ad`, `proc_bonus_ad`, `proc_hp`,
+  `shred_armor`, `shred_mr`, `basic_haste`, `ult_haste`, `melee_scale`). `amp_vs_hp` scales
+  with the target's bonus HP up to 1500 (Lord Dominik's as in game), not target HP over
+  mine. Infinity Edge is `crit_damage = 0.30` (Data Dragon 16.21 text), Blade of the
+  Ruined King 6 % ranged × 1.5 melee. Numbers Data Dragon leaves blank are wiki values,
+  unchecked in game. Stat effects count for the item being bought only (live stats hold
+  them once owned); damage effects and crit damage count for every held item (the Live
+  API's crit damage is not in `ChampionStats`). Stacking effects (shred,
+  `amp_in_combat`) count half in burst.
+- `WhatIf` also has `burst`, `sustained` and `burst_leads`; `per_enemy` is
+  `Vec<WhatIfEnemy { champ, burst, sustained, lane }>` instead of tuples.
+- Ranks: `my_abilities`, else the lolalytics skill order for my level, else a default
+  (R at 6/11/16, one point each, then Q, W, E max).
+- Sustained procs count by their cooldown, at most once per spell cast in the window
+  (Spellblade needs a cast; for Energized and actives the cap rarely binds).
+
+Left open:
+
+- Step 4: `examples/whatif_agree.rs` and the weight tuning it informs.
+- Hand pass over `kits.toml` (champions in my match history first), then a generator
+  that keeps hand edits; checking the `item_effects.toml` numbers in game.
+- Seeing the figure and table in real games. The UI was checked by `svelte-check`, the
+  node tests and the mock data only (not opened in the app or a browser).
+

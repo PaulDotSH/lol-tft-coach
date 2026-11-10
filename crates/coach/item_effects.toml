@@ -1,0 +1,198 @@
+# Item passives that change damage or effective HP and that Data Dragon stats miss (patch 16.21). Items not
+# listed count by their stats only. Check each patch together with modes.toml. Numbers Data Dragon prints in the
+# description are taken from it; the rest (blank in Data Dragon) are the wiki's values, unchecked in game.
+#
+# Stat effects (in my live stats once owned, so they count for the item being bought only):
+#   ap_mult, ap, hp, mr, crit, base_ad_bonus (share of base AD as bonus AD), ad_per_bonus_hp, ap_per_bonus_hp.
+# Damage effects (count for every item held): crit_damage, amp (all damage), amp_magic, amp_in_combat (full in the
+#   sustained output, half in burst), amp_vs_hp (up to this at 1500 target bonus HP), on_hit_flat / on_hit_ap /
+#   on_hit_hp (my max HP) / on_hit_current_hp (target), burn_max_hp (target, whole burn) over burn_s,
+#   proc_flat / proc_ap / proc_base_ad / proc_bonus_ad / proc_hp every proc_cd seconds, shred_armor / shred_mr
+#   (target resist share at full stacks), basic_haste, ult_haste, melee_scale (melee users), kind of the
+#   on-hit / proc damage (physical, magic, true).
+# Defensive (item being bought): shield, ehp_mult_physical, ehp_mult_magic.
+
+[3089] # Rabadon's Deathcap
+ap_mult = 1.30
+
+[3031] # Infinity Edge
+crit_damage = 0.30
+
+[3032] # Yun Tal Wildarrows: crit chance once stacked
+crit = 0.25
+
+[3036] # Lord Dominik's Regards: Giant Slayer
+amp_vs_hp = 0.15
+
+[6676] # The Collector: execute below 5 %
+amp = 0.05
+
+[3153] # Blade of the Ruined King
+kind = "physical"
+on_hit_current_hp = 0.06
+melee_scale = 1.5
+
+[3115] # Nashor's Tooth
+kind = "magic"
+on_hit_flat = 15
+on_hit_ap = 0.15
+
+[3091] # Wit's End
+kind = "magic"
+on_hit_flat = 45
+
+[3124] # Guinsoo's Rageblade
+kind = "magic"
+on_hit_flat = 30
+
+[3302] # Terminus
+kind = "magic"
+on_hit_flat = 30
+
+[6672] # Kraken Slayer: every third attack, averaged
+kind = "physical"
+on_hit_flat = 50
+
+[3748] # Titanic Hydra
+kind = "physical"
+on_hit_flat = 3
+on_hit_hp = 0.01125
+melee_scale = 1.333
+
+[3094] # Rapid Firecannon: Energized attack
+kind = "magic"
+proc_flat = 40
+proc_cd = 3
+
+[3095] # Stormrazor: Energized attack
+kind = "magic"
+proc_flat = 90
+proc_cd = 3
+
+[3100] # Lich Bane: Spellblade
+kind = "magic"
+proc_base_ad = 0.75
+proc_ap = 0.45
+proc_cd = 1.5
+
+[3078] # Trinity Force: Spellblade
+kind = "physical"
+proc_base_ad = 2.0
+proc_cd = 1.5
+
+[3508] # Essence Reaver: Spellblade
+kind = "physical"
+proc_base_ad = 1.0
+proc_bonus_ad = 0.4
+proc_cd = 1.5
+
+[6662] # Iceborn Gauntlet: Spellblade
+kind = "physical"
+proc_base_ad = 1.5
+proc_cd = 1.5
+
+[6655] # Luden's Echo
+kind = "magic"
+proc_flat = 90
+proc_ap = 0.1
+proc_cd = 10
+
+[4646] # Stormsurge: Squall
+kind = "magic"
+proc_flat = 125
+proc_ap = 0.1
+proc_cd = 30
+
+[3146] # Hextech Gunblade: active
+kind = "magic"
+proc_flat = 200
+proc_ap = 0.3
+proc_cd = 60
+
+[3152] # Hextech Rocketbelt: active
+kind = "magic"
+proc_flat = 100
+proc_ap = 0.1
+proc_cd = 40
+
+[3084] # Heartsteel: Colossal Consumption
+kind = "physical"
+proc_flat = 70
+proc_hp = 0.06
+proc_cd = 30
+
+[6653] # Liandry's Torment
+burn_max_hp = 0.06
+burn_s = 3
+amp_in_combat = 0.06
+
+[4637] # Demonic Embrace
+burn_max_hp = 0.048
+burn_s = 4
+melee_scale = 1.333
+ap_per_bonus_hp = 0.02
+
+[4633] # Riftmaker
+amp_in_combat = 0.08
+ap_per_bonus_hp = 0.02
+
+[3161] # Spear of Shojin
+basic_haste = 25
+amp_in_combat = 0.12
+
+[4645] # Shadowflame: Cinderbloom, averaged over the target's health
+amp_magic = 0.06
+
+[8020] # Abyssal Mask
+amp_magic = 0.12
+
+[3071] # Black Cleaver: 5 stacks
+shred_armor = 0.30
+
+[8010] # Bloodletter's Curse: 4 stacks
+shred_mr = 0.30
+
+[3118] # Malignance
+ult_haste = 20
+
+[2512] # Fiendhunter Bolts
+ult_haste = 30
+
+[3073] # Experimental Hexplate
+ult_haste = 30
+
+[2503] # Blackfire Torch: one enemy burning
+ap_mult = 1.04
+
+[6657] # Rod of Ages: full stacks
+ap = 30
+hp = 100
+
+[3053] # Sterak's Gage
+base_ad_bonus = 0.45
+
+[2501] # Overlord's Bloodmail
+ad_per_bonus_hp = 0.025
+
+[3143] # Randuin's Omen: less crit damage
+ehp_mult_physical = 1.10
+
+[4401] # Force of Nature: full stacks
+mr = 70
+
+[6665] # Jak'Sho, The Protean: in combat
+ehp_mult_physical = 1.10
+ehp_mult_magic = 1.10
+
+[2504] # Kaenic Rookern: magic shield
+ehp_mult_magic = 1.15
+
+[3156] # Maw of Malmortius: magic shield
+ehp_mult_magic = 1.10
+
+[6673] # Immortal Shieldbow: Lifeline
+shield = 350
+
+[6333] # Death's Dance: delayed damage
+ehp_mult_physical = 1.08
+ehp_mult_magic = 1.08

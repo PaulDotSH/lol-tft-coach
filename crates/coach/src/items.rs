@@ -8,6 +8,7 @@ use crate::{
     needs::{Needs, decay},
     resists::{PEN_GAIN_FULL, Pen, Targets},
     threat::Foe,
+    whatif::Sim,
 };
 use model::*;
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ const CAP_PENALTY: f32 = 0.04;
 /// Crit amount of a typical crit item (full penalty weight).
 const CAP_REF_CRIT: f32 = 0.25;
 /// Base attack speed when Data Dragon stats are missing.
-const DEFAULT_BASE_AS: f32 = 0.65;
+pub(crate) const DEFAULT_BASE_AS: f32 = 0.65;
 /// Augment shift at which a reason names the augment.
 const AUG_REASON_MIN: f32 = 0.01;
 
@@ -91,6 +92,7 @@ pub struct Ctx<'a> {
     pub pen: Option<Targets>,
     /// Last tick's Buy next, kept first while it is within KEEP_MARGIN of the best.
     pub keep: Option<ItemId>,
+    pub sim: Option<Sim<'a>>,
 }
 
 impl<'a> Ctx<'a> {
@@ -118,7 +120,7 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, pool_parts, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None, keep: None }
+        Ctx { sd, stats, champ, pool, pool_parts, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None, keep: None, sim: None }
     }
 }
 
@@ -268,6 +270,7 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         Decision::Boots => BOOTS_WEIGHT,
     };
     let held = held(ctx.sd, have);
+    let sim = ctx.sim.as_ref().filter(|s| s.owned == have);
     for (&(it, fit, defensive), parts) in ctx.pool.iter().zip(&ctx.pool_parts) {
         if it.boots != (dec == Decision::Boots)
             || have.contains(&it.id)
@@ -284,7 +287,9 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         let (mut dot, mut need_i, mut best) = (0.0, None, 0.0);
         for i in 0..N {
             let t = ans[i] * need[i];
-            dot += t;
+            if sim.is_none() || (i != ARMOR_PEN && i != MAGIC_PEN) {
+                dot += t;
+            }
             if t > best {
                 (best, need_i) = (t, Some(i));
             }
@@ -305,7 +310,7 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         } else {
             continue;
         };
-        let sit = weight * dot;
+        let sit = weight * dot + sim.map_or(0.0, |s| s.term(it, ctx.champ.traits.peel));
         let (aug, aug_src) = ctx.aug.item_bonus(it);
         // Nothing to amplify: Spirit Visage on a champion without self-healing.
         let no_heal = HEAL_AMP_ITEMS.contains(&it.id) && ctx.champ.traits.heals < SELF_HEAL_MIN;

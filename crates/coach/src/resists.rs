@@ -70,7 +70,7 @@ pub fn item_pen(sd: &StaticData, ids: &[ItemId]) -> (Pen, Pen) {
 }
 
 /// Damage multiplier against `resist` (negative resists ignored).
-fn mult(resist: f32, p: Pen) -> f32 {
+pub fn mult(resist: f32, p: Pen) -> f32 {
     100.0 / (100.0 + (resist.max(0.0) * (1.0 - p.pct) - p.flat).max(0.0))
 }
 

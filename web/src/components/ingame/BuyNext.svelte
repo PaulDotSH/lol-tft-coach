@@ -1,17 +1,21 @@
 <script lang="ts">
   import type { GoldEta as Eta } from '../../lib/bindings/GoldEta';
   import type { ItemPick } from '../../lib/bindings/ItemPick';
+  import type { WhatIf } from '../../lib/bindings/WhatIf';
   import { store } from '../../lib/store.svelte';
   import { itemName } from '../../lib/ui';
   import Icon from '../Icon.svelte';
   import GoldEta from './GoldEta.svelte';
+  import WhatIfFigure from './WhatIfFigure.svelte';
 
   let {
     pick,
     alternatives,
     eta = null,
     upgrade = null,
-  }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null; upgrade?: ItemPick | null } = $props();
+    whatIf = [],
+  }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null; upgrade?: ItemPick | null; whatIf?: WhatIf[] } = $props();
+  const wi = (item: number) => whatIf.find((w) => w.item === item);
   const component = $derived(pick?.component_now ?? null);
   const componentCost = $derived(component != null ? (store.ui?.items[component]?.cost ?? null) : null);
 </script>
@@ -24,6 +28,7 @@
         <div class="name">{pick.name}</div>
         <div class="cost num">{pick.cost.toLocaleString()} g</div>
         {#if pick.reason}<p class="reason">{pick.reason}</p>{/if}
+        <WhatIfFigure w={wi(pick.item)} />
         {#if eta && eta.item === pick.item}<GoldEta {eta} />{/if}
       </div>
     </div>
@@ -55,6 +60,7 @@
           <span class="alt-name">{alt.name}</span>
           <span class="num gold">{alt.cost.toLocaleString()}</span>
           <span class="alt-reason muted">{alt.reason}</span>
+          <span class="alt-fig"><WhatIfFigure w={wi(alt.item)} /></span>
         </li>
       {/each}
     </ul>
@@ -132,9 +138,12 @@
   }
   .alts li {
     display: grid;
-    grid-template-columns: 40px auto auto 1fr;
+    grid-template-columns: 40px auto auto 1fr auto;
     align-items: center;
     column-gap: 10px;
+  }
+  .text :global(.whatif) {
+    margin-top: 6px;
   }
   .alt-name {
     font: 600 19px var(--cond);
