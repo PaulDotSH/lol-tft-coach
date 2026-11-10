@@ -10,6 +10,7 @@
   import DeathReview from './DeathReview.svelte';
   import Fights from './Fights.svelte';
   import FocusCard from './FocusCard.svelte';
+  import NoteCard from './NoteCard.svelte';
   import PastCompare from './PastCompare.svelte';
   import Laning from './Laning.svelte';
   import Phases from './Phases.svelte';
@@ -103,6 +104,7 @@
   {:else}
     <div class="cols">
       <div class="col">
+        {#if a.note}<NoteCard note={a.note} />{/if}
         {#if a.focus}<FocusCard focus={a.focus} />{/if}
         <section class="panel">
           <h2>What stood out</h2>

@@ -561,6 +561,8 @@ dependencies = [
 name = "coach"
 version = "0.1.0"
 dependencies = [
+ "clients",
+ "data",
  "model",
  "serde",
  "serde_json",

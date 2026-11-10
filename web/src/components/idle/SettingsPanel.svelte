@@ -51,6 +51,11 @@
       <small>reads the minimap on the Rift and warns of ganks on your lane, the enemy jungler, roams and enemies in your jungle</small>
     </label>
     <input id="gank" type="checkbox" checked={settings.gank_warn} onchange={(e) => set('gank_warn', e.currentTarget.checked)} />
+    <label for="note">
+      Coach's note in game reviews
+      <small>a few connected takeaways and a focus, written by rules from the game's own facts after it ends</small>
+    </label>
+    <input id="note" type="checkbox" checked={settings.game_note} onchange={(e) => set('game_note', e.currentTarget.checked)} />
     <label for="rec">Record games as test fixtures</label>
     <input id="rec" type="checkbox" checked={settings.record_fixtures} onchange={(e) => set('record_fixtures', e.currentTarget.checked)} />
   </div>

@@ -334,3 +334,26 @@ pub const SEEN_NEAR: f32 = 4500.0;
 pub const WARN_EARLY_S: f32 = 2.0;
 pub const WARN_DEATH_S: f32 = 10.0;
 pub const SIGHT_NOTE_MIN: usize = 2;
+
+// ---- game note ----
+/// Bumped when the rules change what a note says.
+pub const NOTE_RULES_V: u32 = 1;
+/// Takeaways in a note: at most NOTE_TAKEAWAYS, and no note under NOTE_MIN.
+pub const NOTE_TAKEAWAYS: usize = 3;
+pub const NOTE_MIN: usize = 2;
+/// A line is shorter than this (characters).
+pub const NOTE_MAX_CHARS: usize = 300;
+/// Deaths, fights or objectives named in one line.
+pub const NOTE_INSTANCES: usize = 3;
+/// Team gold lead that was thrown in a loss, or the deficit come back from in a win.
+pub const NOTE_TEAM_LEAD: i32 = 2500;
+/// Deaths before this (s) are early; fights from it on are after the lane.
+pub const NOTE_LANE_END_S: f32 = 840.0;
+/// Lines connecting facts rank above single ones: a habit this game repeated, a lead lost in fights,
+/// a pattern over several deaths or fights, then the review's own takeaways.
+pub const NOTE_SCORE_HABIT: f32 = 7.0;
+pub const NOTE_SCORE_LEAD: f32 = 6.0;
+pub const NOTE_SCORE_PATTERN: f32 = 4.0;
+pub const NOTE_SCORE_AWAY: f32 = 3.0;
+pub const NOTE_SCORE_GOOD: f32 = 2.0;
+pub const NOTE_SCORE_PLAIN: f32 = 1.0;

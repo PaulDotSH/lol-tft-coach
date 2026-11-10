@@ -26,4 +26,8 @@ overlay: boolean,
 /**
  * Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
  */
-gank_warn: boolean, };
+gank_warn: boolean, 
+/**
+ * Write the coach's note in a game's review (rules only, after the game).
+ */
+game_note: boolean, };

@@ -59,6 +59,9 @@ data! {
         /// Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
         #[serde(default = "yes")]
         pub gank_warn: bool,
+        /// Write the coach's note in a game's review (rules only, after the game).
+        #[serde(default = "yes")]
+        pub game_note: bool,
     }
 
     /// One rank badge over an offered augment card. Ranks only, never win rates.
@@ -140,6 +143,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true }
     }
 }

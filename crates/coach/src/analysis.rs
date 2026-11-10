@@ -37,7 +37,7 @@ const FIGHTS_GOOD: f32 = 0.7;
 /// Minute marks for the phase table.
 const PHASE_MINUTES: [u32; 4] = [5, 10, 15, 20];
 /// Gold held at a minute mark that counts as sitting on it.
-const RICH_GOLD: u32 = 1500;
+pub(crate) const RICH_GOLD: u32 = 1500;
 const RICH_MARKS: usize = 2;
 /// The closing push (s before the end) and the first minutes are left out: nobody backs then.
 const RICH_SKIP_END: f32 = 180.0;
@@ -151,6 +151,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         vs_past: None,
         focus: None,
         laning: crate::laning::laning(d),
+        note: None,
     };
     a.takeaways = takeaways(&a, d, sd, team_kills);
     if let Some(i) = a.review.notes.iter().position(|n| n.contains(" came out of fog"))
@@ -164,7 +165,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
 }
 
 /// "12:00, 18:00 and 21:00".
-fn marks(minutes: &[u32]) -> String {
+pub(crate) fn marks(minutes: &[u32]) -> String {
     let v: Vec<String> = minutes.iter().map(|m| format!("{m}:00")).collect();
     match v.as_slice() {
         [] => String::new(),
@@ -380,7 +381,7 @@ fn plan(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats>) -> Vec<Ite
     items::build(&ctx, &[], &needs).path.iter().map(|s| s.id).collect()
 }
 
-fn clock(t: f32) -> String {
+pub(crate) fn clock(t: f32) -> String {
     let s = t.max(0.0) as u32;
     format!("{}:{:02}", s / 60, s % 60)
 }

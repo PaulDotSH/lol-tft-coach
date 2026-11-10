@@ -3,6 +3,7 @@ import type { Benchmarks } from "./Benchmarks";
 import type { DeathReview } from "./DeathReview";
 import type { Fight } from "./Fight";
 import type { Focus } from "./Focus";
+import type { GameNote } from "./GameNote";
 import type { GoldPoint } from "./GoldPoint";
 import type { KillMark } from "./KillMark";
 import type { Laning } from "./Laning";
@@ -48,4 +49,8 @@ rich_marks: Array<number>, vs_past: PastCompare | null, focus: Focus | null,
 /**
  * Rift: my lane (bot lane: both duos) up to 14:00.
  */
-laning: Laning | null, };
+laning: Laning | null, 
+/**
+ * The coach's note, when the setting is on and the review was built after the game.
+ */
+note: GameNote | null, };

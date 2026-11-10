@@ -14,7 +14,7 @@ const EVEN: i32 = 300;
 const SPENT_MIN: u32 = 300;
 
 /// "+1,150" / "−900".
-fn gold(v: i32) -> String {
+pub(crate) fn gold(v: i32) -> String {
     let n = v.unsigned_abs();
     let s = if n >= 1000 { format!("{},{:03}", n / 1000, n % 1000) } else { n.to_string() };
     format!("{}{s}", if v < 0 { "−" } else { "+" })
