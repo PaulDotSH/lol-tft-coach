@@ -253,4 +253,50 @@ data! {
         pub enemies: DraftSide,
         pub lanes: Vec<DraftLane>,
     }
+
+    /// How the game goes by length: both teams' win rate by game length (lolalytics build pages),
+    /// the scaling champions, the comps and my lane. Champ select preview and the start of a game.
+    pub struct GamePlan {
+        /// Early, mid, late.
+        pub phases: Vec<PlanPhase>,
+        pub scalers: Vec<Scaler>,
+        /// At most five, in order: "scaling", "comp", "spikes", "lane", "record".
+        pub lines: Vec<PlanLine>,
+        /// The folded line: "Stronger early · they scale: Kayle".
+        pub fold: String,
+        /// "lolalytics", "lolalytics ARAM data".
+        pub source: String,
+        /// Some champion's curve is missing: `curves` of `champs` are in.
+        pub partial: bool,
+        pub curves: u32,
+        pub champs: u32,
+        /// The full card shows until this game time (s), the folded line after.
+        pub show_s: f32,
+    }
+
+    pub struct PlanPhase {
+        /// "Early", "Mid", "Late".
+        pub name: String,
+        pub from_min: u32,
+        pub to_min: Option<u32>,
+        /// Win-rate points, my team's mean minus theirs.
+        pub edge: f32,
+        /// Under the even threshold: reads "even".
+        pub even: bool,
+    }
+
+    /// The champion of a side doing best late or early against its own average, win-rate points.
+    pub struct Scaler {
+        pub champ: ChampKey,
+        pub ally: bool,
+        pub late: f32,
+        pub early: f32,
+        /// Few games in the lane they play: the data is their main lane's.
+        pub off_lane: bool,
+    }
+
+    pub struct PlanLine {
+        pub kind: String,
+        pub text: String,
+    }
 }

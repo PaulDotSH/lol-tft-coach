@@ -131,6 +131,9 @@ data! {
         /// LP over my ranked games, Solo/Duo then Flex.
         #[serde(default)]
         pub ranked: Vec<RankTrend>,
+        /// Game-plan card: champ select preview (Rift, all ten shown), loading and in game.
+        #[serde(default)]
+        pub plan: Option<GamePlan>,
     }
 }
 

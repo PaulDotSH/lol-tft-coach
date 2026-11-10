@@ -24,8 +24,8 @@
 
 use crate::num;
 use model_static::{
-    Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, MatchupBuild, Mode, RuneData, RunePage,
-    RuneStat, TierEntry,
+    Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, LengthWin, Matchup, MatchupBuild, Mode, RuneData,
+    RunePage, RuneStat, TierEntry,
 };
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -37,6 +37,9 @@ const TTL: Duration = Duration::from_secs(12 * 3600);
 /// Below this many games on the current patch, use the last 30 days.
 pub const MIN_GAMES: u64 = 3000;
 const FALLBACK_PATCH: &str = "30";
+/// A lane page with fewer games by game length than this gives way to the champion's main lane.
+pub const LANE_MIN_GAMES: u64 = 1000;
+const LENGTH_FROM: [u32; 7] = [0, 15, 20, 25, 30, 35, 40];
 const MAX_EARLY: usize = 20;
 const TIERS: [&str; 15] = ["S+", "S", "S-", "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-"];
 
@@ -105,7 +108,47 @@ pub async fn champ_stats(
         skill_order: page.skill_order,
         skill_order_games: page.skill_order_games,
         skill_priority: page.skill_priority,
+        by_length: page.by_length,
     })
+}
+
+/// Games and wins by game length from the build page alone (the URL `champ_stats` uses, so
+/// the disk cache is shared), and the lane the page is for: the last 30 days when the patch
+/// is thin, the champion's main lane (None) when its lane has under `LANE_MIN_GAMES`.
+pub async fn length_stats(
+    http: &crate::Http,
+    champ: &Champion,
+    lane: Option<Lane>,
+    mode: Mode,
+    tier: &str,
+    region: &str,
+    patch: &str,
+) -> anyhow::Result<(Option<Lane>, Vec<LengthWin>)> {
+    let lane = if mode == Mode::Rift { lane } else { None };
+    let page = |lane: Option<Lane>, patch: &str| {
+        let url = Query { slug: &champ.slug, lane, mode, tier, region, patch: patch.to_owned() }.page();
+        async move { http.get_parsed(&url, TTL, parse_build_page).await.map(|p| p.by_length) }
+    };
+    let games = |b: &[LengthWin]| b.iter().map(|w| w.games as u64).sum::<u64>();
+    let mut best = page(lane, patch).await?;
+    if games(&best) < MIN_GAMES && patch != FALLBACK_PATCH {
+        match page(lane, FALLBACK_PATCH).await {
+            Ok(b) if games(&b) > games(&best) => best = b,
+            Ok(_) => {}
+            Err(e) => tracing::warn!("lolalytics 30-day length fallback for {}: {e:#}", champ.slug),
+        }
+    }
+    if lane.is_some() && games(&best) < LANE_MIN_GAMES {
+        match page(None, patch).await {
+            Ok(b) if games(&b) > games(&best) => return Ok((None, b)),
+            Ok(_) => {}
+            Err(e) => tracing::warn!("lolalytics main-lane length for {}: {e:#}", champ.slug),
+        }
+    }
+    if best.is_empty() {
+        anyhow::bail!("no game-length histogram for {}", champ.slug);
+    }
+    Ok((lane, best))
 }
 
 /// My win rate against every champion in another lane: `vslane` (support vs bot laners).
@@ -328,6 +371,7 @@ pub struct PageStats {
     pub skill_order: String,
     pub skill_order_games: u32,
     pub skill_priority: String,
+    pub by_length: Vec<LengthWin>,
 }
 
 /// Header and per-minute benchmarks from a build page; missing parts are None.
@@ -343,7 +387,8 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
             (!m.is_empty()).then_some(m)
         })
         .unwrap_or_default();
-    let minutes = q.find_map(3, &["time", "timeWin"], |v| avg_minutes(&v["time"]));
+    let hist = q.find_map(3, &["time", "timeWin"], |v| Some((avg_minutes(&v["time"])?, by_length(&v))));
+    let minutes = hist.as_ref().map(|h| h.0);
     let pick = q.find_map(3, &["pick", "win"], |v| v["pick"]["skillorder"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
     let (skill_order, skill_order_games) = skill_order(&pick);
     let per_min = |keys: &[&str]| {
@@ -364,6 +409,7 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
         skill_order,
         skill_order_games,
         skill_priority: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
+        by_length: hist.map_or(vec![], |h| h.1),
     })
 }
 
@@ -454,6 +500,15 @@ fn avg_minutes(hist: &Value) -> Option<f64> {
         }
     });
     (n > 0.0).then(|| sum / n)
+}
+
+/// `time` / `timeWin` buckets 1..7 as games and wins (a bucket left out had no games); empty without them.
+fn by_length(v: &Value) -> Vec<LengthWin> {
+    if !v["time"].is_object() || !v["timeWin"].is_object() {
+        return vec![];
+    }
+    let n = |h: &str, i: usize| num(&v[h][(i + 1).to_string()]).unwrap_or(0.0) as u32;
+    LENGTH_FROM.iter().enumerate().map(|(i, &from_min)| LengthWin { from_min, games: n("time", i), wins: n("timeWin", i) }).collect()
 }
 
 pub fn parse_tier_list(json: &str, lane: Lane) -> anyhow::Result<Vec<TierEntry>> {
@@ -576,6 +631,24 @@ mod tests {
         let p = parse_build_page(&fixture("lolalytics-build-ahri-aram.html")).unwrap();
         assert_eq!((p.games, p.win_rate), (Some(503), Some(56.06)));
         assert!(p.benchmarks.gold_per_min.unwrap() > 500.0, "ARAM games are short");
+    }
+
+    #[test]
+    fn build_page_by_length() {
+        let p = parse_build_page(&fixture("lolalytics-build-ahri-middle.html")).unwrap();
+        let rows: Vec<(u32, u32, u32)> = p.by_length.iter().map(|w| (w.from_min, w.games, w.wins)).collect();
+        assert_eq!(
+            rows,
+            [(0, 177, 78), (15, 1247, 624), (20, 2612, 1321), (25, 5578, 3027), (30, 4464, 2340), (35, 1871, 968), (40, 690, 355)]
+        );
+        let a = parse_build_page(&fixture("lolalytics-build-ahri-aram.html")).unwrap();
+        let aram: Vec<(u32, u32)> = a.by_length.iter().map(|w| (w.games, w.wins)).collect();
+        assert_eq!(aram, [(96, 63), (213, 128), (141, 64), (45, 23), (5, 2), (2, 2), (1, 0)]);
+        assert_eq!(a.by_length.iter().map(|w| w.games as u64).sum::<u64>(), a.games.unwrap());
+        assert_eq!(a.by_length.iter().map(|w| w.from_min).collect::<Vec<_>>(), LENGTH_FROM);
+        let short = by_length(&serde_json::json!({ "time": { "1": 5 }, "timeWin": { "1": 2 } }));
+        assert_eq!((short.len(), short[0].games, short[0].wins, short[6].games), (7, 5, 2, 0), "a missing bucket had no games");
+        assert!(by_length(&serde_json::json!({ "time": 3 })).is_empty());
     }
 
     #[test]

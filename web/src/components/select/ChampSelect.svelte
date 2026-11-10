@@ -13,6 +13,7 @@
   import Memory from './Memory.svelte';
   import Matchup from './Matchup.svelte';
   import TierBoard from './TierBoard.svelte';
+  import GamePlan from '../GamePlan.svelte';
 
   let { cs }: { cs: ChampSelectAdvice } = $props();
   const rift = $derived(cs.mode === 'rift');
@@ -70,6 +71,10 @@
 
   {#if cs.draft}
     <DraftPanel draft={cs.draft} />
+  {/if}
+
+  {#if store.state?.plan}
+    <GamePlan plan={store.state.plan} full />
   {/if}
 
   {#if cs.build}
