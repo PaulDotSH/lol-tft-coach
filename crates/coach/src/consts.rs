@@ -325,3 +325,12 @@ pub const ROAM_DWELL_S: f32 = 1.0;
 pub const ROAM_GAP_S: f32 = 20.0;
 /// A side lane is laned within this distance of its map corner (world units); blips there are the laners.
 pub const GANK_LANE_CORNER: i32 = 4400;
+pub const SIGHT_KEEP_S: f32 = 30.0;
+pub const SIGHT_WINDOW_S: f32 = 15.0;
+pub const SIGHT_READ_S: f32 = 1.5;
+pub const SIGHT_MIN_COVER: f32 = 0.5;
+pub const SEEN_EARLY_S: f32 = 4.0;
+pub const SEEN_NEAR: f32 = 4500.0;
+pub const WARN_EARLY_S: f32 = 2.0;
+pub const WARN_DEATH_S: f32 = 10.0;
+pub const SIGHT_NOTE_MIN: usize = 2;

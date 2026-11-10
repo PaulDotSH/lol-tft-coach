@@ -29,6 +29,7 @@ mod self_stats;
 mod ranked;
 mod selfcoach;
 mod session;
+pub mod sight;
 mod shop;
 pub mod skills;
 mod spikes;
@@ -50,7 +51,7 @@ pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal
 pub use ranked::{ladder, rank_trends};
 pub use trends::trends;
 pub use picks::AugmentTracker;
-pub use gank::{GankEnemies, GankTracker};
+pub use gank::{GankEnemies, GankTracker, SightLog, Sighting};
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
 pub use runes::VsRunes;

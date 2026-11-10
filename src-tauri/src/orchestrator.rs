@@ -569,7 +569,8 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
         && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);
         }
-    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &settings.goals);
+    let sights = sh.sights.lock().unwrap().clone();
+    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &settings.goals, watch.then_some(&sights));
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice
@@ -700,11 +701,14 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
         .name("minimap".into())
         .spawn(move || {
             let mut tracker = coach::GankTracker::default();
+            let mut sights = coach::SightLog::default();
             let mut said: Vec<Call> = vec![];
             loop {
                 let ctx = sh.gank_ctx.lock().unwrap().clone();
                 let Some(ctx) = ctx else {
                     tracker = coach::GankTracker::default();
+                    sights = coach::SightLog::default();
+                    *sh.sights.lock().unwrap() = coach::SightLog::default();
                     said.clear();
                     *sh.minimap_state.lock().unwrap() = SourceState::Off;
                     std::thread::sleep(MINIMAP_IDLE);
@@ -745,6 +749,9 @@ pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
                     .collect();
                 tracker.observe(&world, ctx.blue, time);
                 let calls = tracker.warnings(time, ctx.lane, &ctx.enemies);
+                let named: Vec<(i32, i32, Option<ChampKey>)> = world.iter().zip(tracker.last_names()).map(|(&(x, y, _), c)| (x, y, c)).collect();
+                sights.push(time, &named, ctx.blue, &calls);
+                *sh.sights.lock().unwrap() = sights.clone();
                 if debug::on() {
                     debug::frame("minimap", Duration::from_secs(3), &frame);
                     let keys: Vec<&str> = calls.iter().map(|c| c.key.as_str()).collect();

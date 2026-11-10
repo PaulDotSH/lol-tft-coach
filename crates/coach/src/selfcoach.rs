@@ -3,6 +3,9 @@
 //! state: the previous tick, level spikes, one note per death.
 
 use crate::common::inventory;
+use crate::consts;
+use crate::gank::SightLog;
+use crate::sight;
 use model::*;
 
 pub const SPIKE_LEVELS: [u32; 3] = [6, 11, 16];
@@ -54,6 +57,7 @@ pub struct GameLog {
     pub early_deaths: Option<u32>,
     pub buys: u32,
     pub followed: u32,
+    lane_opps: Vec<ChampKey>,
 }
 
 /// Items in `now` that were not in `before` (multiset difference).
@@ -72,9 +76,11 @@ fn new_items(before: &[ItemId], now: &[ItemId]) -> Vec<ItemId> {
 }
 
 impl GameLog {
-    pub fn observe(&mut self, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData) {
+    pub fn observe(&mut self, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, sights: Option<&SightLog>) {
         let Some(me) = snap.players.get(snap.me) else { return };
         self.shop_on_death = snap.mode != Mode::Rift;
+        let lane = if snap.mode == Mode::Rift { me.position } else { None };
+        self.lane_opps = sight::lane_opponents(lane, snap.players.iter().filter(|p| p.team != me.team).map(|p| (p.champ, p.position)));
         let now = Moment {
             time: snap.time,
             gold: snap.my_gold,
@@ -144,6 +150,7 @@ impl GameLog {
                 .collect();
             spikes.dedup();
             let unspent = m.gold.max(0.0) as u32;
+            let involved: Vec<ChampKey> = involved.iter().filter_map(|&i| champ(i)).collect();
             self.deaths.push(DeathNote {
                 time,
                 killer: killer_champ,
@@ -158,6 +165,7 @@ impl GameLog {
                 traded: false,
                 place: None,
                 pos: None,
+                sight: sights.and_then(|s| sight::stamp(s, time, &involved)),
             });
             self.last_death = self.last_death.max(time);
         }
@@ -196,13 +204,24 @@ fn traded(kills: &[(f32, bool)], time: f32) -> bool {
 /// In-game patterns from the death notes. Traded deaths (a support peeling,
 /// a tank soaking for a won fight) are listed but kept out of the blame notes.
 pub fn death_review(log: &GameLog, sd: &StaticData) -> DeathReview {
-    review_deaths(&log.deaths, &log.kills, log.shop_on_death, sd)
+    review_deaths(&log.deaths, &log.kills, log.shop_on_death, &log.lane_opps, sd)
 }
 
 /// `kills`: every champion kill, (game time, my team got it). `shop_on_death`:
 /// ARAM / Mayhem, where gold held at death is normal.
-pub(crate) fn review_deaths(deaths: &[DeathNote], kills: &[(f32, bool)], shop_on_death: bool, sd: &StaticData) -> DeathReview {
-    let all: Vec<DeathNote> = deaths.iter().map(|n| DeathNote { traded: traded(kills, n.time), ..n.clone() }).collect();
+pub(crate) fn review_deaths(deaths: &[DeathNote], kills: &[(f32, bool)], shop_on_death: bool, lane_opps: &[ChampKey], sd: &StaticData) -> DeathReview {
+    let all: Vec<DeathNote> = deaths
+        .iter()
+        .map(|n| {
+            let mut n = DeathNote { traded: traded(kills, n.time), ..n.clone() };
+            let v = sight::verdict(&n, lane_opps);
+            let line = v.and_then(|v| sight::line(&v, &n, sd));
+            if let Some(s) = &mut n.sight {
+                (s.verdict, s.line) = (v.map(|v| v.kind), line);
+            }
+            n
+        })
+        .collect();
     let d: Vec<&DeathNote> = all.iter().filter(|n| !n.traded).collect();
     let mut notes = Vec::new();
     let trades = all.len() - d.len();
@@ -283,6 +302,7 @@ pub(crate) fn review_deaths(deaths: &[DeathNote], kills: &[(f32, bool)], shop_on
             notes.push(format!("You had {:.1}k less item gold than your killer on average", -avg as f32 / 1000.0));
         }
     }
+    notes.extend(sight_notes(&d));
     if trades > 0 {
         let n = all.len();
         notes.push(format!("{trades} of {n} deaths were trades: your team won the fight"));
@@ -290,8 +310,47 @@ pub(crate) fn review_deaths(deaths: &[DeathNote], kills: &[(f32, bool)], shop_on
     DeathReview { deaths: all, notes }
 }
 
+pub(crate) fn seen_first(d: &[&DeathNote]) -> (usize, usize) {
+    let kinds: Vec<SightKind> = d.iter().filter_map(|n| n.sight.as_ref()?.verdict).collect();
+    (kinds.iter().filter(|k| matches!(k, SightKind::Warned | SightKind::Visible)).count(), kinds.len())
+}
+
+fn sight_notes(d: &[&DeathNote]) -> Vec<String> {
+    let mut notes = Vec::new();
+    let kind = |n: &DeathNote| n.sight.as_ref().and_then(|s| s.verdict);
+    let (seen, of) = seen_first(d);
+    if seen >= consts::SIGHT_NOTE_MIN {
+        notes.push(format!("{seen} of {of} deaths: the killer was on the minimap {} s or more before", consts::SEEN_EARLY_S));
+    }
+    let fog: Vec<&DeathNote> = d.iter().copied().filter(|n| kind(n) == Some(SightKind::Fog)).collect();
+    if fog.len() >= consts::SIGHT_NOTE_MIN {
+        let mut places: Vec<(&str, usize)> = Vec::new();
+        for p in fog.iter().filter_map(|n| n.place.as_deref()) {
+            match places.iter_mut().find(|x| x.0 == p) {
+                Some(x) => x.1 += 1,
+                None => places.push((p, 1)),
+            }
+        }
+        places.sort_by_key(|p| std::cmp::Reverse(p.1));
+        let places: Vec<String> = places.iter().map(|p| the(p.0)).collect();
+        notes.push(match places.as_slice() {
+            [] => format!("{} deaths came out of fog", fog.len()),
+            [one] => format!("{} deaths came out of fog in {one}", fog.len()),
+            [rest @ .., last] => format!("{} deaths came out of fog in {} and {last}", fog.len(), rest.join(", ")),
+        });
+    }
+    let warned = d
+        .iter()
+        .filter(|n| kind(n) == Some(SightKind::Warned) && n.sight.as_ref().and_then(|s| s.warned.as_ref()).is_some_and(|w| w.0 <= consts::WARN_DEATH_S))
+        .count();
+    if warned >= consts::SIGHT_NOTE_MIN {
+        notes.push(format!("{warned} warnings were followed by a death within {} s", consts::WARN_DEATH_S));
+    }
+    notes
+}
+
 /// "the enemy jungle", "bot lane".
-fn the(place: &str) -> String {
+pub(crate) fn the(place: &str) -> String {
     if place.ends_with("lane") { place.to_string() } else { format!("the {place}") }
 }
 

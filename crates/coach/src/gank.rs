@@ -6,6 +6,9 @@ use crate::consts;
 use model::*;
 use std::collections::{HashMap, VecDeque};
 
+mod sights;
+pub use sights::{SightLog, Sighting};
+
 /// A blip in world coordinates seen from your side (your base at the origin), and who it is when recognised.
 #[derive(Clone, Copy)]
 struct Blip {
@@ -202,6 +205,10 @@ impl GankTracker {
             })
             .collect();
         self.history.push_back((time, blips));
+    }
+
+    pub fn last_names(&self) -> Vec<Option<ChampKey>> {
+        self.history.back().map_or(vec![], |(_, b)| b.iter().map(|b| b.champ).collect())
     }
 
     /// Whether a champion seen at `from` could be at `to` `dt` seconds later: within walking (and Flash) range, home

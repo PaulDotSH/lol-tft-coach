@@ -190,6 +190,7 @@ fn a_live_recap_fills_in_held_gold_and_buy_next() {
         traded: false,
         place: None,
         pos: None,
+        sight: None,
     };
     let recap = Recap {
         stats: EogStats {
@@ -368,4 +369,99 @@ fn laning_is_me_against_my_opponent_outside_bot_lane_and_absent_off_the_rift() {
     let mut short = detail();
     short.game.duration_s = 540;
     assert!(analyze_match(&short, &sd(), None, None).laning.is_none());
+}
+
+fn live_recap(deaths: Vec<DeathNote>, vision_per_min: Option<f32>) -> Recap {
+    Recap {
+        stats: EogStats {
+            champ: AHRI,
+            mode: Mode::Rift,
+            win: false,
+            duration_s: 1500,
+            kills: 2,
+            deaths: 3,
+            assists: 3,
+            cs: 200,
+            gold: 9000,
+            damage_to_champs: 15000,
+            damage_taken: 20000,
+            vision: 20,
+            items: vec![],
+        },
+        benchmarks: Benchmarks { cs_per_min: None, gold_per_min: None, damage_per_min: None, vision_per_min },
+        recommended: vec![],
+        notes: vec![],
+        review: Some(DeathReview { deaths, notes: vec![] }),
+        summary: None,
+        goals: vec![],
+    }
+}
+
+fn seen_death(time: f32, seen: Vec<SeenBefore>) -> DeathNote {
+    DeathNote {
+        time,
+        killer: Some(JARVAN),
+        assisters: vec![],
+        gold_gap: None,
+        killer_top_threat: false,
+        unspent: 0,
+        buy_next: None,
+        could_buy: false,
+        owned: vec![],
+        spikes: vec![],
+        traded: false,
+        place: None,
+        pos: None,
+        sight: Some(DeathSight { covered: 1.0, seen, warned: None, verdict: None, line: None }),
+    }
+}
+
+fn jarvan(at: (i32, i32)) -> SeenBefore {
+    SeenBefore { champ: Some(JARVAN), first: 6.0, last: 1.0, x: at.0, y: at.1 }
+}
+
+fn ganked() -> MatchDetail {
+    let mut d = detail();
+    d.kills[0].killer = Some(6);
+    d.kills[1].killer = Some(6);
+    d
+}
+
+const NEAR: (i32, i32) = (9500, 6800);
+const FAR: (i32, i32) = (2500, 12500);
+
+#[test]
+fn fog_deaths_get_their_place_and_the_vision_takeaway() {
+    let blip = SeenBefore { champ: None, first: 6.0, last: 1.0, x: FAR.0, y: FAR.1 };
+    let recap = live_recap(vec![seen_death(301.0, vec![blip]), seen_death(421.0, vec![])], Some(1.5));
+    let a = analyze_match(&ganked(), &sd(), None, Some(&recap));
+    let line = |i: usize| a.review.deaths[i].sight.as_ref().and_then(|s| s.line.clone());
+    assert_eq!(line(0).as_deref(), Some("Jarvan IV came out of fog in the enemy jungle"), "an unnamed blip across the map is not him");
+    assert_eq!(line(1).as_deref(), Some("Jarvan IV came out of fog in the enemy jungle"));
+    assert!(
+        a.review.notes.contains(&"2 deaths came out of fog in the enemy jungle (Vision 0.80/min vs 1.50 average on Ahri)".to_string()),
+        "{:?}",
+        a.review.notes
+    );
+    assert!(!a.takeaways.iter().any(|t| t.text.starts_with("Vision")), "{:?}", a.takeaways);
+}
+
+#[test]
+fn a_sighting_across_the_map_says_nothing() {
+    let recap = live_recap(vec![seen_death(301.0, vec![jarvan(NEAR)]), seen_death(421.0, vec![jarvan(FAR)])], None);
+    let a = analyze_match(&ganked(), &sd(), None, Some(&recap));
+    let kinds: Vec<Option<SightKind>> = a.review.deaths.iter().map(|d| d.sight.as_ref().and_then(|s| s.verdict)).collect();
+    assert_eq!(kinds, [Some(SightKind::Visible), None, None]);
+}
+
+#[test]
+fn deaths_seen_coming_are_the_focus() {
+    let mut d = ganked();
+    d.kills[0].time = 900.0;
+    d.kills[1].time = 1000.0;
+    d.kills.sort_by(|a, b| a.time.total_cmp(&b.time));
+    let recap = live_recap(vec![seen_death(901.0, vec![jarvan(NEAR)]), seen_death(1001.0, vec![jarvan(NEAR)])], None);
+    let a = analyze_match(&d, &sd(), None, Some(&recap));
+    let f = a.focus.unwrap();
+    assert_eq!((f.text.as_str(), f.why.as_str(), f.goal), ("Look at the minimap before stepping up", "2 of 2 deaths were visible first.", None));
 }

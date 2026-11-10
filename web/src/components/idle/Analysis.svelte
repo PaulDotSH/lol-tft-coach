@@ -20,10 +20,12 @@
 
   let a = $state.raw<MatchAnalysis | null>(null);
   let error = $state<string | null>(null);
+  let picked = $state<number | null>(null);
   $effect(() => {
     const id = gameId;
     a = null;
     error = null;
+    picked = null;
     api
       .then((x) => x.analyzeGame(id))
       .then((r) => id === gameId && (a = r))
@@ -32,6 +34,17 @@
 
   const name = (c: number) => (store.ui ? champName(store.ui, c) : '');
   const g = $derived(a?.game);
+  const death = $derived(picked != null ? a?.review.deaths[picked] : undefined);
+  const seen = $derived(
+    (death?.sight?.seen ?? []).map((e) => {
+      const who = e.champ != null ? name(e.champ) : 'Enemy';
+      return { x: e.x, y: e.y, label: `${Math.round(e.last)} s`, title: `${who}: seen ${Math.round(e.first)}–${Math.round(e.last)} s before` };
+    }),
+  );
+  const link = $derived.by(() => {
+    const s = death?.sight?.seen[0];
+    return s && death?.pos ? ([{ x: s.x, y: s.y }, { x: death.pos[0], y: death.pos[1] }] as [{ x: number; y: number }, { x: number; y: number }]) : null;
+  });
   const min = $derived(Math.max(1, (g?.duration_s ?? 60) / 60));
   // [label, mine per minute, champion average, digits]
   const rows = $derived<[string, number, number | null, number][]>(
@@ -151,16 +164,21 @@
               </div>
             {/if}
           </div>
-          <DeathReview review={a.review} />
+          <DeathReview review={a.review} {picked} onpick={(i) => (picked = picked === i ? null : i)} />
           {#if a.review.deaths.some((d) => d.pos)}
             <div class="dmap">
               <DeathMap
                 size={200}
+                {seen}
+                {link}
                 spots={a.review.deaths.flatMap((d) =>
                   d.pos ? [{ x: d.pos[0], y: d.pos[1], tone: d.traded ? 'win' : 'loss', title: `${clockText(d.time)}${d.place ? ` · ${d.place}` : ''}` }] : [],
                 )}
               />
-              <p class="muted small">Your deaths, red side turned around so your base is bottom-left. Green: trades.</p>
+              <p class="muted small">
+                Your deaths, red side turned around so your base is bottom-left. Green: trades.{#if a.review.deaths.some((d) => d.sight?.seen.length)}{' '}
+                  Pick a death's time to see the enemies on the minimap before it.{/if}
+              </p>
             </div>
           {/if}
         </section>

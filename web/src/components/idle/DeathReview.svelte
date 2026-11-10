@@ -5,11 +5,12 @@
   import { champName, clockText, gold, signed } from '../../lib/ui';
   import Icon from '../Icon.svelte';
 
-  let { review }: { review: DeathReview } = $props();
+  let { review, picked = null, onpick }: { review: DeathReview; picked?: number | null; onpick?: (i: number) => void } = $props();
   const HOLDING = 1000;
   const name = (c: number) => (store.ui ? champName(store.ui, c) : '');
   // Match-history reviews of games the app did not watch have no Buy next.
   const buyCol = $derived(review.deaths.some((d) => d.buy_next != null));
+  const cols = $derived(buyCol ? 5 : 4);
 </script>
 
 <div class="review">
@@ -28,8 +29,14 @@
       </thead>
       <tbody>
         {#each review.deaths as d, i (i)}
-          <tr>
-            <td class="num">{clockText(d.time)}</td>
+          <tr class:picked={picked === i}>
+            <td class="num">
+              {#if onpick && d.pos}
+                <button type="button" class="pick" title="Show on the map" onclick={() => onpick(i)}>{clockText(d.time)}</button>
+              {:else}
+                {clockText(d.time)}
+              {/if}
+            </td>
             <td class="by">
               {#if d.killer != null}
                 <Icon kind="champ" id={d.killer} size={26} />
@@ -54,6 +61,23 @@
               {/if}
             </td>{/if}
           </tr>
+          {#if d.sight?.line}
+            <tr class="sight {d.sight.verdict}" class:picked={picked === i}>
+              <td></td>
+              <td colspan={cols - 1}>
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                  {#if d.sight.verdict === 'warned'}
+                    <path d="M8 1.5 15 14H1z" /><path class="cut" d="M8 6v4M8 11.5v1" />
+                  {:else if d.sight.verdict === 'fog'}
+                    <path d="M4.5 12a3 3 0 0 1 .4-6 4 4 0 0 1 7.6 1.3A2.4 2.4 0 0 1 12 12z" />
+                  {:else}
+                    <path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" /><circle class="cut" cx="8" cy="8" r="2" />
+                  {/if}
+                </svg>
+                {d.sight.line}
+              </td>
+            </tr>
+          {/if}
         {/each}
       </tbody>
     </table>
@@ -121,5 +145,38 @@
   }
   .afford {
     box-shadow: 0 0 0 2px var(--warn);
+  }
+  .pick {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--gold);
+    font: inherit;
+    text-decoration: underline dotted;
+    cursor: pointer;
+  }
+  tr.picked {
+    background: var(--raised);
+  }
+  .sight td {
+    padding-top: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .sight svg {
+    vertical-align: -2px;
+    margin-right: 4px;
+    fill: currentColor;
+  }
+  .sight .cut {
+    fill: none;
+    stroke: var(--panel);
+    stroke-width: 1.6;
+  }
+  .sight.warned {
+    color: var(--warn);
+  }
+  .sight.fog {
+    color: var(--threat);
   }
 </style>
