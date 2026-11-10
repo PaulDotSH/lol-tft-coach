@@ -55,6 +55,9 @@ fn lane_stats(champ: ChampKey, lane: Lane, wr: f32, lanes: &[(Lane, f32)], count
         coachless_runes: None,
         coachless: None,
         summoners: vec![],
+        skill_order: String::new(),
+        skill_order_games: 0,
+        skill_priority: String::new(),
     }
 }
 

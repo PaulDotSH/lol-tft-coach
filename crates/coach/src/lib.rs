@@ -30,6 +30,7 @@ mod ranked;
 mod selfcoach;
 mod session;
 mod shop;
+pub mod skills;
 mod spikes;
 mod team;
 mod threat;
@@ -77,10 +78,12 @@ pub struct GameInput<'a> {
     pub enemy_augments: EnemyAugmentInput<'a>,
     /// Last tick's Buy next: kept unless something clearly beats it.
     pub keep: Option<ItemId>,
+    /// Rift: lolalytics matchup page against my lane opponent (its skill order).
+    pub matchup: Option<&'a MatchupBuild>,
 }
 
 pub fn game_advice(input: &GameInput) -> GameAdvice {
-    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments, keep } = *input;
+    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments, keep, matchup } = *input;
     let me = snap.players.get(snap.me);
     let my_champ = me.map_or(0, |p| p.champ);
     let owned = me.map_or(&[][..], |p| &p.items);
@@ -149,6 +152,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         calls: vec![],
         tips: vec![],
         matchup: vec![],
+        skill: skills::advice(snap, sd, stats, matchup),
     }
 }
 

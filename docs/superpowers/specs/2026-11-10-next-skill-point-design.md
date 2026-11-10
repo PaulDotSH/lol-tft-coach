@@ -99,3 +99,53 @@ Otherwise dim: "Next point: E at 8 · Q > E > W". The source is in the tooltip.
   two unspent points, level 16–18, sum of ranks above level (None), empty order (None).
 - Mock: `skill` added to the in-game mock fixture; checked in `npm --prefix web run dev`.
 - `cargo test --workspace` (regenerates the bindings), `npm --prefix web run check`.
+
+## Implementation status (2026-11-10)
+
+Built:
+
+- `data::lolalytics`: `skill_order(summary)` reads `skillorder.{id, n}` of the `pick`
+  summary (digits 1–4 → Q W E R; other digits or under 6 levels → empty, 0 games).
+  `PageStats`/`ChampStats` gain `skill_order`, `skill_order_games`, `skill_priority`;
+  `MatchupBuild` gains `skill_order`, `skill_order_games`. Thresh build page:
+  `QEWQQRQEQEREEWW`, 7,509 games, `QEW`; Braum vs Ezreal: the same order, 301 games.
+- `clients::live`: `GameSnapshot.my_abilities: Option<[u32; 4]>` (Q W E R) from
+  `activePlayer.abilities.*.abilityLevel`; the fixture reads `[5, 2, 2, 2]`.
+- `coach::skills::next` (pure) and `skills::advice` (picks the order, fills `source`);
+  `GameAdvice.skill`; `GameInput.matchup: Option<&MatchupBuild>`; `SKILL_MATCHUP_MIN = 200`
+  and `SKILL_NONE_LEVEL = 3` in `consts.rs`.
+- Orchestrator: in game on the Rift, `draft::matchup_page` (now `pub`) against
+  `lane_opponent`, keyed `(me, opponent, my lane, opponent's position or my lane)`, which
+  is the champ-select key in the usual case, so it is served from the cache.
+- UI: `SkillNext.svelte` under Buy next ("Level up **E**", "(2 points)" for more than one;
+  dim "Next point: W at 14 · Q > W > E"; source as tooltip). Mock: rift, mayhem and
+  laning fixtures carry `skill`; mock `ChampStats`/`MatchupBuild` carry the new fields.
+- Tests: parser (Thresh build page, Braum–Ezreal matchup page, malformed ids), live
+  parse (ranks, None without the block), `coach/tests/skills.rs` (on the order, one
+  behind, out of order, two unspent, 16–18, free rank, empty/invalid order, no points,
+  matchup vs build page choice and source text).
+
+Deviations:
+
+- `at_level`: with a point unspent it is the order's step level (the point is due now);
+  otherwise always my level + 1 (the earliest missing step can never be later than that).
+- `priority`: lolalytics' `skillpriority` (build page) / `skills` (matchup page) when it
+  has three letters, else derived from the order (most points, then earliest maxed).
+- After the order runs out, R only from its level (6/11/16) and a basic ability only
+  while its rank fits my level; at 18 with everything maxed there is no row.
+- "No points to place" is detected as Q, W and E all at rank 0 from level 3
+  (`SKILL_NONE_LEVEL`); what the Live API reports for Aphelios is unverified.
+- The matchup order's threshold and source count the order's own games
+  (`skill_order_games`), not the matchup page's games.
+- The Ahri fixtures predate the `skillorder` row, so their pages parse with an empty order.
+
+Left open (needs a real game):
+
+- One Rift game: after each level-up the row turns accent "Level up X" and matches the
+  order on lolalytics against the lane opponent (or the build page); after spending, it
+  shows "Next point: Y at N". Check the log for one matchup-page fetch at most (cache hit
+  after a champ select; a support whose champ-select opponent was the ADC may fetch once).
+- One Mayhem game: the row follows the ARAM build page's order (`lolalytics 16.21`).
+- Free-rank / no-point champions (Karma, Jayce, Elise, Nidalee, Udyr, Aphelios): record
+  `activePlayer.abilities` at a few levels and confirm the row disappears (or is right).
+- How long the row lags a level-up (Live API refresh).

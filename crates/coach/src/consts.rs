@@ -34,6 +34,12 @@ pub const FLAG: f32 = 0.5;
 pub const ASSASSIN_FLAG_BURST: f32 = 0.75;
 pub const CRIT_FLAG: f32 = 0.4;
 
+// ---- skill order ----
+/// The matchup page's skill order is used from this many games, else the build page's.
+pub const SKILL_MATCHUP_MIN: u32 = 200;
+/// No row from this level on while Q, W and E have no rank (a champion without points to place).
+pub const SKILL_NONE_LEVEL: u32 = 3;
+
 // ---- needs ----
 /// Bounds on the armor/MR need multiplier from my current resists.
 pub const RESIST_TILT_MIN: f32 = 0.5;

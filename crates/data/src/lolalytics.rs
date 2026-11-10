@@ -102,6 +102,9 @@ pub async fn champ_stats(
         coachless_runes: None,
         coachless: None,
         summoners: vec![],
+        skill_order: page.skill_order,
+        skill_order_games: page.skill_order_games,
+        skill_priority: page.skill_priority,
     })
 }
 
@@ -322,6 +325,9 @@ pub struct PageStats {
     pub pick_rate: Option<f32>,
     pub benchmarks: Benchmarks,
     pub runes: Option<RuneData>,
+    pub skill_order: String,
+    pub skill_order_games: u32,
+    pub skill_priority: String,
 }
 
 /// Header and per-minute benchmarks from a build page; missing parts are None.
@@ -338,6 +344,8 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
         })
         .unwrap_or_default();
     let minutes = q.find_map(3, &["time", "timeWin"], |v| avg_minutes(&v["time"]));
+    let pick = q.find_map(3, &["pick", "win"], |v| v["pick"]["skillorder"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
+    let (skill_order, skill_order_games) = skill_order(&pick);
     let per_min = |keys: &[&str]| {
         let total: Option<f64> = keys.iter().map(|k| averages.get(*k).copied()).sum();
         Some((total? / minutes?) as f32)
@@ -353,6 +361,9 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
             vision_per_min: per_min(&["visionScore"]),
         },
         runes: parse_runes(&q),
+        skill_order,
+        skill_order_games,
+        skill_priority: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
     })
 }
 
@@ -370,6 +381,7 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
     let first_id = |v: &Value| num(if v.is_array() { &v[0]["id"] } else { &v["id"] }).map(|n| n as ItemId);
     let (it, set) = (&pick["items"], &pick["runes"]["set"]);
     let s = &it["start"];
+    let (skill_order, skill_order_games) = skill_order(&pick);
     Ok(MatchupBuild {
         vs,
         games,
@@ -382,7 +394,21 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
         rune_page: rune_page(&pick),
         summoners: ids(&pick["sums"]["ids"]),
         skills: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
+        skill_order,
+        skill_order_games,
     })
+}
+
+/// `skillorder` of a `pick` summary: `id` has one digit per level, 1..4 = Q W E R.
+/// Empty with 0 games when a digit is outside 1..4 or the order is shorter than 6 levels.
+fn skill_order(summary: &Value) -> (String, u32) {
+    let row = &summary["skillorder"];
+    let id = row["id"].as_u64().map(|n| n.to_string()).or_else(|| row["id"].as_str().map(str::to_owned)).unwrap_or_default();
+    let order: Option<String> = id.chars().map(|c| "QWER".chars().nth((c.to_digit(10)? as usize).checked_sub(1)?)).collect();
+    match order {
+        Some(o) if o.len() >= 6 => (o, num(&row["n"]).unwrap_or(0.0) as u32),
+        _ => (String::new(), 0),
+    }
 }
 
 /// `{runes: {set: {pri, sec, mod}, wr, n}}` of a `pick` or `win` summary.
@@ -516,6 +542,7 @@ mod tests {
         let p = m.rune_page.unwrap();
         assert_eq!((p.shards.as_slice(), p.win_rate, p.games), ([5005, 5001, 5001].as_slice(), 57.95, 1648));
         assert_eq!((m.summoners.as_slice(), m.skills.as_str()), ([4, 7].as_slice(), "QEW"));
+        assert_eq!((m.skill_order.as_str(), m.skill_order_games), ("QEWQQRQEQEREEWW", 301));
     }
 
     #[test]
@@ -565,6 +592,17 @@ mod tests {
         let unflinching = &r.stats[&8242];
         assert_eq!((unflinching[0].games, unflinching[1].games), (43786, 11828));
         assert_eq!(r.stats[&5013].len(), 1, "shards have one row");
+    }
+
+    #[test]
+    fn build_page_skill_order() {
+        let p = parse_build_page(&fixture("lolalytics-build-thresh-support.html")).unwrap();
+        assert_eq!((p.skill_order.as_str(), p.skill_order_games, p.skill_priority.as_str()), ("QEWQQRQEQEREEWW", 7509, "QEW"));
+        let row = |id: Value| skill_order(&serde_json::json!({ "skillorder": { "id": id, "n": 50 } }));
+        assert_eq!(row(312114.into()), ("EQWQQR".into(), 50));
+        assert_eq!(row("1321".into()), (String::new(), 0), "shorter than 6 levels");
+        assert_eq!(row(1321514.into()), (String::new(), 0), "digit outside 1-4");
+        assert_eq!(row(Value::Null), (String::new(), 0));
     }
 
     #[test]

@@ -152,6 +152,7 @@ fn live_full_game() {
     assert_eq!((me.riot_id.as_str(), me.team, me.position, me.level), ("Mid Main#EUW", Team::Order, Some(Lane::Middle), 11));
     assert_eq!((me.kills, me.deaths, me.assists, me.cs), (1, 2, 1, 142));
     assert_eq!(me.items, vec![1056, 6655, 3020, 1058, 3340]);
+    assert_eq!(g.my_abilities, Some([5, 2, 2, 2]));
     let nau = &g.players[9];
     assert_eq!((nau.team, nau.position), (Team::Chaos, Some(Lane::Support)));
     let jinx = &g.players[3];
@@ -196,6 +197,9 @@ fn live_modes_end_and_unknowns() {
     assert_eq!(live::parse(&j, &sd).unwrap().mode, Mode::Mayhem);
     j["gameData"]["mapNumber"] = 11.into();
     assert_eq!(live::parse(&j, &sd).unwrap().mode, Mode::Rift);
+
+    j["activePlayer"]["abilities"] = serde_json::Value::Null;
+    assert_eq!(live::parse(&j, &sd).unwrap().my_abilities, None);
 
     // Spectator mode: activePlayer is an error object.
     j["activePlayer"] = serde_json::json!({ "error": "Spectator mode doesn't currently support this feature" });

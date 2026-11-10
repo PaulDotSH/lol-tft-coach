@@ -595,6 +595,9 @@ mod tests {
             coachless_runes: None,
             coachless: None,
             summoners: vec![],
+            skill_order: String::new(),
+            skill_order_games: 0,
+            skill_priority: String::new(),
         };
         let mut ctx = Ctx::new(&sd, Some(&stats), &thresh, Mode::Rift);
         assert!(support_upgrade(&ctx, &[]).is_none(), "not a support");

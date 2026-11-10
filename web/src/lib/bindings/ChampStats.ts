@@ -36,4 +36,12 @@ coachless: string | null,
 /**
  * Summoner spell ids to take (Coachless); empty without Coachless.
  */
-summoners: Array<number>, };
+summoners: Array<number>, 
+/**
+ * lolalytics most played skill order, one ability per level ("QEWQQRQEQEREEWW"); empty when unknown.
+ */
+skill_order: string, skill_order_games: number, 
+/**
+ * lolalytics most played max order ("QEW"); empty when unknown.
+ */
+skill_priority: string, };

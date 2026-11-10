@@ -366,6 +366,8 @@ fn runes_against_the_lane_opponent_come_first() {
         rune_page: mine.runes.as_ref().map(|r| RunePage { games: 800, win_rate: 47.5, ..r.popular.clone() }),
         summoners: vec![],
         skills: String::new(),
+        skill_order: String::new(),
+        skill_order_games: 0,
     };
     let a = champ_select_runes(&inp, &VsRunes { vs: ZED, coachless: Some(&vs_cl), lolalytics: Some(&lola_vs) }).unwrap();
     assert_eq!(

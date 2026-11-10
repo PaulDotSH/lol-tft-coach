@@ -16,4 +16,8 @@ me: number, my_gold: number, players: Array<Player>, events: Array<GameEvent>,
 /**
  * My live stats (items, levels, augments applied); None if the API omits them.
  */
-my_stats: ChampionStats | null, };
+my_stats: ChampionStats | null, 
+/**
+ * My Q, W, E, R ranks; None if the API omits them.
+ */
+my_abilities: [number, number, number, number] | null, };

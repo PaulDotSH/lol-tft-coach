@@ -17,6 +17,7 @@ import type { ObjectiveTimer } from "./ObjectiveTimer";
 import type { Readiness } from "./Readiness";
 import type { SelfStats } from "./SelfStats";
 import type { ShoppingList } from "./ShoppingList";
+import type { SkillNext } from "./SkillNext";
 import type { TabHint } from "./TabHint";
 import type { Threat } from "./Threat";
 
@@ -72,4 +73,8 @@ tips: Array<LiveTip>,
 /**
  * Rift: tips against my lane opponent(s), both enemy bot laners in bot lane.
  */
-matchup: Array<MatchupCard>, };
+matchup: Array<MatchupCard>, 
+/**
+ * Which ability to level next; None when the skill order can't describe my champion.
+ */
+skill: SkillNext | null, };

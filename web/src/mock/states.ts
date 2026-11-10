@@ -209,6 +209,7 @@ const riftGame: GameAdvice = {
     { key: 'control-ward', kind: 'vision', text: 'Next back: buy a Control Ward (75 g)' },
   ],
   matchup: [zedLaning],
+  skill: { key: 'W', unspent: 0, at_level: 14, priority: 'QWE', source: 'vs Zed, 2.1k games' },
 };
 
 const mayhemGame: GameAdvice = {
@@ -291,6 +292,7 @@ const mayhemGame: GameAdvice = {
   calls: [],
   tips: [],
   matchup: [],
+  skill: { key: 'E', unspent: 1, at_level: 9, priority: 'QEW', source: 'lolalytics 16.21' },
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.
@@ -344,6 +346,7 @@ const laningGame: GameAdvice = {
   bounties: [],
   readiness: null,
   matchup: [asheLaning, zoeLaning],
+  skill: { key: 'R', unspent: 1, at_level: 6, priority: 'QWE', source: 'vs Ashe, 1.2k games' },
 };
 
 export const fixtures = {
@@ -481,6 +484,8 @@ export const fixtures = {
           runes: [8112, 8139, 8140, 8106, 8226, 8210],
           summoners: [4, 12],
           skills: 'QWE',
+          skill_order: 'QWEQQRQWQWRWWEE',
+          skill_order_games: 1480,
           rune_page: null,
         },
         runes: [
@@ -577,6 +582,8 @@ export const fixtures = {
           runes: [8465, 8463, 8473, 8242, 8347, 8345],
           summoners: [4, 3],
           skills: 'QEW',
+          skill_order: 'QEWQQRQEQEREEWW',
+          skill_order_games: 860,
           rune_page: null,
         },
         runes: [
@@ -624,6 +631,8 @@ export const fixtures = {
           runes: [8439, 8446, 8429, 8451, 8347, 8345],
           summoners: [4, 14],
           skills: 'WQE',
+          skill_order: 'WQEWWRWQWQRQQEE',
+          skill_order_games: 420,
           rune_page: null,
         },
         runes: [

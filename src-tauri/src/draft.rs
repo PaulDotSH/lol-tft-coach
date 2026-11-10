@@ -47,7 +47,7 @@ fn counters_vs(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Lane, v
     )
 }
 
-fn matchup_page(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<MatchupBuild>> {
+pub fn matchup_page(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<MatchupBuild>> {
     let (a, b, patch) = (sd.champs.get(&me)?, sd.champs.get(&vs)?, sh.patch()?);
     ensure(
         sh,

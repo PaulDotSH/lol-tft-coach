@@ -3,6 +3,7 @@
   import AugmentOffer from './AugmentOffer.svelte';
   import BuyNext from './BuyNext.svelte';
   import BuildPath from './BuildPath.svelte';
+  import SkillNext from './SkillNext.svelte';
   import Threats from './Threats.svelte';
   import SelfCoach from './SelfCoach.svelte';
   import Matchups from './Matchups.svelte';
@@ -37,6 +38,7 @@
     <Shopping list={game.shopping} at={game.time} />
     {#if game.tips.length}<Tips tips={game.tips} />{/if}
     <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} />
+    {#if game.skill}<SkillNext skill={game.skill} />{/if}
     {#if game.gold_sinks.length}<GoldSinks sinks={game.gold_sinks} />{/if}
     <BuildPath owned={game.owned} path={game.path} source={game.build_source} />
   </div>

@@ -160,6 +160,11 @@ fn mode(game: &Value) -> Mode {
     }
 }
 
+/// Q, W, E, R ranks from `activePlayer.abilities`; None without the block.
+fn abilities(v: &Value) -> Option<[u32; 4]> {
+    v.is_object().then(|| ["Q", "W", "E", "R"].map(|k| count(&v[k]["abilityLevel"])))
+}
+
 /// Pure parser (tests use fixtures). Champion names resolve via `sd`.
 /// None when there is no player list or no identifiable active player (spectating).
 pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
@@ -206,6 +211,7 @@ pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
         players,
         events,
         my_stats: champion_stats(&active["championStats"]),
+        my_abilities: abilities(&active["abilities"]),
     })
 }
 

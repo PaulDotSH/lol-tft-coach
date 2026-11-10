@@ -445,7 +445,9 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let me = &snap.players[snap.me];
     let lane = if snap.mode == Mode::Rift { me.position.or(memo.my_lane) } else { None };
     let base = stats(sh, sd, me.champ, lane, snap.mode);
-    let vs = coach::lane_opponent(snap, base.as_deref()).map(|i| snap.players[i].champ);
+    let opp = coach::lane_opponent(snap, base.as_deref()).map(|i| &snap.players[i]);
+    let vs = opp.map(|p| p.champ);
+    let vs_page = lane.zip(opp).and_then(|(l, p)| crate::draft::matchup_page(sh, sd, me.champ, p.champ, l, p.position.unwrap_or(l)));
     for &id in &me.items {
         if sd.items.get(&id).is_some_and(|i| i.completed && !i.boots) && !memo.built.contains(&id) {
             memo.built.push(id);
@@ -528,6 +530,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
             stale_since: memo.tab.stale_since,
         },
         keep: memo.last_buy,
+        matchup: vs_page.as_deref(),
     });
     let ults = crate::ingame::ults(sh, sd, snap);
     let enemies: Vec<ChampKey> = snap.players.iter().filter(|p| p.team != me.team).map(|p| p.champ).collect();

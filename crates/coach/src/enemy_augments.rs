@@ -271,6 +271,7 @@ mod tests {
             ],
             events: vec![],
             my_stats: None,
+            my_abilities: None,
         }
     }
 

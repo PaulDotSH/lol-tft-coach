@@ -32,4 +32,8 @@ summoners: Array<number>,
 /**
  * Skill max order, e.g. "QEW".
  */
-skills: string, };
+skills: string, 
+/**
+ * Most played skill order, one ability per level; empty when unknown.
+ */
+skill_order: string, skill_order_games: number, };

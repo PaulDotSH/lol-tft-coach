@@ -179,6 +179,14 @@ data! {
         /// Summoner spell ids to take (Coachless); empty without Coachless.
         #[serde(default)]
         pub summoners: Vec<u32>,
+        /// lolalytics most played skill order, one ability per level ("QEWQQRQEQEREEWW"); empty when unknown.
+        #[serde(default)]
+        pub skill_order: String,
+        #[serde(default)]
+        pub skill_order_games: u32,
+        /// lolalytics most played max order ("QEW"); empty when unknown.
+        #[serde(default)]
+        pub skill_priority: String,
     }
 
     /// One full rune page (lolalytics, or Coachless' best WPA).
@@ -277,6 +285,11 @@ data! {
         pub summoners: Vec<u32>,
         /// Skill max order, e.g. "QEW".
         pub skills: String,
+        /// Most played skill order, one ability per level; empty when unknown.
+        #[serde(default)]
+        pub skill_order: String,
+        #[serde(default)]
+        pub skill_order_games: u32,
     }
 
     /// lolalytics `build-team` row: one teammate of `TeamSynergy::champ`.

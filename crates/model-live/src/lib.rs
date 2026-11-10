@@ -124,6 +124,9 @@ data! {
         /// Rift: tips against my lane opponent(s), both enemy bot laners in bot lane.
         #[serde(default)]
         pub matchup: Vec<MatchupCard>,
+        /// Which ability to level next; None when the skill order can't describe my champion.
+        #[serde(default)]
+        pub skill: Option<SkillNext>,
     }
 
     /// One Rift lane pairing; item gold of visible inventories, ally − enemy.
@@ -334,6 +337,20 @@ data! {
     pub struct TabHint {
         pub text: String,
         pub reason: String,
+    }
+
+    /// The next skill point from a lolalytics skill order.
+    pub struct SkillNext {
+        /// "Q", "W", "E" or "R".
+        pub key: String,
+        /// Points I can spend right now.
+        pub unspent: u32,
+        /// Level the point is for: my level + 1 when none is unspent.
+        pub at_level: u32,
+        /// Max order, "QEW".
+        pub priority: String,
+        /// "vs Braum, 1.2k games", "lolalytics 16.21".
+        pub source: String,
     }
 
     /// A quiet in-game tip (not spoken): lane pace, vision, spending.

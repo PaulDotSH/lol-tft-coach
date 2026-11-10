@@ -61,6 +61,9 @@ data! {
         pub events: Vec<GameEvent>,
         /// My live stats (items, levels, augments applied); None if the API omits them.
         pub my_stats: Option<ChampionStats>,
+        /// My Q, W, E, R ranks; None if the API omits them.
+        #[serde(default)]
+        pub my_abilities: Option<[u32; 4]>,
     }
 
     pub enum GameEvent {
