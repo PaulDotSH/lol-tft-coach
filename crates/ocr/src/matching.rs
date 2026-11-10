@@ -51,11 +51,18 @@ struct Target {
     words: usize,
 }
 
-struct Hit {
-    id: AugmentId,
-    start: usize,
-    end: usize,
+/// A matched name: OCR words `start..end` (indices into [`ocr_words`]) and how well they match (1 = exact).
+pub(crate) struct Hit {
+    pub id: AugmentId,
+    pub start: usize,
+    pub end: usize,
     score: i64,
+    pub quality: f32,
+}
+
+/// Folded OCR words with the line each came from.
+pub(crate) fn ocr_words(lines: &[String]) -> Vec<(usize, String)> {
+    lines.iter().enumerate().flat_map(|(i, l)| words(l).into_iter().map(move |w| (i, w))).collect()
 }
 
 /// Augments whose names appear in `lines` (fuzzy), in screen order, deduped. A name may
@@ -66,11 +73,11 @@ struct Hit {
 /// break (wrapped names). Overlapping hits are resolved in favour of the hit
 /// explaining more characters.
 pub fn match_augments(lines: &[String], names: &HashMap<AugmentId, String>) -> Vec<AugmentId> {
-    let ocr: Vec<(usize, String)> = lines
-        .iter()
-        .enumerate()
-        .flat_map(|(i, l)| words(l).into_iter().map(move |w| (i, w)))
-        .collect();
+    hits(&ocr_words(lines), names).iter().map(|h| h.id).collect()
+}
+
+/// [`match_augments`] with the words each name was read from, in screen order.
+pub(crate) fn hits(ocr: &[(usize, String)], names: &HashMap<AugmentId, String>) -> Vec<Hit> {
     let targets: Vec<Target> = names
         .iter()
         .flat_map(|(&id, name)| name.lines().map(move |n| (id, n)))
@@ -103,20 +110,16 @@ pub fn match_augments(lines: &[String], names: &HashMap<AugmentId, String>) -> V
                 let d = strsim::levenshtein(&window, &t.key);
                 if d <= allowed {
                     let score = t.key.len() as i64 - 2 * d as i64;
-                    hits.push(Hit {
-                        id: t.id,
-                        start,
-                        end,
-                        score,
-                    });
+                    let quality = 1.0 - d as f32 / t.key.len().max(1) as f32;
+                    hits.push(Hit { id: t.id, start, end, score, quality });
                 }
             }
         }
     }
 
     hits.sort_by_key(|h| (std::cmp::Reverse(h.score), h.start));
-    let mut taken: Vec<&Hit> = Vec::new();
-    for h in &hits {
+    let mut taken: Vec<Hit> = Vec::new();
+    for h in hits {
         if !taken
             .iter()
             .any(|t| t.id == h.id || (h.start < t.end && t.start < h.end))
@@ -131,13 +134,14 @@ pub fn match_augments(lines: &[String], names: &HashMap<AugmentId, String>) -> V
     for h in &taken {
         covered[h.start..h.end].fill(true);
     }
-    let whole = |h: &&Hit| {
+    let whole = |h: &Hit| {
         let lines = ocr[h.start].0..=ocr[h.end - 1].0;
         ocr.iter().zip(&covered).all(|((l, _), &c)| c || !lines.contains(l))
     };
     taken.retain(whole);
     taken.sort_by_key(|h| h.start);
-    taken.iter().take(MAX_OFFERS).map(|h| h.id).collect()
+    taken.truncate(MAX_OFFERS);
+    taken
 }
 
 #[cfg(test)]

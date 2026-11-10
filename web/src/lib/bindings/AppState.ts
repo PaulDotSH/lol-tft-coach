@@ -6,6 +6,7 @@ import type { MacroReport } from "./MacroReport";
 import type { PastGame } from "./PastGame";
 import type { Phase } from "./Phase";
 import type { RankTrend } from "./RankTrend";
+import type { ReaderHealth } from "./ReaderHealth";
 import type { Recap } from "./Recap";
 import type { Settings } from "./Settings";
 import type { Sources } from "./Sources";
@@ -34,4 +35,8 @@ history: Array<PastGame>,
 /**
  * LP over my ranked games, Solo/Duo then Flex.
  */
-ranked: Array<RankTrend>, };
+ranked: Array<RankTrend>, 
+/**
+ * Screen readers and whether they find their elements.
+ */
+readers: Array<ReaderHealth>, };

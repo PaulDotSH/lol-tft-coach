@@ -1,6 +1,7 @@
 // Realistic AppState samples, one per phase/screen, for UI work without the backend.
 import type { AppState } from '../lib/bindings/AppState';
 import type { GameAdvice } from '../lib/bindings/GameAdvice';
+import type { ReaderHealth } from '../lib/bindings/ReaderHealth';
 import type { Recap } from '../lib/bindings/Recap';
 import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
@@ -76,6 +77,11 @@ const recap: Recap = {
 
 const base = {
   settings,
+  readers: [
+    { name: 'Augment offer', state: 'ok', detail: null, last_ok: 1_794_058_000_000 },
+    { name: 'Tab scoreboard', state: 'shifted', detail: 'found at 0.92× (HUD scale)', last_ok: 1_794_058_100_000 },
+    { name: 'Minimap', state: 'unverified', detail: 'not checked since 16.21', last_ok: null },
+  ] as ReaderHealth[],
   champ_select: null,
   game: null,
   recap: null,

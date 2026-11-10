@@ -1,9 +1,19 @@
 <script lang="ts">
+  import type { ReaderHealth } from '../../lib/bindings/ReaderHealth';
+  import type { ReaderState } from '../../lib/bindings/ReaderState';
   import type { Settings } from '../../lib/bindings/Settings';
   import type { Sources } from '../../lib/bindings/Sources';
   import { coachless, saveSettings } from '../../lib/store.svelte';
 
-  let { settings, sources }: { settings: Settings; sources: Sources } = $props();
+  let { settings, sources, readers = [] }: { settings: Settings; sources: Sources; readers?: ReaderHealth[] } = $props();
+
+  const READER_STATES: Record<ReaderState, string> = {
+    ok: 'OK',
+    shifted: 'Found, moved',
+    notfound: 'Not found',
+    off: 'Off',
+    unverified: 'Not checked',
+  };
   const signedIn = $derived(sources.coachless !== 'off');
 
   const TIERS = [
@@ -59,6 +69,17 @@
     <label for="rec">Record games as test fixtures</label>
     <input id="rec" type="checkbox" checked={settings.record_fixtures} onchange={(e) => set('record_fixtures', e.currentTarget.checked)} />
   </div>
+  {#if readers.length}
+    <h3>Screen reading</h3>
+    <ul class="readers">
+      {#each readers as r (r.name)}
+        <li class={r.state}>
+          <span class="name">{r.name}</span>
+          <span class="state">{READER_STATES[r.state]}{#if r.detail}<small>{r.detail}</small>{/if}</span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </section>
 
 <style>
@@ -97,5 +118,56 @@
     width: 18px;
     height: 18px;
     accent-color: var(--gold);
+  }
+  h3 {
+    margin: 16px 0 6px;
+    font: 600 14px var(--cond);
+    color: var(--muted);
+  }
+  .readers {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+  }
+  .readers li {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .readers .name {
+    color: var(--muted);
+  }
+  .readers .state {
+    text-align: right;
+  }
+  .readers .state::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--faint);
+    vertical-align: 1px;
+  }
+  .readers .ok .state::before {
+    background: var(--good);
+  }
+  .readers .shifted .state::before,
+  .readers .unverified .state::before {
+    background: var(--warn);
+    opacity: 0.6;
+  }
+  .readers .notfound .state::before {
+    background: var(--warn);
+  }
+  .readers .off {
+    color: var(--faint);
+  }
+  .readers .off .state::before {
+    background: none;
+    box-shadow: inset 0 0 0 1.5px var(--faint);
   }
 </style>

@@ -173,3 +173,88 @@ If the scenes aren't there, the locators and the corpus still stand on their own
   corrupt file is ignored.
 - Health states: each transition (Ok to NotFound after a game without a find,
   Unverified to Ok on the first find).
+
+## Implementation status (2026-11-10)
+
+Built (order of work steps 1–4, branch `feat/geometry`):
+
+- **Offer-card locator** `ocr::offer`: `STRIP`, `WIDE` (0.10–0.90 × 0.25–0.60), `TITLE_TOP`, `PITCH`,
+  `rect`, `locate(boxes, names, at, client) -> Vec<Card>` (title centre x and top y as client
+  fractions, a `Found` per card) and `strip_for(top, scale)`. The offer read uses `recognize_boxes`.
+  A title's box comes from its matched words (the line box split by characters, so OCR-merged titles
+  split and wrapped titles span both lines). Titles are kept on the row holding the most of them;
+  scale = card pitch / default pitch. Sanity: 0.6–1.6, and a row of three centred within 10 %.
+  `ocr::Found { rect, scale, score }` lives in `ocr`. `matching` returns the hit spans (`hits`).
+- **Badges from boxes**: `overlay::lol_badges` puts each badge at its card's read x. The badge row
+  keeps the default gap above the titles, scaled with the cards (`lol_badge_y`).
+  `LOL_PITCH` / `LOL_BADGE_Y` stay as the fallback.
+- **Wide scan**: the OCR thread reads `WIDE` at most every `WIDE_EVERY` (5 s). It does this while
+  `Shared::offer_expected` is set (Mayhem, OCR on, `expected_augments(level)` > my augments, no
+  cards on screen) and the strip reads fewer than two titles. A row found there becomes the stored
+  strip, taken as is. Strip reads average into it.
+- **Health report**: `model::{ReaderHealth, ReaderState}`, `AppState.readers`, and
+  `src-tauri/src/health.rs`, with the readers "Augment offer", "Tab scoreboard" and "Minimap". When
+  a reader in use misses a whole game it should have shown in, it is `NotFound` until its next
+  find. That logs one warning per game with the window size and HUD scale. `health::degrade` turns
+  the OCR / Minimap header dot amber in the backend, so the web header is unchanged. Settings shows
+  a "Screen reading" list, and the mock fixtures carry one. In debug mode the frames are saved as
+  `ocr-wide-miss` (wide band, nothing found) and `tab-wide-miss` (whole window, no board).
+- **Scoreboard scale fit** `Geometry::fit(frame, origin, client, prior)`. Each augment column is
+  searched separately, coarse then fine: 4 % scale steps over 0.6–1.6 of the window's default, a
+  ±40 source-unit search, and a one-cell disambiguation, then 1 % steps. The column distance gives
+  the scale and the midpoint gives the centre. The result is accepted only with ≥ 8 rows on the
+  fitted grid and the centre within 10 %. Synthetic `Canvas` tests at 0.85× and 1.2×, and
+  off-centre (+30/−20 px and −25/+15 px), recover the scale within 0.01 and the centre within 2 px.
+  A plain frame gives `None`. `Geometry` fields are public.
+- **Calibration store** `src-tauri/src/calib.rs` (`%LOCALAPPDATA%\lol-coach\calib.json`).
+  Layout: game → `"<w>x<h>@<hud>"` → `{patch, offer_strip, scoreboard {s,cx,cy}, seen}`, where
+  `seen` is in unix seconds. A new value moves the stored one by `ALPHA` = 0.2; a wide-scan find
+  replaces it. An entry whose patch differs from the current one is unverified until the next find.
+  A corrupt file is ignored, and writes happen at most every 30 s and at game end.
+- **HUD-scale prior**: `clients::league_cfg` reads `GlobalScale` (HUD section, 0..1; this machine
+  has 0.10) into `MinimapSettings::hud_scale`.
+- **Minimap**: `ocr::minimap::find_square` (None means the fallback place is used). The minimap
+  thread reports the result.
+- **`cargo run -p ocr --example calib -- <dir> [manifest]`**: runs the offer locator, the board
+  fit and the minimap square over a debug session's frames. On the 1440p sessions on disk,
+  252 of 252 minimap frames were located.
+
+Deviations:
+
+- HUD scale is part of the calibration **key** and is logged with misses. It is not turned into a
+  starting scale, because the mapping from `GlobalScale` to the scoreboard or card scale is unknown
+  until the corpus exists. The first frame at a new key starts from the defaults.
+- The scoreboard fit runs on the board capture that already happens, once an open board is read,
+  at most every 10 s. Before the board has been found under the current key this session, the
+  board can sit at a non-default scale where the column check misses it. For that case a
+  whole-window fit runs at most every 5 s, only while enemy augments are unknown. This is a second
+  added capture besides the wide offer scan.
+- The fit's search covers the scaled prior centre ± 40 source units (about 2–3 % of the width),
+  not the whole 10 % sanity range. The sanity range is still the acceptance rule.
+- What counts as "should have appeared": the offer in a Mayhem game with OCR on after 90 s; the
+  scoreboard once the coach asked for Tab (a heuristic, since the user may not have pressed it);
+  the minimap whenever it was captured.
+- `TITLE_TOP` = 0.40 is inferred from the measured "titles at y ≈ 41 %". No real offer frame is on
+  disk to measure it.
+- The TFT offer locator is not done: it needs positions added to `TftSnapshot` (tft-model and its
+  bindings).
+
+Open:
+
+- In one real Mayhem game (`run.cmd debug`), check that the rank badges sit within 1 % of the
+  window width of the card centres. Check `TITLE_TOP` against the logged card `y`
+  (`ocr … cards [(id, x, y)]`), and that `calib.json` gets a `lol` entry with a stable
+  `offer_strip`.
+- In a Mayhem game, open Tab and check that the "Tab scoreboard" row turns Ok and that
+  `calib.json` holds a `scoreboard` close to `Geometry::new`. Then change the HUD scale, open Tab,
+  and check that the wide fit finds the board ("scoreboard found at …×") and the row shows
+  Shifted.
+- The debug frame cap (`MAX_FRAMES` 300) was used up by minimap frames in every session on disk,
+  so no `ocr-offer` or `tab-board` frames were saved. Record with gank warnings off, or raise the
+  cap, to get offer and scoreboard frames.
+- Step 5 (TFT HUD groups) and step 6 (layout fetch tool) are not started. The TFT client's own HUD
+  scale setting is not located either.
+- Frame corpus `fixtures/frames/…` at 1920×1080 and 2560×1440 with HUD scale minimum, default and
+  maximum needs real recordings. After that, run `--example calib` over them and turn the table
+  into a test.
+- 21:9 stays unverified.

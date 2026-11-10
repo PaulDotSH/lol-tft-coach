@@ -1,9 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod calib;
 mod coachless;
 mod commands;
 mod debug;
 mod draft;
+mod health;
 mod macro_sync;
 mod ingame;
 mod orchestrator;
