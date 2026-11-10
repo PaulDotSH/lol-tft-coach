@@ -325,3 +325,18 @@ pub const ROAM_DWELL_S: f32 = 1.0;
 pub const ROAM_GAP_S: f32 = 20.0;
 /// A side lane is laned within this distance of its map corner (world units); blips there are the laners.
 pub const GANK_LANE_CORNER: i32 = 4400;
+
+// ---- item what-if (`whatif.rs`). First guesses, check against lolalytics slot win rates. ----
+pub const BURST_AUTOS: f32 = 2.0;
+pub const SUSTAIN_S: f32 = 10.0;
+pub const WHATIF_BURST_STACKS: f32 = 0.5;
+pub const CRIT_BASE: f32 = 1.75;
+pub const CURRENT_HP_SHARE: f32 = 0.7;
+pub const AMP_VS_HP_FULL: f32 = 1500.0;
+pub const KIT_ON_HIT_FLAT: f32 = 30.0;
+pub const KIT_ON_HIT_AP: f32 = 0.3;
+pub const WHATIF_BURST_TRAIT: f32 = 0.5;
+pub const WHATIF_LANE_W: f32 = 1.5;
+pub const WHATIF_DMG_W: f32 = 0.1;
+pub const WHATIF_EHP_W: f32 = 0.06;
+pub const WHATIF_ROUGH_W: f32 = 0.5;

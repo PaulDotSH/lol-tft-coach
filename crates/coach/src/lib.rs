@@ -38,6 +38,7 @@ mod tips;
 mod timers;
 mod tracker;
 mod trends;
+mod whatif;
 mod windows;
 
 pub use analysis::{analyze_match, compare_past};
@@ -110,6 +111,8 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let est = resists::enemies(snap, sd, rules);
     ctx.pen = resists::Targets::new(&est, &a.foes, snap.my_stats.as_ref(), resists::item_pen(sd, owned));
     let notes = ctx.pen.as_ref().map_or(vec![], |t| t.notes(sd, ctx.champ.traits.magic_share));
+    let lane_opp = a.lane_opp.and_then(|i| snap.players.get(i)).map(|p| p.champ);
+    ctx.sim = whatif::Sim::new(&whatif::SimInput { snap, sd, stats, champ: ctx.champ, est: &est, foes: &a.foes, lane_opp, rules });
     let b = if me.is_some() { items::build(&ctx, owned, &needs) } else { items::Build { path: vec![], alts: vec![] } };
     let finished = owned.iter().filter(|i| sd.items.get(i).is_some_and(|i| i.completed)).count();
     let gold_sinks = match me {
@@ -124,6 +127,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let my_lane = stats.and_then(|s| s.lane);
     let gold_diff = gold::gold_diff(snap, sd, a.lane_opp, my_lane, me_stats.item_gold_vs_opp, gold_history);
     let path_ids: Vec<ItemId> = b.path.iter().map(|s| s.id).collect();
+    let what_if = ctx.sim.as_ref().map_or(vec![], |s| b.path.first().into_iter().chain(&b.alts).filter_map(|x| sd.items.get(&x.id)).map(|it| s.eval(it)).collect());
     GameAdvice {
         time: snap.time,
         mode: snap.mode,
@@ -153,6 +157,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         tips: vec![],
         matchup: vec![],
         skill: skills::advice(snap, sd, stats, matchup),
+        what_if,
     }
 }
 

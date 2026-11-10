@@ -210,6 +210,65 @@ const riftGame: GameAdvice = {
   ],
   matchup: [zedLaning],
   skill: { key: 'W', unspent: 0, at_level: 14, priority: 'QWE', source: 'vs Zed, 2.1k games' },
+  what_if: [
+    {
+      item: 3157,
+      damage: 0.07,
+      burst: 0.07,
+      sustained: 0.065,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 238, burst: 0.07, sustained: 0.066, lane: true },
+        { champ: 145, burst: 0.07, sustained: 0.066, lane: false },
+        { champ: 254, burst: 0.07, sustained: 0.066, lane: false },
+        { champ: 122, burst: 0.069, sustained: 0.064, lane: false },
+        { champ: 111, burst: 0.068, sustained: 0.063, lane: false },
+      ],
+      ehp: 0.27,
+      ehp_physical: 0.36,
+      ehp_magic: 0,
+      rough: false,
+      note: null,
+    },
+    {
+      item: 3102,
+      damage: 0.08,
+      burst: 0.08,
+      sustained: 0.075,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 238, burst: 0.08, sustained: 0.076, lane: true },
+        { champ: 145, burst: 0.08, sustained: 0.076, lane: false },
+        { champ: 254, burst: 0.08, sustained: 0.076, lane: false },
+        { champ: 122, burst: 0.078, sustained: 0.073, lane: false },
+        { champ: 111, burst: 0.077, sustained: 0.072, lane: false },
+      ],
+      ehp: 0.09,
+      ehp_physical: 0,
+      ehp_magic: 0.31,
+      rough: false,
+      note: null,
+    },
+    {
+      item: 3135,
+      damage: 0.19,
+      burst: 0.19,
+      sustained: 0.18,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 238, burst: 0.12, sustained: 0.11, lane: true },
+        { champ: 145, burst: 0.14, sustained: 0.13, lane: false },
+        { champ: 254, burst: 0.17, sustained: 0.16, lane: false },
+        { champ: 122, burst: 0.27, sustained: 0.26, lane: false },
+        { champ: 111, burst: 0.31, sustained: 0.3, lane: false },
+      ],
+      ehp: 0,
+      ehp_physical: 0,
+      ehp_magic: 0,
+      rough: false,
+      note: null,
+    },
+  ],
 };
 
 const mayhemGame: GameAdvice = {
@@ -293,6 +352,46 @@ const mayhemGame: GameAdvice = {
   tips: [],
   matchup: [],
   skill: { key: 'E', unspent: 1, at_level: 9, priority: 'QEW', source: 'lolalytics 16.21' },
+  what_if: [
+    {
+      item: 3089,
+      damage: 0.24,
+      burst: 0.24,
+      sustained: 0.22,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 55, burst: 0.24, sustained: 0.22, lane: false },
+        { champ: 11, burst: 0.24, sustained: 0.22, lane: false },
+        { champ: 36, burst: 0.23, sustained: 0.21, lane: false },
+        { champ: 16, burst: 0.24, sustained: 0.22, lane: false },
+        { champ: 22, burst: 0.24, sustained: 0.22, lane: false },
+      ],
+      ehp: 0,
+      ehp_physical: 0,
+      ehp_magic: 0,
+      rough: false,
+      note: 'Augment procs not counted',
+    },
+    {
+      item: 3157,
+      damage: 0.06,
+      burst: 0.06,
+      sustained: 0.055,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 55, burst: 0.06, sustained: 0.055, lane: false },
+        { champ: 11, burst: 0.06, sustained: 0.055, lane: false },
+        { champ: 36, burst: 0.058, sustained: 0.053, lane: false },
+        { champ: 16, burst: 0.06, sustained: 0.055, lane: false },
+        { champ: 22, burst: 0.06, sustained: 0.055, lane: false },
+      ],
+      ehp: 0.22,
+      ehp_physical: 0.38,
+      ehp_magic: 0,
+      rough: false,
+      note: 'Augment procs not counted',
+    },
+  ],
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.
@@ -347,6 +446,7 @@ const laningGame: GameAdvice = {
   readiness: null,
   matchup: [asheLaning, zoeLaning],
   skill: { key: 'R', unspent: 1, at_level: 6, priority: 'QWE', source: 'vs Ashe, 1.2k games' },
+  what_if: [],
 };
 
 export const fixtures = {

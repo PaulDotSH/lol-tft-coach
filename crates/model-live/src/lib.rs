@@ -127,6 +127,8 @@ data! {
         /// Which ability to level next; None when the skill order can't describe my champion.
         #[serde(default)]
         pub skill: Option<SkillNext>,
+        #[serde(default)]
+        pub what_if: Vec<WhatIf>,
     }
 
     /// One Rift lane pairing; item gold of visible inventories, ally − enemy.
@@ -337,6 +339,27 @@ data! {
     pub struct TabHint {
         pub text: String,
         pub reason: String,
+    }
+
+    pub struct WhatIf {
+        pub item: ItemId,
+        pub damage: f32,
+        pub burst: f32,
+        pub sustained: f32,
+        pub burst_leads: bool,
+        pub per_enemy: Vec<WhatIfEnemy>,
+        pub ehp: f32,
+        pub ehp_physical: f32,
+        pub ehp_magic: f32,
+        pub rough: bool,
+        pub note: Option<String>,
+    }
+
+    pub struct WhatIfEnemy {
+        pub champ: ChampKey,
+        pub burst: f32,
+        pub sustained: f32,
+        pub lane: bool,
     }
 
     /// The next skill point from a lolalytics skill order.

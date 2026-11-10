@@ -42,6 +42,13 @@ async fn main() -> anyhow::Result<()> {
     println!("\n== Mayhem (u.gg {}) ==", m.patch);
     print_game(&sd, &a);
 
+    let mut ars = snap.clone();
+    ars.mode = Mode::Aram;
+    let aram_stats = data::lolalytics::champ_stats(&http, &sd.champs[&me.champ], None, Mode::Aram, "all", "all", &patch).await?;
+    let a = coach::game_advice(&coach::GameInput { snap: &ars, sd: &sd, stats: Some(&aram_stats), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    println!("\n== ARAM ==");
+    print_game(&sd, &a);
+
     // Champ select (draft fixture) with real enemy stats + tier list.
     let cs = clients::lcu::parse_champ_select(&fixture("champ_select_draft.json")?, 420).expect("cs fixture parses");
     let lane = cs.my_lane.unwrap_or(Lane::Middle);
@@ -132,6 +139,16 @@ fn print_game(sd: &StaticData, a: &GameAdvice) {
         println!("  alt {} — {}", p.name, p.reason);
     }
     println!("path {:?}", a.path.iter().map(|p| &p.name).collect::<Vec<_>>());
+    for w in &a.what_if {
+        println!(
+            "what-if {:<24} dmg {:+5.1}% (burst {:+5.1}% / 10 s {:+5.1}%, {} leads) EHP {:+5.1}% (phys {:+5.1}% magic {:+5.1}%){}{}",
+            sd.item_name(w.item), w.damage * 100.0, w.burst * 100.0, w.sustained * 100.0, if w.burst_leads { "burst" } else { "10 s" },
+            w.ehp * 100.0, w.ehp_physical * 100.0, w.ehp_magic * 100.0, if w.rough { " ROUGH" } else { "" }, w.note.as_deref().map_or(String::new(), |n| format!(" ({n})"))
+        );
+        for e in &w.per_enemy {
+            println!("    vs {:<12} burst {:+5.1}%  10 s {:+5.1}%{}", sd.champ_name(e.champ), e.burst * 100.0, e.sustained * 100.0, if e.lane { "  LANE" } else { "" });
+        }
+    }
     for t in &a.threats {
         println!(
             "threat {:<10} {:5.1} {}/{}/{} gold{:+} lvl{:+} killed-me {} {}{} {:?}",

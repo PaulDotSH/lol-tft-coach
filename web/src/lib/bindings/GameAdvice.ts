@@ -20,6 +20,7 @@ import type { ShoppingList } from "./ShoppingList";
 import type { SkillNext } from "./SkillNext";
 import type { TabHint } from "./TabHint";
 import type { Threat } from "./Threat";
+import type { WhatIf } from "./WhatIf";
 
 export type GameAdvice = { time: number, mode: Mode, my_champ: number, buy_next: ItemPick | null, alternatives: Array<ItemPick>, 
 /**
@@ -77,4 +78,4 @@ matchup: Array<MatchupCard>,
 /**
  * Which ability to level next; None when the skill order can't describe my champion.
  */
-skill: SkillNext | null, };
+skill: SkillNext | null, what_if: Array<WhatIf>, };
