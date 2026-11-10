@@ -3,7 +3,8 @@
 //! the few takeaways that stand out.
 
 use crate::common::champ;
-use crate::selfcoach::review_deaths;
+use crate::consts;
+use crate::selfcoach::{review_deaths, seen_first};
 use crate::{fights, items, needs, threat};
 use model::*;
 
@@ -152,6 +153,12 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         laning: crate::laning::laning(d),
     };
     a.takeaways = takeaways(&a, d, sd, team_kills);
+    if let Some(i) = a.review.notes.iter().position(|n| n.contains(" came out of fog"))
+        && let Some(j) = a.takeaways.iter().position(|t| !t.good && t.text.starts_with("Vision "))
+    {
+        let t = a.takeaways.remove(j);
+        a.review.notes[i] = format!("{} ({})", a.review.notes[i], t.text);
+    }
     a.focus = focus(&a, d, sd);
     a
 }
@@ -190,6 +197,11 @@ fn focus(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData) -> Option<Focus> {
             format!("You died {early}× before 14:00 outside fights your team won."),
             goal(GoalKind::EarlyDeaths, 1.0),
         );
+    }
+    let deaths: Vec<&DeathNote> = a.review.deaths.iter().filter(|n| !n.traded).collect();
+    let (seen, of) = seen_first(&deaths);
+    if seen >= consts::SIGHT_NOTE_MIN && seen * 2 >= of {
+        return pick("Look at the minimap before stepping up".into(), format!("{seen} of {of} deaths were visible first."), None);
     }
     let held = a.review.deaths.iter().filter(|n| n.unspent >= 1000).count();
     if held >= PATTERN_MIN || a.rich_marks.len() >= RICH_MARKS {
@@ -328,6 +340,7 @@ fn review(d: &MatchDetail, sd: &StaticData, recap: Option<&Recap>) -> DeathRevie
                 traded: false,
                 place: k.pos.filter(|_| d.game.mode == Mode::Rift).map(|(x, y)| place(MapZone::at(x, y), blue).into()),
                 pos: k.pos.filter(|_| d.game.mode == Mode::Rift).map(|(x, y)| MapZone::from_blue(x, y, blue)),
+                sight: None,
             };
             match live.and_then(|r| r.deaths.iter().find(|n| (n.time - k.time).abs() <= SAME_DEATH)) {
                 Some(n) => DeathNote { place: note.place, pos: note.pos, traded: false, ..n.clone() },
@@ -336,7 +349,9 @@ fn review(d: &MatchDetail, sd: &StaticData, recap: Option<&Recap>) -> DeathRevie
         })
         .collect();
     let kills: Vec<(f32, bool)> = d.kills.iter().map(|k| (k.time, !d.players[k.victim].ally)).collect();
-    review_deaths(&deaths, &kills, d.game.mode != Mode::Rift, sd)
+    let lane = d.players[d.me].lane.filter(|_| d.game.mode == Mode::Rift);
+    let opps = crate::sight::lane_opponents(lane, d.players.iter().filter(|p| !p.ally).map(|p| (p.champ, p.lane)));
+    review_deaths(&deaths, &kills, d.game.mode != Mode::Rift, &opps, sd)
 }
 
 /// A map zone as seen from my side.

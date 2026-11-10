@@ -132,6 +132,26 @@ data! {
         /// Map position as seen from blue side (match history only).
         #[serde(default)]
         pub pos: Option<(i32, i32)>,
+        #[serde(default)]
+        pub sight: Option<DeathSight>,
+    }
+
+    pub struct DeathSight {
+        pub covered: f32,
+        pub seen: Vec<SeenBefore>,
+        pub warned: Option<(f32, String)>,
+        #[serde(default)]
+        pub verdict: Option<SightKind>,
+        #[serde(default)]
+        pub line: Option<String>,
+    }
+
+    pub struct SeenBefore {
+        pub champ: Option<ChampKey>,
+        pub first: f32,
+        pub last: f32,
+        pub x: i32,
+        pub y: i32,
     }
 
     pub struct DeathReview {
@@ -384,4 +404,6 @@ data! {
 enums! {
     /// Self-coaching goal / trend metric.
     pub enum GoalKind { Cs10, EarlyDeaths, Vision, Unspent, BuyNext }
+
+    pub enum SightKind { Warned, Visible, Lane, Fog, Unclear }
 }

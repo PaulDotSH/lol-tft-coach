@@ -143,3 +143,57 @@ over a few weeks.
 - Old recap JSON without `sight` still deserialises (`#[serde(default)]`).
 - Mock: `web/src/mock/analysis.json` gains two deaths with `sight`; checked in the
   browser mock.
+
+## Implementation status (2026-11-10)
+
+Built (branch `feat/death-sight`):
+
+- `coach::gank::SightLog` / `Sighting` (in `crates/coach/src/gank/sights.rs`, re-exported as `coach::SightLog`):
+  `push`, `window`, `covered`, `calls`; keeps `SIGHT_KEEP_S` of reads, every call's first appearance, and resets
+  when time goes back. `GankTracker::last_names()` gives the names after the teleport check.
+- Minimap thread owns a `SightLog`, mirrors it to `Shared::sights` after each read, resets both with the tracker.
+- `GameLog::observe(.., sights: Option<&SightLog>)` stamps `DeathNote.sight` (`DeathSight`, `SeenBefore`, all
+  `#[serde(default)]`) via `coach::sight::stamp`; the orchestrator passes the mirror while gank warnings are on.
+- `coach::sight::verdict` (table rules, distance filter with `pos`), `sight::line` (wording),
+  `sight::lane_opponents`. `review_deaths` stores the verdict and line in `DeathSight.verdict` / `.line` and adds
+  the three notes (two-death minimum); the match review moves the vision takeaway next to the fog note and maps the
+  first note to `Focus` (after the early-deaths focus).
+- UI: `DeathReview.svelte` line per death with an eye / warning / fog icon; in the match review a death's time is a
+  button that shows its sightings on `DeathMap.svelte` (dots labelled "N s", dashed line from the first `seen`
+  entry, killer first, to the death). Mocks: `web/src/mock/analysis.json` (warned + fog deaths with positions),
+  `web/src/mock/selfcoach.ts` (recap lines).
+- Constants in `consts.rs`: `SIGHT_KEEP_S`, `SIGHT_WINDOW_S`, `SIGHT_READ_S`, `SIGHT_MIN_COVER`, `SEEN_EARLY_S`,
+  `SEEN_NEAR`, `WARN_EARLY_S`, `WARN_DEATH_S`, `SIGHT_NOTE_MIN`.
+- Tests: `SightLog` (window, pruning, coverage gaps, reset, red side), every verdict row, distance filter with and
+  without `pos`, execution, stamping, `review_deaths` notes (wording, thresholds, two-death minimum), old JSON
+  without `sight`, match-review fog place / vision takeaway / focus, and a replay
+  (`crates/coach/tests/sight_replay.rs`).
+
+Replay fixture: a debug session on disk already held both dumps for one game (blue support Thresh vs Wukong, the
+game behind `gank_blue_support_named.json`). `fixtures/coach/sight_blue_support.json` keeps the roster (champion,
+team, lane), every kill (player indexes, no names) and only the minimap reads in the 30 s before each of my deaths
+the minimap covered (60 reads, 5 KB). Result: 7:25 Warned 7 s before (Wukong's bot-side call), 11:11 Visible
+("Wukong was on the minimap for 11 s before"), 16:39 no sight (that build stopped reading after laning). Checked by
+hand against the saved minimap frames at ~7:20 and ~11:05.
+
+Deviations:
+
+- `SightLog.calls` stores the whole `Call` (key for first appearance, text for the line), not `(f32, String)`.
+- `DeathSight` also carries `verdict` and `line`, filled by the review, so the UI renders without its own rules.
+- Lane opponents are left out of every rule, not only `Visible`: the `Fog` check ignores them too (otherwise a lane
+  opponent in lane would hide a jungler from fog), and an all-lane-opponent death is `Lane` before `Warned`.
+- `warned` is the latest call at least `WARN_EARLY_S` before the death (else the latest), within the 15 s window.
+- The Warned line quotes the call's own text ("Warned 7 s before: Wukong bot side — near your lane, play safe")
+  instead of composing "Lee Sin from the river".
+- Without a position (live recap) any unnamed blip in the window blocks `Fog`; with one, only blips within
+  `SEEN_NEAR`. Unnamed blips are grouped into tracks by the tracker's reach (`NAME_JUMP + NAME_SPEED × dt`).
+- "N of M deaths" counts deaths with a verdict, trades aside; the Focus needs N ≥ 2 and N ≥ M / 2.
+
+Open, needs a real game:
+
+- Play a Rift game with gank warnings on and the app watched live: check the recap shows the per-death lines, then
+  open it in the match review and check the map dots / line for a death against the replay of that game.
+- Record one more debug game (debug mode, so `minimap-blips` and `live-allgamedata` dumps of the same game) with a
+  death to an enemy that came out of fog, and add it to the replay test: the current fixture has no `Fog` death.
+- Watch the share of `Unclear` live: if unrecognised portraits block too many `Fog` verdicts, tune the unnamed-blip
+  rule.

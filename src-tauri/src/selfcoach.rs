@@ -12,8 +12,8 @@ const KEEP: usize = 100;
 const RECAP_AFTER: u64 = 900;
 
 /// Live goal progress after logging this tick.
-pub fn on_tick(log: &mut coach::GameLog, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, goals: &[Goal]) -> Vec<GoalProgress> {
-    log.observe(snap, advice, sd);
+pub fn on_tick(log: &mut coach::GameLog, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, goals: &[Goal], sights: Option<&coach::SightLog>) -> Vec<GoalProgress> {
+    log.observe(snap, advice, sd, sights);
     let Some(me) = snap.players.get(snap.me) else { return vec![] };
     let now = coach::Now { mode: snap.mode, time: snap.time, cs: me.cs, deaths: me.deaths, vision: me.ward_score, done: false };
     coach::goal_progress(goals, log, &now)

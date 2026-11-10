@@ -88,6 +88,7 @@ pub struct Shared {
     /// Minimap thread: what to watch for, its gank warnings and when they were made, its state.
     pub gank_ctx: Mutex<Option<GankCtx>>,
     pub gank_calls: Mutex<(Vec<Call>, Instant)>,
+    pub sights: Mutex<coach::SightLog>,
     pub minimap_state: Mutex<SourceState>,
     /// Enemy champion portraits for naming minimap blips.
     pub portraits: Cache<ChampKey, ocr::minimap::Portrait>,
@@ -149,6 +150,7 @@ impl Shared {
             tab: Default::default(),
             gank_ctx: Mutex::new(None),
             gank_calls: Mutex::new((vec![], Instant::now())),
+            sights: Mutex::default(),
             minimap_state: Mutex::new(SourceState::Off),
             portraits: Mutex::default(),
             league_install: Mutex::new(None),
