@@ -1,0 +1,14 @@
+[
+  { "Assisters": ["Lantern Bro"], "EventID": 30, "EventName": "TurretKilled", "EventTime": 742.18, "KillerName": "Get Excited", "TurretKilled": "Turret_TChaos_L0_P3_511845594_0" },
+  { "EventID": 31, "EventName": "FirstBrick", "EventTime": 742.18, "KillerName": "Get Excited" },
+  { "Assisters": [], "EventID": 40, "EventName": "TurretKilled", "EventTime": 1104.6, "KillerName": "Minion_T200L1S24N0151", "TurretKilled": "Turret_TOrder_L1_P3_1242677625_0" },
+  { "Assisters": [], "EventID": 52, "EventName": "TurretKilled", "EventTime": 1290.02, "KillerName": "Shadow Step", "TurretKilled": "Turret_TOrder_L1_P2_1225900006_0" },
+  { "Assisters": ["Punch Card"], "EventID": 58, "EventName": "TurretKilled", "EventTime": 1388.4, "KillerName": "Shadow Step", "TurretKilled": "Turret_TOrder_L1_P1_1209122387_0" },
+  { "Assisters": ["Punch Card", "Anchor Down"], "EventID": 60, "EventName": "InhibKilled", "EventTime": 1402.25, "InhibKilled": "Inhib_TOrder_L1_P1_2786523670_0", "KillerName": "Shadow Step" },
+  { "Assisters": [], "EventID": 63, "EventName": "TurretKilled", "EventTime": 1431.9, "KillerName": "Void Daughter", "TurretKilled": "Turret_TOrder_L1_P5_3625540808_0" },
+  { "Assisters": [], "EventID": 70, "EventName": "TurretKilled", "EventTime": 1500.0, "KillerName": "Demacia Top", "TurretKilled": "Turret_TChaos_L2_P3_2521511112_0" },
+  { "EventID": 80, "EventName": "InhibRespawningSoon", "EventTime": 1687.25, "InhibRespawningSoon": "Inhib_TOrder_L1_P1_2786523670_0" },
+  { "EventID": 81, "EventName": "InhibRespawned", "EventTime": 1702.25, "InhibRespawned": "Inhib_TOrder_L1_P1_2786523670_0" },
+  { "Assisters": [], "EventID": 90, "EventName": "TurretKilled", "EventTime": 1750.0, "KillerName": "Demacia Top", "TurretKilled": "Turret_Azir_Sun_Disc" },
+  { "Assisters": [], "EventID": 91, "EventName": "InhibKilled", "EventTime": 1760.0, "InhibKilled": "Barracks_T2_C1", "KillerName": "Demacia Top" }
+]

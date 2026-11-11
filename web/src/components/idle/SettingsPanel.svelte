@@ -49,6 +49,16 @@
     <button id="coachless" onclick={() => coachless(!signedIn)}>{signedIn ? 'Sign out' : 'Sign in'}</button>
     <label for="audio">Speak in-game calls aloud</label>
     <input id="audio" type="checkbox" checked={settings.audio} onchange={(e) => set('audio', e.currentTarget.checked)} />
+    <label for="winprob">
+      Win chance and posture in game
+      <small>your team's chance from the scoreboard, what moves it, what the next objectives are worth and a read of the next minutes; needs a fitted model</small>
+    </label>
+    <input id="winprob" type="checkbox" checked={settings.win_prob} onchange={(e) => set('win_prob', e.currentTarget.checked)} />
+    <label for="posture">
+      Speak posture changes
+      <small>with calls spoken aloud: says when the read changes, as from ahead to even</small>
+    </label>
+    <input id="posture" type="checkbox" checked={settings.posture_calls} onchange={(e) => set('posture_calls', e.currentTarget.checked)} />
     <label for="overlay">
       In-game overlay over the game window
       <small>borderless or windowed; exclusive fullscreen hides it</small>

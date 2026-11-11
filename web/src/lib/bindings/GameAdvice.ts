@@ -15,6 +15,7 @@ import type { MatchupTip } from "./MatchupTip";
 import type { Mode } from "./Mode";
 import type { MyAugment } from "./MyAugment";
 import type { ObjectiveTimer } from "./ObjectiveTimer";
+import type { Posture } from "./Posture";
 import type { Readiness } from "./Readiness";
 import type { SelfStats } from "./SelfStats";
 import type { ShoppingList } from "./ShoppingList";
@@ -22,6 +23,7 @@ import type { SkillNext } from "./SkillNext";
 import type { TabHint } from "./TabHint";
 import type { Threat } from "./Threat";
 import type { WhatIf } from "./WhatIf";
+import type { WinProb } from "./WinProb";
 
 export type GameAdvice = { time: number, mode: Mode, my_champ: number, buy_next: ItemPick | null, alternatives: Array<ItemPick>, 
 /**
@@ -83,4 +85,12 @@ skill: SkillNext | null, what_if: Array<WhatIf>,
 /**
  * Rift, when I jungle: clear pace and the lane board.
  */
-jungle: JungleAdvice | null, };
+jungle: JungleAdvice | null, 
+/**
+ * My team's chance to win; None until the model is fitted for the mode.
+ */
+win: WinProb | null, 
+/**
+ * How the next minutes look, from `win`; None without it.
+ */
+posture: Posture | null, };

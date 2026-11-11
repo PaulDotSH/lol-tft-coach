@@ -1,5 +1,6 @@
 // Match history samples: AppState.history and the analyze_game result.
-// analysis.json is the real review of a recorded flex game (`--example review`).
+// analysis.json is the real review of a recorded flex game (`--example review`); its win curve
+// and swings come from the hand-set table (`fixtures/coach/winprob_handset.toml`), not a fit.
 import type { JungleReview } from '../lib/bindings/JungleReview';
 import type { MatchAnalysis } from '../lib/bindings/MatchAnalysis';
 import type { PastGame } from '../lib/bindings/PastGame';

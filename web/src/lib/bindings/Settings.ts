@@ -35,4 +35,12 @@ game_note: boolean,
  * Save TFT unit crops of every fight and scouted board for training unit recognition
  * (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
  */
-tft_crops: boolean, };
+tft_crops: boolean, 
+/**
+ * Show the win probability and the posture read in game (needs a fitted model).
+ */
+win_prob: boolean, 
+/**
+ * Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
+ */
+posture_calls: boolean, };

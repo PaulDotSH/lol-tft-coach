@@ -132,6 +132,67 @@ data! {
         /// Rift, when I jungle: clear pace and the lane board.
         #[serde(default)]
         pub jungle: Option<JungleAdvice>,
+        /// My team's chance to win; None until the model is fitted for the mode.
+        #[serde(default)]
+        pub win: Option<WinProb>,
+        /// How the next minutes look, from `win`; None without it.
+        #[serde(default)]
+        pub posture: Option<Posture>,
+    }
+
+    /// A standing read of the game from the win probability (`coach::posture`): a read and
+    /// options built from live facts, never orders.
+    pub struct Posture {
+        pub stance: Stance,
+        pub headline: String,
+        /// The biggest factors and who the rest of the game favours.
+        pub why: Vec<String>,
+        /// Two or three choices: the biggest stake and its timer, shutdowns, who is dead, my next item.
+        pub options: Vec<String>,
+    }
+
+    /// My team's chance to win from what the scoreboard shows (`coach::winprob`).
+    pub struct WinProb {
+        /// 0..1, everything counted.
+        pub p: f32,
+        /// 0..1 without who is dead right now: the standing state.
+        pub base: f32,
+        /// Change of `base` over the last two minutes, in points; None until the samples reach back.
+        pub trend: Option<f32>,
+        /// What moves `p`, largest first.
+        pub factors: Vec<WinFactor>,
+        /// What the next objectives are worth, largest first.
+        pub stakes: Vec<Stake>,
+        /// None when no champion's win rates by game length are known.
+        pub outlook: Option<Outlook>,
+        /// The model fits this game loosely: Swiftplay, Mayhem, champions without data.
+        pub rough: bool,
+        /// "from the scoreboard · fit on 16.22 (10k games)".
+        pub source: String,
+    }
+
+    pub struct WinFactor {
+        /// Model feature: "gold", "level", "towers", …
+        pub key: String,
+        pub label: String,
+        /// Points of `p` it adds (+) or costs (−).
+        pub points: f32,
+    }
+
+    pub struct Stake {
+        /// "Dragon", "Baron", "Elder", "Tower", "Inhibitor", "Your death".
+        pub name: String,
+        /// `p` with it on my side minus with it on theirs, in points.
+        pub swing: f32,
+        pub note: Option<String>,
+    }
+
+    /// Who the rest of the game favours: win-rate points of my champions over theirs in games
+    /// that last at least until now, and until `later_min`.
+    pub struct Outlook {
+        pub now: f32,
+        pub later: f32,
+        pub later_min: u32,
     }
 
     pub struct JungleAdvice {
@@ -181,6 +242,9 @@ data! {
         pub team: i32,
         /// My lane item-gold diff, when I have a lane opponent.
         pub lane: Option<i32>,
+        /// `WinProb::base` at that time (0..1).
+        #[serde(default)]
+        pub win: Option<f32>,
     }
 
     /// Item gold (cost of held items, as the scoreboard shows them). The game
@@ -411,4 +475,8 @@ data! {
 
 enums! {
     pub enum Verdict { Fight, Even, Avoid }
+
+    /// Ahead: Press (the rest of the game does not favour us) or Hold (it does); 40–60 %: Even;
+    /// behind: Stall (it favours us) or Swing (it does not).
+    pub enum Stance { Press, Hold, Even, Stall, Swing }
 }

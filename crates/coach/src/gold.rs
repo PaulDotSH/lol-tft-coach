@@ -17,6 +17,7 @@ pub fn gold_diff(
     lane_opp: Option<usize>,
     my_lane: Option<Lane>,
     lane_now: Option<i32>,
+    win: Option<f32>,
     history: &[GoldSample],
 ) -> GoldDiff {
     let my_team = snap.players.get(snap.me).map_or(Team::Order, |p| p.team);
@@ -55,7 +56,7 @@ pub fn gold_diff(
         .collect();
     players.sort_by_key(|p| (!p.ally, Reverse(p.item_gold)));
     let mut history = history.to_vec();
-    history.push(GoldSample { time: snap.time, team: diff, lane: lane_now });
+    history.push(GoldSample { time: snap.time, team: diff, lane: lane_now, win });
     GoldDiff {
         team_item_gold: (tg[0], tg[1]),
         diff,

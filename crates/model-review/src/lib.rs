@@ -17,6 +17,9 @@ data! {
         pub summary: Option<GameSummary>,
         #[serde(default)]
         pub goals: Vec<GoalProgress>,
+        /// (game time, `WinProb::base`) about every 20 s while the win chance was shown.
+        #[serde(default)]
+        pub win_curve: Vec<(f32, f32)>,
     }
 
     /// LP over my ranked games in one queue, from snapshots taken after each.
@@ -359,6 +362,22 @@ data! {
         pub team: i32,
         /// Mine minus my lane opponent's.
         pub lane: Option<i32>,
+        /// My team's chance to win (0..1), deaths aside: the live number when the app watched
+        /// the game, else the model on this frame. None without a fit for the mode.
+        #[serde(default)]
+        pub win: Option<f32>,
+    }
+
+    /// One of the largest changes of the win chance between two points of the curve.
+    pub struct Swing {
+        /// Game time (s) of what caused it, else the end of the span.
+        pub time: f32,
+        /// Points, + for my team.
+        pub delta: f32,
+        /// "fight", "death", "objective", "structure" or "other".
+        pub kind: String,
+        /// "Fight lost 1 for 3 in the river, Baron given".
+        pub text: String,
     }
 
     pub struct Takeaway {
@@ -404,6 +423,9 @@ data! {
         /// Rift, when I jungled: replaces `laning`.
         #[serde(default)]
         pub jungle: Option<JungleReview>,
+        /// The five largest changes of `gold[i].win`, largest first; empty without a curve.
+        #[serde(default)]
+        pub swings: Vec<Swing>,
     }
 
     pub struct JungleReview {

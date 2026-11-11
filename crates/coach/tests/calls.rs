@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 fn advise(s: &GameSnapshot) -> GameAdvice {
     let sd = sd();
-    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker: &Tracker::default(), ults: &HashMap::new(), notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     a
 }
@@ -182,4 +182,65 @@ fn one_take_call_when_baron_and_dragon_are_both_open() {
     assert_eq!(takes.len(), 1, "{takes:?}");
     assert!(takes[0].key.starts_with("take-Baron"), "{}", takes[0].key);
     assert!(takes[0].text.ends_with("; Dragon up too: Baron first"), "{}", takes[0].text);
+}
+
+fn advise_won(s: &GameSnapshot) -> GameAdvice {
+    let (sd, m) = (sd(), coach::winprob::Model::parse(include_str!("../../../fixtures/coach/winprob_handset.toml")).unwrap());
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&m), situations: &Default::default() });
+    live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker: &Tracker::default(), ults: &HashMap::new(), notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
+    a
+}
+
+#[test]
+fn readiness_reads_the_win_probability_when_there_is_one() {
+    let dead = |range: std::ops::Range<usize>| {
+        let mut p = lobby(STANDARD);
+        for e in &mut p[range] {
+            e.dead = true;
+            e.respawn_in = 30.0;
+        }
+        GameSnapshot { time: 1130.0, ..snap(p, vec![]) }
+    };
+    // Even on the scoreboard: who is dead alone moves p six points or more off base.
+    let a = advise_won(&dead(5..8));
+    let w = a.win.clone().unwrap();
+    assert!(100.0 * (w.p - w.base) >= 6.0 && w.base < 0.6, "{} {}", w.p, w.base);
+    let r = a.readiness.unwrap();
+    assert_eq!(r.verdict, Verdict::Fight);
+    assert!(r.reasons.iter().any(|x| x.starts_with("3 enemies dead")), "{:?}", r.reasons);
+    let a = advise_won(&dead(1..4));
+    assert_eq!(a.readiness.unwrap().verdict, Verdict::Avoid, "three of mine dead");
+
+    // Ahead on items with nobody dead: the standing state calls it, its factors are the reasons.
+    let mut p = lobby(STANDARD);
+    for e in &mut p[0..5] {
+        e.items = vec![ZHONYAS];
+    }
+    let a = advise_won(&GameSnapshot { time: 1130.0, ..snap(p.clone(), vec![]) });
+    assert!(a.win.as_ref().unwrap().base >= 0.6);
+    let r = a.readiness.unwrap();
+    assert_eq!(r.verdict, Verdict::Fight);
+    assert!(r.reasons[0].starts_with("item gold +") && r.reasons[0].ends_with(" points"), "{:?}", r.reasons);
+    for e in &mut p[0..5] {
+        e.items = vec![];
+    }
+    for e in &mut p[5..10] {
+        e.items = vec![ZHONYAS];
+    }
+    assert_eq!(advise_won(&GameSnapshot { time: 1130.0, ..snap(p, vec![]) }).readiness.unwrap().verdict, Verdict::Avoid);
+    assert_eq!(advise_won(&GameSnapshot { time: 1130.0, ..snap(lobby(STANDARD), vec![]) }).readiness.unwrap().verdict, Verdict::Even);
+}
+
+#[test]
+fn a_take_call_says_what_the_objective_is_worth() {
+    let mut p = lobby(STANDARD);
+    for e in &mut p[5..8] {
+        e.dead = true;
+        e.respawn_in = 30.0;
+    }
+    let a = advise_won(&GameSnapshot { time: 1130.0, ..snap(p, vec![]) });
+    let swing = a.win.as_ref().unwrap().stakes.iter().find(|s| s.name == "Dragon").unwrap().swing;
+    let c = a.calls.iter().find(|c| c.key.starts_with("take-Dragon")).expect("take Dragon");
+    assert_eq!(c.text, format!("Dragon is up: Darius (30 s), Lee Sin (30 s) and Zed (30 s) dead, their jungler can't smite. Take it (±{swing:.0}); Herald up too: Dragon first"));
+    assert_eq!(c.say, "Their jungler is dead. Take Dragon.");
 }

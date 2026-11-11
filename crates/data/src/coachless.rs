@@ -3,18 +3,27 @@
 //! given first items. Needs a Coachless account: the app catches the token pair from the
 //! site's own login reply (`LOGIN_PATH`) and renews it with the refresh token.
 //!
-//! Findings (2026-10-28, from github.com/controlado/lol-autobuild and probing):
-//! - `GET /api/ChampionWinprob/GetPatches` is public, oldest first. A free account gets the
-//!   newest patch but one; Premium (`isSubscribed: "1"` in the access JWT) the newest.
+//! Findings (2026-10-28, from github.com/controlado/lol-autobuild and probing; corrected 2026-11-11):
+//! - `GET /api/ChampionWinprob/GetPatches` is public, oldest first. Premium is
+//!   `isSubscribed: "1"` in the access JWT. On 2026-10-28 a free account got the newest patch
+//!   but one; on 2026-11-11 the newest patch answered for a free account and without a token.
+//!   The requests here still ask a free account for the newest but one.
 //! - Everything else is a POST with `commonFilters` (patch, championIds,
 //!   matchupChampionIds, leagueTiers 3 gold … 7 master, 8 grandmaster, 9 challenger (nothing
-//!   below Gold), regions, role 0 top … 4 support)
-//!   and answers `[]` without a valid token. Items need `itemSlots`, boots too (`[]` gets
-//!   nothing); a support's legendary slot 1 is the support item.
+//!   below Gold), regions, role 0 top … 4 support). On 2026-10-28 they answered `[]` without a
+//!   valid token; on 2026-11-11 `GetGlobalItemStatistics`, `GetItemDetailed` and
+//!   `GetRecommendedBuilds` answered without one. The app still asks only when signed in.
+//!   Items need `itemSlots`, boots too (`[]` gets nothing); a support's legendary slot 1 is
+//!   the support item.
+//! - A free account gets 403 for any request carrying `matchupChampionIds` (2026-11-11);
+//!   Premium was not tested.
 //! - Rows are `{itemId | rune | summonerSpell | tree, wpaOverall, occurrence}`. WPA is in
 //!   win-rate points (winrateObserved - winrateExpected), added to the champion's win rate.
+//! - `GetItemDetailed` (one `itemId` per call) answers one flat object: WPA and the share of the
+//!   item's purchases (percent) per situation, `itemOccurrence` games (0: no data). How the
+//!   situations are cut is not published.
 
-use model_static::{ChampKey, ChampStats, ItemId, ItemStat, Lane, RuneData, RuneId, RunePage, RuneStat};
+use model_static::{BuildSlot, ChampKey, ChampStats, ItemId, ItemSituations, ItemStat, Lane, RuneData, RuneId, RunePage, RuneStat, Situation};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -271,6 +280,69 @@ fn filters(q: &Query, patch: &Value) -> Value {
     f
 }
 
+/// `GetGlobalItemStatistics` body for one slot.
+fn item_body(f: &Value, kind: u8, slots: &[u8], first: Option<ItemId>, second: Option<ItemId>) -> Value {
+    json!({
+        "commonFilters": f,
+        "itemSlots": slots,
+        "itemType": kind,
+        "keystone": null,
+        "starterId": null,
+        "firstPurchaseId": null,
+        "firstLegendaryId": first,
+        "secondLegendaryId": first.and(second),
+        "loadFirstEpicPurchase": false,
+        "includeSupportItems": kind == SUPPORT,
+    })
+}
+
+/// `GetItemDetailed` body: the slot's `GetGlobalItemStatistics` body as `champ_stats` asks it, plus `itemId`.
+fn detailed_body(f: &Value, q: &Query, slot: BuildSlot, item: ItemId) -> Value {
+    let support = q.lane == Lane::Support;
+    let (first, second) = if support { (None, None) } else { (q.first, q.second) };
+    let mut body = match slot {
+        BuildSlot::Boots => item_body(f, BOOTS, &[1], None, None),
+        BuildSlot::Legendary(0) => item_body(f, if support { SUPPORT } else { LEGENDARY }, &[1], None, None),
+        BuildSlot::Legendary(1) => item_body(f, LEGENDARY, &[2], first, None),
+        BuildSlot::Legendary(2) => item_body(f, LEGENDARY, &[3], first, second),
+        BuildSlot::Legendary(_) => item_body(f, LEGENDARY, &[4, 5, 6], first, second),
+    };
+    body["itemId"] = json!(item);
+    body
+}
+
+/// The reply's (WPA, share in percent) field pair per situation, in `Situation::ALL` order.
+const SITUATION_FIELDS: [(&str, &str); 15] = [
+    ("deltaAgainstPhysicalDamage", "physicalDamageOccurrence"),
+    ("deltaAgainstBalancedDamage", "balancedDamageOccurrence"),
+    ("deltaAgainstMagicDamage", "magicDamageOccurrence"),
+    ("deltaWhenLowRange", "lowRangeOccurrence"),
+    ("deltaWhenBalancedRange", "balancedRangeOccurrence"),
+    ("deltaWhenHighRange", "highRangeOccurrence"),
+    ("deltaWhenSquishy", "squishyOccurrence"),
+    ("deltaWhenBalancedTankiness", "balancedTankinessOccurrence"),
+    ("deltaWhenTanky", "tankyOccurrence"),
+    ("deltaWhenLowCC", "lowCCOccurrence"),
+    ("deltaWhenNormalCC", "normalCCOccurrence"),
+    ("deltaWhenHighCC", "highCCOccurrence"),
+    ("deltaWhenBehind", "behindOccurrence"),
+    ("deltaWhenEven", "evenOccurrence"),
+    ("deltaWhenAhead", "aheadOccurrence"),
+];
+
+/// One flat object; games in a situation are its share × `itemOccurrence`. No games: empty `by`.
+fn parse_situations(json: &str) -> anyhow::Result<ItemSituations> {
+    let v: HashMap<String, Value> = serde_json::from_str(json)?;
+    let num = |k: &str| v.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+    let games = num("itemOccurrence");
+    let by = if games > 0.0 {
+        Situation::ALL.iter().zip(SITUATION_FIELDS).map(|(&s, (d, o))| (s, num(d) as f32, num(o) / 100.0 * games)).collect()
+    } else {
+        vec![]
+    };
+    Ok(ItemSituations { overall: num("wpaOverall") as f32, by })
+}
+
 struct Api<'a> {
     http: &'a crate::Http,
     token: &'a str,
@@ -282,19 +354,7 @@ impl Api<'_> {
     }
 
     async fn items(&self, f: &Value, kind: u8, slots: &[u8], first: Option<ItemId>, second: Option<ItemId>) -> anyhow::Result<Vec<Row>> {
-        let body = json!({
-            "commonFilters": f,
-            "itemSlots": slots,
-            "itemType": kind,
-            "keystone": null,
-            "starterId": null,
-            "firstPurchaseId": null,
-            "firstLegendaryId": first,
-            "secondLegendaryId": first.and(second),
-            "loadFirstEpicPurchase": false,
-            "includeSupportItems": kind == SUPPORT,
-        });
-        self.post("ChampionWinprob/GetGlobalItemStatistics", body, parse_rows).await
+        self.post("ChampionWinprob/GetGlobalItemStatistics", item_body(f, kind, slots, first, second), parse_rows).await
     }
 
     async fn keystones(&self, f: &Value) -> anyhow::Result<Vec<Row>> {
@@ -472,6 +532,28 @@ pub async fn champ_stats(http: &crate::Http, auth: &Auth, q: Query<'_>, base: &C
     Ok(out)
 }
 
+/// One item's WPA by game situation in `slot`, after `q.first` / `q.second` as `champ_stats`
+/// asks for that slot. A free account gets 403 for any matchup filter, so `q.vs` is sent only
+/// with Premium, and dropped again when that answer fails or has too few games.
+pub async fn item_situations(http: &crate::Http, auth: &Auth, q: Query<'_>, item: ItemId, slot: BuildSlot) -> anyhow::Result<ItemSituations> {
+    let token = auth.access(http).await?;
+    let api = Api { http, token: &token };
+    let premium = auth.premium();
+    let (_, patch) = patch(http, premium).await?;
+    let ask = |vs: Option<ChampKey>| {
+        let body = detailed_body(&filters(&Query { vs, ..q }, &patch), &q, slot, item);
+        api.post("ChampionWinprob/GetItemDetailed", body, parse_situations)
+    };
+    if premium && q.vs.is_some() {
+        match ask(q.vs).await {
+            Ok(s) if s.by.iter().map(|b| b.2).sum::<f64>() / 5.0 >= MIN_MATCHUP_GAMES => return Ok(s),
+            Ok(_) => {}
+            Err(e) => tracing::debug!("coachless item {item} against the lane opponent: {e:#}"),
+        }
+    }
+    ask(None).await
+}
+
 /// My rune page against `q.vs` alone (`q.first` / `q.second` unused); None when the matchup
 /// has fewer than MIN_MATCHUP_RUNE_GAMES games (or none at all). WPA is added to `base_wr`.
 pub async fn matchup_runes(http: &crate::Http, auth: &Auth, q: Query<'_>, base_wr: f32) -> anyhow::Result<Option<RuneData>> {
@@ -557,6 +639,47 @@ mod tests {
         let r = rows(r#"[{"summonerSpell":4,"wpaOverall":-0.2,"occurrence":950},{"summonerSpell":14,"wpaOverall":0.8,"occurrence":600},
             {"summonerSpell":3,"wpaOverall":1.5,"occurrence":350},{"summonerSpell":21,"wpaOverall":4.0,"occurrence":20}]"#);
         assert_eq!(spell_pair(&r), vec![4, 3]);
+    }
+
+    #[test]
+    fn item_situations_from_the_saved_reply() {
+        let s = parse_situations(include_str!("../../../fixtures/data/coachless-item-detailed-ahri-2503.json")).unwrap();
+        assert_eq!(s.overall, 1.111);
+        assert_eq!(s.by.len(), 15);
+        assert!(s.by.iter().zip(Situation::ALL).all(|(b, w)| b.0 == w), "in the site's order");
+        let get = |w: Situation| s.by.iter().find(|b| b.0 == w).map(|b| (b.1, b.2.round())).unwrap();
+        // Games: the share (percent) of the item's 67,889 purchases.
+        assert_eq!(get(Situation::Behind), (1.023, (0.2623f64 * 67889.0).round()));
+        assert_eq!(get(Situation::NormalRange), (1.038, (0.3594f64 * 67889.0).round()), "the reply's own middle range share");
+        assert_eq!(get(Situation::LowCc), (1.418, (0.3148f64 * 67889.0).round()));
+        assert_eq!(get(Situation::PhysicalDamage).0, 1.458);
+        for g in 0..5 {
+            let share: f64 = s.by.iter().filter(|b| b.0.group() == g).map(|b| b.2).sum::<f64>() / 67889.0;
+            assert!((share - 1.0).abs() < 0.001, "group {g}: {share}");
+        }
+        let none = parse_situations(r#"{"itemOccurrence":0,"wpaOverall":0,"deltaWhenBehind":0,"behindOccurrence":0}"#).unwrap();
+        assert!(none.by.is_empty(), "no games is no data, not an error");
+        assert!(parse_situations("[]").is_err());
+    }
+
+    #[test]
+    fn item_detailed_body_is_the_slot_body_plus_the_item() {
+        let q = Query { champ: 103, lane: Lane::Middle, vs: Some(238), tier: "emerald_plus", region: "all", first: Some(6655), second: Some(3089) };
+        let p = json!({"major": 16, "patch": 21, "patchAdditions": 0});
+        let f = filters(&Query { vs: None, ..q }, &p);
+        let b = detailed_body(&f, &q, BuildSlot::Legendary(2), 3135);
+        assert_eq!(b, { let mut x = item_body(&f, LEGENDARY, &[3], Some(6655), Some(3089)); x["itemId"] = json!(3135); x });
+        assert!(b["commonFilters"].get("matchupChampionIds").is_none());
+        let first = detailed_body(&f, &q, BuildSlot::Legendary(0), 6655);
+        assert_eq!((first["itemSlots"].clone(), first["firstLegendaryId"].clone(), first["itemType"].clone()), (json!([1]), Value::Null, json!(LEGENDARY)));
+        assert_eq!(detailed_body(&f, &q, BuildSlot::Legendary(1), 1)["secondLegendaryId"], Value::Null);
+        assert_eq!(detailed_body(&f, &q, BuildSlot::Legendary(4), 1)["itemSlots"], json!([4, 5, 6]));
+        let boots = detailed_body(&f, &q, BuildSlot::Boots, 3020);
+        assert_eq!((boots["itemType"].clone(), boots["firstLegendaryId"].clone()), (json!(BOOTS), Value::Null));
+        let sup = Query { lane: Lane::Support, ..q };
+        let s0 = detailed_body(&f, &sup, BuildSlot::Legendary(0), 3877);
+        assert_eq!((s0["itemType"].clone(), s0["includeSupportItems"].clone()), (json!(SUPPORT), json!(true)));
+        assert_eq!(detailed_body(&f, &sup, BuildSlot::Legendary(2), 1)["firstLegendaryId"], Value::Null, "a support gets no item conditions");
     }
 
     #[test]

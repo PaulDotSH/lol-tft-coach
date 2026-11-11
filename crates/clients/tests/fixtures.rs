@@ -165,16 +165,43 @@ fn live_full_game() {
 
     use GameEvent::*;
     let ev = &g.events;
-    assert_eq!(ev.len(), 11, "{ev:#?}");
+    assert_eq!(ev.len(), 12, "{ev:#?}");
     assert!(matches!(ev[0], Kill { killer: Some(7), victim: 2, ref assisters, .. } if *assisters == [6]));
     assert!(ev[1..4].iter().all(|e| matches!(e, Objective { team: Some(Team::Order), name, .. } if name == "Horde")));
     assert!(matches!(&ev[4], Dragon { team: Some(Team::Chaos), kind, .. } if kind == "Fire"));
     assert!(matches!(ev[5], Kill { killer: Some(2), victim: 7, .. }));
     assert!(matches!(ev[6], Kill { killer: None, victim: 0, ref assisters, .. } if *assisters == [5]));
-    assert!(matches!(ev[7], Kill { killer: Some(7), victim: 2, ref assisters, .. } if assisters.is_empty()));
-    assert!(matches!(ev[8], Herald { team: Some(Team::Chaos), .. }));
-    assert!(matches!(&ev[9], Dragon { team: Some(Team::Order), kind, .. } if kind == "Earth"));
-    assert!(matches!(ev[10], Kill { killer: Some(8), victim: 3, .. }));
+    assert!(matches!(ev[7], Tower { team: Team::Chaos, lane: Some(Lane::Bottom), tier: 0, .. }), "the side that lost it, from the old name");
+    assert!(matches!(ev[8], Kill { killer: Some(7), victim: 2, ref assisters, .. } if assisters.is_empty()));
+    assert!(matches!(ev[9], Herald { team: Some(Team::Chaos), .. }));
+    assert!(matches!(&ev[10], Dragon { team: Some(Team::Order), kind, .. } if kind == "Earth"));
+    assert!(matches!(ev[11], Kill { killer: Some(8), victim: 3, .. }));
+}
+
+/// Events from recorded games (2026-11), names swapped for the fixture's players.
+#[test]
+fn live_towers_and_inhibitors() {
+    let mut j = fixture("live_allgamedata.json");
+    j["events"]["Events"] = fixture("live_structure_events.json");
+    let g = live::parse(&j, &sd()).unwrap();
+    use GameEvent::*;
+    let towers: Vec<(Team, Option<Lane>, u32)> = g.events.iter().filter_map(|e| if let Tower { team, lane, tier, .. } = e { Some((*team, *lane, *tier)) } else { None }).collect();
+    assert_eq!(
+        towers,
+        [
+            (Team::Chaos, Some(Lane::Bottom), 1),
+            (Team::Order, Some(Lane::Middle), 1),
+            (Team::Order, Some(Lane::Middle), 2),
+            (Team::Order, Some(Lane::Middle), 3),
+            (Team::Order, None, 4),
+            (Team::Chaos, Some(Lane::Top), 1),
+        ],
+        "a minion's kill counts; an unknown name is skipped"
+    );
+    let inhibs: Vec<(f32, Team, Option<Lane>, bool)> =
+        g.events.iter().filter_map(|e| if let Inhib { time, team, lane, respawned } = e { Some((*time, *team, *lane, *respawned)) } else { None }).collect();
+    assert_eq!(inhibs, [(1402.25, Team::Order, Some(Lane::Middle), false), (1702.25, Team::Order, Some(Lane::Middle), true)]);
+    assert_eq!(g.events.len(), 8, "{:#?}", g.events);
 }
 
 #[test]

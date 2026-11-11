@@ -155,7 +155,7 @@ fn rich_at(minutes: &[u32]) -> String {
     }
 }
 
-fn capital(s: &str) -> String {
+pub(crate) fn capital(s: &str) -> String {
     let mut c = s.chars();
     c.next().map_or(String::new(), |f| f.to_uppercase().chain(c).collect())
 }

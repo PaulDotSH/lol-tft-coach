@@ -8,7 +8,7 @@ use model::*;
 
 fn advise_with(snap: &GameSnapshot, stats: Option<&ChampStats>, history: &[GoldSample]) -> GameAdvice {
     let sd = sd();
-    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: history, my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None })
+    game_advice(&GameInput { snap, sd: &sd, stats, augments: None, offered: &[], gold_history: history, my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() })
 }
 
 fn advise(snap: &GameSnapshot) -> GameAdvice {
@@ -24,7 +24,7 @@ fn rich_zed() -> GameSnapshot {
 }
 
 fn sample(time: f32, team: i32) -> GoldSample {
-    GoldSample { time, team, lane: None }
+    GoldSample { time, team, lane: None, win: None }
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn consumables_are_not_item_gold() {
     sd.items.insert(pot.id, pot);
     let mut s = rich_zed();
     s.players[0].items = vec![RUBY, 2003, 2003];
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     assert_eq!(a.gold.team_item_gold.0, 2000);
 }
 
@@ -153,7 +153,7 @@ fn history_is_passed_through_and_ends_now() {
     let g = advise_with(&s, None, &past).gold;
     assert_eq!(g.history.len(), 3);
     assert_eq!(g.history[..2], past);
-    assert_eq!(g.history[2], GoldSample { time: 900.0, team: -3150, lane: Some(-3150) });
+    assert_eq!(g.history[2], GoldSample { time: 900.0, team: -3150, lane: Some(-3150), win: None });
 }
 
 #[test]

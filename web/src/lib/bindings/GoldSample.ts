@@ -12,4 +12,8 @@ team: number,
 /**
  * My lane item-gold diff, when I have a lane opponent.
  */
-lane: number | null, };
+lane: number | null, 
+/**
+ * `WinProb::base` at that time (0..1).
+ */
+win: number | null, };

@@ -22,7 +22,7 @@ fn sd() -> StaticData {
 fn analyze(game: &str, timeline: &str, puuid: &str, sd: &StaticData) -> MatchAnalysis {
     let json = |s: &str| serde_json::from_str::<serde_json::Value>(s).unwrap();
     let d = clients::history::parse_match(&json(game), Some(puuid), Some(&json(timeline))).unwrap();
-    coach::analyze_match(&d, sd, None, None)
+    coach::analyze_match(&d, sd, None, None, coach::winprob::Model::shipped())
 }
 
 fn flex(sd: &StaticData) -> MatchAnalysis {

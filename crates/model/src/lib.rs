@@ -71,6 +71,12 @@ data! {
         /// (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
         #[serde(default)]
         pub tft_crops: bool,
+        /// Show the win probability and the posture read in game (needs a fitted model).
+        #[serde(default = "yes")]
+        pub win_prob: bool,
+        /// Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
+        #[serde(default)]
+        pub posture_calls: bool,
     }
 
     /// One screen reader's health (Settings, "Screen reading").
@@ -170,6 +176,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false }
     }
 }

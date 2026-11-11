@@ -3,14 +3,14 @@
 //! short calls tying objective timers to my gold and the death timers. Facts
 //! the scoreboard shows; nothing about cooldowns.
 
-use crate::common::inventory;
+use crate::{common::inventory, consts::*, posture::factor_line};
 use model::*;
 
 /// Kill streak / deaths in a row worth a bounty line.
-const STREAK: u32 = 3;
+pub(crate) const STREAK: u32 = 3;
 const COLD: u32 = 3;
 /// Item gold over the team average worth a shutdown line.
-const ITEM_LEAD: i32 = 1500;
+pub(crate) const ITEM_LEAD: i32 = 1500;
 /// Back for an objective spawning this far ahead (s).
 const BACK_FROM: f32 = 45.0;
 const BACK_TO: f32 = 100.0;
@@ -19,12 +19,15 @@ const BACK_GOLD: f32 = 1100.0;
 /// Objective spawning this soon (s) counts as up for "take it".
 const TAKE_SOON: f32 = 20.0;
 /// Dead players count for fights and objectives with at least this long left (s).
-const DEAD_FOR: f32 = 12.0;
+pub(crate) const DEAD_FOR: f32 = 12.0;
 /// Baron and Elder take longer to kill: their dead must stay dead this long (s).
 const BIG_DEAD_FOR: f32 = 20.0;
 /// Readiness: per dead player, and the score that calls a fight or avoids one.
 const DEAD_W: f32 = 0.7;
 const DECISIVE: f32 = 1.5;
+/// With a win probability: points that who is dead adds to (or takes off) the standing state
+/// to call a fight (or avoid one) on their own.
+const DEAD_SWING: f32 = 6.0;
 /// Readiness waits for the first levels and items.
 const READY_FROM: f32 = 180.0;
 /// My next item counts as a spike to wait for when it is this close (s).
@@ -101,14 +104,36 @@ fn readiness(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Option<Rea
     let dead = |v: &[Respawn]| v.iter().filter(|r| r.in_s >= DEAD_FOR).map(|r| r.champ).collect::<Vec<_>>();
     let (enemies, allies) = (dead(&a.deaths.enemies), dead(&a.deaths.allies));
     let g = &a.gold;
-    let score = g.diff as f32 / 1000.0 + g.level_diff + DEAD_W * (enemies.len() as f32 - allies.len() as f32);
     let mut reasons = Vec::new();
-    if g.diff.abs() >= 500 {
-        reasons.push(format!("{} item gold", kilo(g.diff)));
-    }
-    if g.level_diff.abs() >= 0.4 {
-        reasons.push(format!("{}{:.1} levels on average", if g.level_diff > 0.0 { "+" } else { "−" }, g.level_diff.abs()));
-    }
+    let verdict = match &a.win {
+        Some(w) => {
+            reasons.extend(w.factors.iter().filter(|f| f.key != "dead" && f.key != "side").map(factor_line));
+            let dead = 100.0 * (w.p - w.base);
+            if dead >= DEAD_SWING || (dead > -DEAD_SWING && w.base >= POSTURE_AHEAD) {
+                Verdict::Fight
+            } else if dead <= -DEAD_SWING || w.base <= POSTURE_BEHIND {
+                Verdict::Avoid
+            } else {
+                Verdict::Even
+            }
+        }
+        None => {
+            if g.diff.abs() >= 500 {
+                reasons.push(format!("{} item gold", kilo(g.diff)));
+            }
+            if g.level_diff.abs() >= 0.4 {
+                reasons.push(format!("{}{:.1} levels on average", if g.level_diff > 0.0 { "+" } else { "−" }, g.level_diff.abs()));
+            }
+            let score = g.diff as f32 / 1000.0 + g.level_diff + DEAD_W * (enemies.len() as f32 - allies.len() as f32);
+            if score >= DECISIVE {
+                Verdict::Fight
+            } else if score <= -DECISIVE {
+                Verdict::Avoid
+            } else {
+                Verdict::Even
+            }
+        }
+    };
     let names = |v: &[ChampKey]| v.iter().map(|&c| sd.champ_name(c)).collect::<Vec<_>>().join(", ");
     match enemies.len() {
         0 => {}
@@ -120,13 +145,6 @@ fn readiness(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Option<Rea
         1 => reasons.push(format!("{} on your team is dead", names(&allies))),
         n => reasons.push(format!("{n} of your team dead")),
     }
-    let verdict = if score >= DECISIVE {
-        Verdict::Fight
-    } else if score <= -DECISIVE {
-        Verdict::Avoid
-    } else {
-        Verdict::Even
-    };
     let mut text = match verdict {
         Verdict::Fight => "Your team is stronger right now: look for a fight or an objective".to_string(),
         Verdict::Even => "Even: fight only with numbers or near your side".to_string(),
@@ -146,7 +164,7 @@ fn readiness(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Option<Rea
     Some(Readiness { verdict, text, reasons })
 }
 
-fn clock(s: f32) -> String {
+pub(crate) fn clock(s: f32) -> String {
     let s = s.max(0.0) as u32;
     format!("{}:{:02}", s / 60, s % 60)
 }
@@ -158,7 +176,7 @@ fn secs(s: f32) -> String {
 }
 
 /// "A", "A and B", "A, B and C".
-fn and_list(v: Vec<String>) -> String {
+pub(crate) fn and_list(v: Vec<String>) -> String {
     match v.as_slice() {
         [] => String::new(),
         [one] => one.clone(),
@@ -252,9 +270,10 @@ fn calls(a: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<Call> {
                 format!(", {}", and_list(v))
             };
             let jg = if jungler_dead { ", their jungler can't smite" } else { "" };
+            let worth = a.win.iter().flat_map(|w| &w.stakes).find(|s| s.name == t.name).map_or(String::new(), |s| format!(" (±{:.0})", s.swing));
             takes.push((big, &t.name, Call {
                 key: format!("take-{}-{window}", t.name),
-                text: format!("{} {when}: {dead} dead{back}{jg}. Take it", t.name),
+                text: format!("{} {when}: {dead} dead{back}{jg}. Take it{worth}", t.name),
                 say: if jungler_dead {
                     format!("Their jungler is dead. Take {}.", t.name)
                 } else {

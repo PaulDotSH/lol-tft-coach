@@ -13,8 +13,23 @@ fn tick(log: &mut GameLog, sd: &StaticData, time: f32, gold: f32, players: &[Pla
 
 fn tick_seen(log: &mut GameLog, sd: &StaticData, time: f32, gold: f32, players: &[Player], events: &[GameEvent], sights: Option<&SightLog>) {
     let snap = GameSnapshot { time, my_gold: gold, players: players.to_vec(), events: events.to_vec(), ..snap(vec![], vec![]) };
-    let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     log.observe(&snap, &advice, sd, sights);
+}
+
+#[test]
+fn the_log_keeps_the_win_chance_every_twenty_seconds() {
+    let sd = sd();
+    let m = coach::winprob::Model::parse(include_str!("../../../fixtures/coach/winprob_handset.toml")).unwrap();
+    let mut log = GameLog::default();
+    for (time, model) in [(100.0, Some(&m)), (110.0, Some(&m)), (121.0, Some(&m)), (150.0, None), (160.0, Some(&m))] {
+        let snap = GameSnapshot { time, ..snap(lobby(STANDARD), vec![]) };
+        let advice = game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: model, situations: &Default::default() });
+        log.observe(&snap, &advice, &sd, None);
+    }
+    let times: Vec<f32> = log.win_curve.iter().map(|w| w.0).collect();
+    assert_eq!(times, [100.0, 121.0, 160.0], "none without a fit (the built-in table at 150 s)");
+    assert!(log.win_curve.iter().all(|w| w.1 > 0.5 && w.1 < 0.53), "{:?}", log.win_curve);
 }
 
 fn with_assist(time: f32, killer: usize, assister: usize) -> GameEvent {
@@ -117,7 +132,7 @@ fn cs_at_10_early_deaths_and_buys() {
     tick(&mut log, &sd, 598.0, 3000.0, &p, &ev);
     let suggested = {
         let snap = GameSnapshot { time: 598.0, my_gold: 3000.0, players: p.clone(), ..snap(vec![], vec![]) };
-        game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None }).buy_next.unwrap().item
+        game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() }).buy_next.unwrap().item
     };
     p[0] = p[0].clone().cs(66).items(&[RUBY, suggested, LONG_SWORD]);
     tick(&mut log, &sd, 600.5, 100.0, &p, &ev);

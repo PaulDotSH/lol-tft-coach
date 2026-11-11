@@ -72,7 +72,7 @@ fn game(laner: bool, fed: bool, live_stats: bool) -> GameSnapshot {
 fn advise(s: &GameSnapshot) -> GameAdvice {
     let sd = bases(sd());
     let st = stats();
-    game_advice(&GameInput { snap: s, sd: &sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None })
+    game_advice(&GameInput { snap: s, sd: &sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() })
 }
 
 fn scores(a: &GameAdvice) -> Vec<(ItemId, f32)> {
@@ -126,7 +126,7 @@ fn a_champion_without_a_parsed_kit_uses_its_class_profile_and_is_rough() {
     sd.champs.get_mut(&SYNDRA).unwrap().id = "Ryze".into();
     let st = stats();
     let s = game(true, true, true);
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     let rab = a.what_if.iter().find(|w| w.item == RABADONS).unwrap();
     assert!(rab.rough && rab.damage > 0.2, "{rab:?}");
 }

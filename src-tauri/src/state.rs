@@ -30,6 +30,9 @@ pub struct StatsKey {
 /// Coachless build for my champion: lane, lane opponent, my first two completed items.
 pub type CoachlessKey = (ChampKey, Lane, Option<ChampKey>, Option<ItemId>, Option<ItemId>);
 
+/// Coachless item situations: `CoachlessKey` (lane opponent only with Premium), the item and its build slot.
+pub type SituationKey = (ChampKey, Lane, Option<ChampKey>, Option<ItemId>, Option<ItemId>, ItemId, BuildSlot);
+
 /// Set by the orchestrator each tick while an early-game Rift match with gank warnings runs;
 /// None parks the minimap thread.
 #[derive(Clone)]
@@ -89,6 +92,8 @@ pub struct Shared {
     pub coachless: Cache<CoachlessKey, ChampStats>,
     /// My Coachless rune page against my lane opponent: (me, lane, them); None = too few games.
     pub coachless_runes: Cache<(ChampKey, Lane, ChampKey), Option<RuneData>>,
+    /// One item's Coachless WPA by game situation in one build slot.
+    pub situations: Cache<SituationKey, ItemSituations>,
     pub coachless_ok: Mutex<Option<bool>>,
     /// Mayhem Tab scoreboard reader.
     pub tab: crate::tab::TabShared,
@@ -161,6 +166,7 @@ impl Shared {
             coachless_auth: data::coachless::Auth::load(crate::settings::local_dir("").join("coachless.json")),
             coachless: Mutex::default(),
             coachless_runes: Mutex::default(),
+            situations: Mutex::default(),
             coachless_ok: Mutex::new(None),
             tab: Default::default(),
             gank_ctx: Mutex::new(None),
@@ -226,6 +232,7 @@ impl Shared {
         self.matchups.lock().unwrap().clear();
         self.coachless.lock().unwrap().clear();
         self.coachless_runes.lock().unwrap().clear();
+        self.situations.lock().unwrap().clear();
         *self.coachless_ok.lock().unwrap() = None;
     }
 }

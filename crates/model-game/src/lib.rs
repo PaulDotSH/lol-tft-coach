@@ -80,6 +80,11 @@ data! {
         Herald { time: f32, team: Option<Team> },
         /// Any other objective the season adds (grubs, atakhan, …).
         Objective { time: f32, team: Option<Team>, name: String },
+        /// A turret fell. `team` lost it; `tier` 1 outer, 2 inner, 3 inhibitor turret, 4 nexus
+        /// (no lane), 0 when the name does not say.
+        Tower { time: f32, team: Team, lane: Option<Lane>, tier: u32 },
+        /// An inhibitor of `team` fell, or (`respawned`) came back.
+        Inhib { time: f32, team: Team, lane: Option<Lane>, respawned: bool },
         GameEnd { time: f32, win: bool },
     }
 

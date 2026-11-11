@@ -4,6 +4,7 @@
 mod common;
 
 use coach::analyze_match;
+use coach::winprob::Model;
 use common::*;
 use model::*;
 
@@ -132,7 +133,7 @@ fn detail() -> MatchDetail {
 
 #[test]
 fn deaths_get_places_trades_and_a_place_note() {
-    let a = analyze_match(&detail(), &sd(), None, None);
+    let a = analyze_match(&detail(), &sd(), None, None, Model::shipped());
     let places: Vec<(Option<&str>, bool)> = a.review.deaths.iter().map(|n| (n.place.as_deref(), n.traded)).collect();
     assert_eq!(places, [(Some("enemy jungle"), false), (Some("enemy jungle"), false), (Some("river"), true)]);
     // Gold held comes from a frame at most 40 s old; 650 s is 50 s after the 600 s frame.
@@ -149,7 +150,7 @@ fn deaths_get_places_trades_and_a_place_note() {
 
 #[test]
 fn takeaways_lead_with_the_thrown_lead_and_the_swing() {
-    let a = analyze_match(&detail(), &sd(), None, None);
+    let a = analyze_match(&detail(), &sd(), None, None, Model::shipped());
     let text: Vec<(bool, &str)> = a.takeaways.iter().map(|t| (t.good, t.text.as_str())).collect();
     assert_eq!(
         text,
@@ -170,7 +171,7 @@ fn takeaways_lead_with_the_thrown_lead_and_the_swing() {
             }
         }
     }
-    let a = analyze_match(&d, &sd(), None, None);
+    let a = analyze_match(&d, &sd(), None, None, Model::shipped());
     assert!(a.takeaways.iter().all(|t| !t.text.starts_with("Biggest swing")), "{:?}", a.takeaways);
 }
 
@@ -214,8 +215,9 @@ fn a_live_recap_fills_in_held_gold_and_buy_next() {
         review: Some(DeathReview { deaths: vec![live], notes: vec![] }),
         summary: None,
         goals: vec![],
+        win_curve: vec![],
     };
-    let a = analyze_match(&detail(), &sd(), None, Some(&recap));
+    let a = analyze_match(&detail(), &sd(), None, Some(&recap), Model::shipped());
     assert!(a.live);
     assert_eq!(a.recommended, [LUDENS, ZHONYAS]);
     let n = &a.review.deaths[0];
@@ -228,10 +230,10 @@ fn a_live_recap_fills_in_held_gold_and_buy_next() {
 #[test]
 fn one_enemy_doing_the_killing_gets_a_note() {
     let mut d = detail();
-    let mut a = analyze_match(&d, &sd(), None, None);
+    let mut a = analyze_match(&d, &sd(), None, None, Model::shipped());
     assert!(!a.review.notes.iter().any(|n| n.contains("killed you")), "{:?}", a.review.notes);
     d.kills.push(KillEvent { time: 1300.0, killer: Some(OPP), victim: ME, assisters: vec![], pos: Some((7000, 7000)) });
-    a = analyze_match(&d, &sd(), None, None);
+    a = analyze_match(&d, &sd(), None, None, Model::shipped());
     assert!(a.review.notes.contains(&"Zed killed you 3× (trades aside)".to_string()), "{:?}", a.review.notes);
 }
 
@@ -251,7 +253,7 @@ fn fights_and_where_i_was_for_objectives() {
         mine: false,
         presence: None,
     });
-    let a = analyze_match(&d, &sd(), None, None);
+    let a = analyze_match(&d, &sd(), None, None, Model::shipped());
     type Row<'a> = (f32, u32, u32, Presence, bool, Option<&'a str>);
     let fights: Vec<Row> =
         a.fights.iter().map(|f| (f.start, f.won, f.lost, f.presence, f.died_first, f.then.as_ref().map(|m| m.kind.as_str()))).collect();
@@ -277,13 +279,13 @@ fn fights_and_where_i_was_for_objectives() {
     // Dead when Baron went: not "away".
     let mut d2 = d.clone();
     d2.kills.push(KillEvent { time: 685.0, killer: Some(OPP), victim: ME, assisters: vec![], pos: Some((1500, 13000)) });
-    let a = analyze_match(&d2, &sd(), None, None);
+    let a = analyze_match(&d2, &sd(), None, None, Model::shipped());
     assert_eq!(a.marks[0].presence, Some(Presence::Dead));
 }
 
 #[test]
 fn focus_picks_early_deaths_as_a_goal() {
-    let a = analyze_match(&detail(), &sd(), None, None);
+    let a = analyze_match(&detail(), &sd(), None, None, Model::shipped());
     let f = a.focus.expect("focus");
     assert_eq!(f.text, "At most 1 death before 14:00");
     assert_eq!(f.goal, Some(Goal { kind: GoalKind::EarlyDeaths, target: 1.0 }));
@@ -299,7 +301,7 @@ fn this_game_against_my_earlier_games_on_the_champion() {
     d.game.created = 10_000;
     let earlier = |i: u64| PastGame { game_id: 100 + i, created: i, deaths: 0, cs: 150, ..past_game() };
     let past = vec![earlier(1), earlier(2), earlier(3), PastGame { champ: ZED, created: 4, ..past_game() }];
-    let mut a = analyze_match(&d, &sd(), None, None);
+    let mut a = analyze_match(&d, &sd(), None, None, Model::shipped());
     coach::compare_past(&mut a, &past, &sd());
     let c = a.vs_past.as_ref().expect("comparison");
     assert_eq!((c.games, c.wins), (3, 0));
@@ -308,7 +310,7 @@ fn this_game_against_my_earlier_games_on_the_champion() {
     assert!(texts.contains(&"Your best CS / min in 4 Ahri games (8.0)"), "{texts:?}");
 
     // Two earlier games are not enough.
-    let mut b = analyze_match(&d, &sd(), None, None);
+    let mut b = analyze_match(&d, &sd(), None, None, Model::shipped());
     coach::compare_past(&mut b, &past[..2], &sd());
     assert!(b.vs_past.is_none());
 }
@@ -341,7 +343,7 @@ fn bot_lane() -> MatchDetail {
 
 #[test]
 fn laning_compares_both_duos_minute_by_minute() {
-    let l = analyze_match(&bot_lane(), &sd(), None, None).laning.expect("laning");
+    let l = analyze_match(&bot_lane(), &sd(), None, None, Model::shipped()).laning.expect("laning");
     assert_eq!((l.allies.as_slice(), l.enemies.as_slice()), ([JINX, LEONA].as_slice(), [CAITLYN, THRESH].as_slice()));
     assert_eq!(l.minutes.len(), 14);
     assert_eq!(l.minutes.iter().map(|r| r.gold_diff).take(7).collect::<Vec<_>>(), [0, 0, 0, 0, 0, 400, 800]);
@@ -360,15 +362,15 @@ fn laning_compares_both_duos_minute_by_minute() {
 
 #[test]
 fn laning_is_me_against_my_opponent_outside_bot_lane_and_absent_off_the_rift() {
-    let a = analyze_match(&detail(), &sd(), None, None);
+    let a = analyze_match(&detail(), &sd(), None, None, Model::shipped());
     let l = a.laning.expect("laning");
     assert_eq!((l.allies.as_slice(), l.enemies.as_slice()), ([AHRI].as_slice(), [ZED].as_slice()));
     let mut aram = detail();
     aram.game.mode = Mode::Aram;
-    assert!(analyze_match(&aram, &sd(), None, None).laning.is_none());
+    assert!(analyze_match(&aram, &sd(), None, None, Model::shipped()).laning.is_none());
     let mut short = detail();
     short.game.duration_s = 540;
-    assert!(analyze_match(&short, &sd(), None, None).laning.is_none());
+    assert!(analyze_match(&short, &sd(), None, None, Model::shipped()).laning.is_none());
 }
 
 fn live_recap(deaths: Vec<DeathNote>, vision_per_min: Option<f32>) -> Recap {
@@ -394,6 +396,7 @@ fn live_recap(deaths: Vec<DeathNote>, vision_per_min: Option<f32>) -> Recap {
         review: Some(DeathReview { deaths, notes: vec![] }),
         summary: None,
         goals: vec![],
+        win_curve: vec![],
     }
 }
 
@@ -434,7 +437,7 @@ const FAR: (i32, i32) = (2500, 12500);
 fn fog_deaths_get_their_place_and_the_vision_takeaway() {
     let blip = SeenBefore { champ: None, first: 6.0, last: 1.0, x: FAR.0, y: FAR.1 };
     let recap = live_recap(vec![seen_death(301.0, vec![blip]), seen_death(421.0, vec![])], Some(1.5));
-    let a = analyze_match(&ganked(), &sd(), None, Some(&recap));
+    let a = analyze_match(&ganked(), &sd(), None, Some(&recap), Model::shipped());
     let line = |i: usize| a.review.deaths[i].sight.as_ref().and_then(|s| s.line.clone());
     assert_eq!(line(0).as_deref(), Some("Jarvan IV came out of fog in the enemy jungle"), "an unnamed blip across the map is not him");
     assert_eq!(line(1).as_deref(), Some("Jarvan IV came out of fog in the enemy jungle"));
@@ -449,7 +452,7 @@ fn fog_deaths_get_their_place_and_the_vision_takeaway() {
 #[test]
 fn a_sighting_across_the_map_says_nothing() {
     let recap = live_recap(vec![seen_death(301.0, vec![jarvan(NEAR)]), seen_death(421.0, vec![jarvan(FAR)])], None);
-    let a = analyze_match(&ganked(), &sd(), None, Some(&recap));
+    let a = analyze_match(&ganked(), &sd(), None, Some(&recap), Model::shipped());
     let kinds: Vec<Option<SightKind>> = a.review.deaths.iter().map(|d| d.sight.as_ref().and_then(|s| s.verdict)).collect();
     assert_eq!(kinds, [Some(SightKind::Visible), None, None]);
 }
@@ -461,7 +464,113 @@ fn deaths_seen_coming_are_the_focus() {
     d.kills[1].time = 1000.0;
     d.kills.sort_by(|a, b| a.time.total_cmp(&b.time));
     let recap = live_recap(vec![seen_death(901.0, vec![jarvan(NEAR)]), seen_death(1001.0, vec![jarvan(NEAR)])], None);
-    let a = analyze_match(&d, &sd(), None, Some(&recap));
+    let a = analyze_match(&d, &sd(), None, Some(&recap), Model::shipped());
     let f = a.focus.unwrap();
     assert_eq!((f.text.as_str(), f.why.as_str(), f.goal), ("Look at the minimap before stepping up", "2 of 2 deaths were visible first.", None));
+}
+
+fn handset() -> Model {
+    Model::parse(include_str!("../../../fixtures/coach/winprob_handset.toml")).unwrap()
+}
+
+fn fixture(name: &str) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(format!("{}/../../fixtures/clients/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+}
+
+/// `match_game.json`: me (participant 4) on blue, red wins, red's Baron at 25:30.
+fn saved(model: &Model) -> MatchAnalysis {
+    let d = clients::history::parse_match(&fixture("match_game.json"), Some("8f2c1d4e-me00-4a6b-9c1d-000000000000"), Some(&fixture("match_timeline.json"))).unwrap();
+    analyze_match(&d, &sd(), None, None, model)
+}
+
+#[test]
+fn the_win_curve_ends_on_the_winners_side() {
+    let a = saved(&handset());
+    assert!(!a.game.win);
+    let win: Vec<f32> = a.gold.iter().map(|p| p.win.expect("every frame has one")).collect();
+    assert!((win[0] - 0.5).abs() < 0.03, "even at 0:00, blue side's edge aside: {win:?}");
+    assert!(*win.last().unwrap() < 0.3, "{win:?}");
+    assert!(win.iter().all(|w| (0.0..=1.0).contains(w)));
+
+    let w = |t: f32| a.gold.iter().find(|p| (p.time - t).abs() < 1.0).and_then(|p| p.win).unwrap();
+    assert!(w(1560.0) < w(1500.0) - 0.1, "Baron given at 25:30");
+
+    // The fixture's held gold jumps every minute, so gold spent swings the early curve.
+    let s = &a.swings;
+    assert_eq!(s.len(), 5, "{s:?}");
+    assert!(s.windows(2).all(|x| x[0].delta.abs() >= x[1].delta.abs()), "largest first: {s:?}");
+    assert!(s.iter().all(|w| w.kind != "other" || w.text == "Buys and levels, no fight or objective"), "{s:?}");
+    let back = s.iter().find(|w| w.text == "Their Baron buff ran out").unwrap_or_else(|| panic!("{s:?}"));
+    assert_eq!((back.time, back.kind.as_str()), (1710.0, "objective"));
+    assert!((back.delta - 100.0 * (w(1740.0) - w(1680.0))).abs() < 1e-3 && back.delta > 10.0, "{back:?}");
+}
+
+#[test]
+fn the_recorded_flex_game_curve_ends_with_the_winners() {
+    let d = clients::history::parse_match(&fixture("match_game_flex.json"), Some("me-puuid"), Some(&fixture("match_timeline_flex.json"))).unwrap();
+    let a = analyze_match(&d, &sd(), None, None, &handset());
+    assert!(a.game.win);
+    let last = a.gold.last().and_then(|p| p.win).unwrap();
+    assert!(last > 0.9, "{last}");
+    assert_eq!(a.swings.len(), 5);
+    assert!(a.swings.windows(2).all(|x| x[0].delta.abs() >= x[1].delta.abs()));
+    let kinds = ["fight", "death", "objective", "structure", "other"];
+    assert!(a.swings.iter().all(|w| kinds.contains(&w.kind.as_str())), "{:?}", a.swings);
+    // 8:00 to 9:00: a 1-for-1 at 8:01 (no side's gain), grubs, then a won fight that weighs most.
+    let top = &a.swings[0];
+    assert_eq!((top.kind.as_str(), top.text.as_str()), ("fight", "Grubs ×3 taken, fight won 2 for 0 in the river"));
+    assert!((top.time - 536.741).abs() < 1e-3 && top.delta > 15.0, "{top:?}");
+    let lost = a.swings.iter().find(|s| s.delta < 0.0).unwrap();
+    assert_eq!(lost.text, "Fight lost 1 for 2 in bot lane, you died");
+}
+
+#[test]
+fn swings_are_labelled_from_what_happened_in_the_span() {
+    // Gold even all game: the curve moves on kills and Baron alone.
+    let mut d = detail();
+    for f in &mut d.frames {
+        let m = (f.time / 60.0) as u32;
+        f.players.iter_mut().for_each(|p| *p = FrameStat { total_gold: 500 + m * 400, current_gold: 0, ..Default::default() });
+    }
+    let a = analyze_match(&d, &sd(), None, None, &handset());
+    let s: Vec<(f32, &str, &str, bool)> = a.swings.iter().map(|s| (s.time, s.kind.as_str(), s.text.as_str(), s.delta > 0.0)).collect();
+    assert_eq!(
+        s,
+        [
+            (690.0, "objective", "Baron given, fight lost 0 for 3 in mid lane", false),
+            (650.0, "fight", "Fight won 2 for 1 in the river, you died", true),
+            (300.0, "death", "You died in the enemy jungle", false),
+            (420.0, "death", "You died in the enemy jungle", false),
+        ]
+    );
+}
+
+#[test]
+fn live_samples_make_the_curve_when_the_app_watched_the_game() {
+    let mut recap = live_recap(vec![], None);
+    recap.win_curve = (0..=25).map(|m| (m as f32 * 60.0 + 4.0, if m < 12 { 0.55 } else { 0.30 })).collect();
+    let a = analyze_match(&detail(), &sd(), None, Some(&recap), &handset());
+    assert_eq!(a.gold.iter().map(|p| p.win).collect::<Vec<_>>(), (0..=25).map(|m| Some(if m < 12 { 0.55 } else { 0.30 })).collect::<Vec<_>>());
+    assert_eq!(a.swings.len(), 1, "a flat curve has one swing: {:?}", a.swings);
+    assert!((a.swings[0].delta + 25.0).abs() < 1e-3);
+    // A frame with no sample near it has no point.
+    recap.win_curve.retain(|s| s.0 < 600.0 || s.0 > 800.0);
+    let a = analyze_match(&detail(), &sd(), None, Some(&recap), &handset());
+    assert_eq!((a.gold[9].win, a.gold[10].win, a.gold[13].win, a.gold[14].win), (Some(0.55), None, None, Some(0.30)));
+}
+
+#[test]
+fn no_fit_no_curve() {
+    let a = saved(Model::shipped());
+    assert!(a.gold.iter().all(|p| p.win.is_none()) && a.swings.is_empty());
+    let rift_only = Model::parse("patch = \"t\"\ngames = 1\nknots = [0, 20]\n[rift]\ngold = [5.0, 6.0]").unwrap();
+    let mut aram = detail();
+    aram.game.mode = Mode::Aram;
+    let a = analyze_match(&aram, &sd(), None, None, &rift_only);
+    assert!(a.gold.iter().all(|p| p.win.is_none()) && a.swings.is_empty());
+    // Live samples from a game played under an older fit are not shown without one now.
+    let mut recap = live_recap(vec![], None);
+    recap.win_curve = vec![(0.0, 0.5), (60.0, 0.6)];
+    let a = analyze_match(&detail(), &sd(), None, Some(&recap), Model::shipped());
+    assert!(a.gold.iter().all(|p| p.win.is_none()) && a.swings.is_empty());
 }

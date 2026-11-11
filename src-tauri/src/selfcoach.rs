@@ -29,6 +29,7 @@ pub fn finish(mut r: Recap, log: &coach::GameLog, sd: &StaticData, goals: &[Goal
     r.goals = coach::goal_progress(goals, log, &now);
     r.summary = Some(coach::summary(log, e, ended));
     r.review = Some(coach::death_review(log, sd));
+    r.win_curve = log.win_curve.clone();
     r
 }
 

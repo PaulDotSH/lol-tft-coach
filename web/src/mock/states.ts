@@ -1,11 +1,12 @@
 // Realistic AppState samples, one per phase/screen, for UI work without the backend.
 import type { AppState } from '../lib/bindings/AppState';
 import type { GameAdvice } from '../lib/bindings/GameAdvice';
+import type { GoldDiff } from '../lib/bindings/GoldDiff';
 import type { ReaderHealth } from '../lib/bindings/ReaderHealth';
 import type { Recap } from '../lib/bindings/Recap';
 import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
-import { mayhemGold, riftGold } from './gold';
+import { mayhemGold, mayhemGoldWin, riftAheadGold, riftGold, riftGoldWin } from './gold';
 import { macroFewGames, macroReport } from './macro';
 import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
 import { history } from './history';
@@ -13,7 +14,7 @@ import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items
 import { riftPlan } from './plan';
 import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoeCard, zoeLaning } from './matchup';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false };
 
 const rp = (id: number, name: string, icon: string, reason: string | null = null) => ({ id, name, icon: `perk-images/${icon}`, reason });
 const electrocute = rp(8112, 'Electrocute', 'Styles/Domination/Electrocute/Electrocute.png');
@@ -74,6 +75,7 @@ const recap: Recap = {
   review,
   summary,
   goals: recapGoals,
+  win_curve: [],
 };
 
 const base = {
@@ -218,6 +220,8 @@ const riftGame: GameAdvice = {
   ],
   matchup: [zedLaning],
   jungle: null,
+  win: null,
+  posture: null,
   skill: { key: 'W', unspent: 0, at_level: 14, priority: 'QWE', source: 'vs Zed, 2.1k games' },
   what_if: [
     {
@@ -361,6 +365,8 @@ const mayhemGame: GameAdvice = {
   tips: [],
   matchup: [],
   jungle: null,
+  win: null,
+  posture: null,
   skill: { key: 'E', unspent: 1, at_level: 9, priority: 'QEW', source: 'lolalytics 16.21' },
   what_if: [
     {
@@ -484,6 +490,153 @@ const jungleGame: GameAdvice = {
       { lane: 'bottom', score: -2.0, reasons: ['nothing special'], enemy: [222, 412] },
     ],
     camps: [],
+  },
+};
+
+/** `base` is the gold history's last sample, `trend` its change over 120 s, `p` adds `dead` points. */
+function scored(g: GoldDiff, dead: number) {
+  const h = g.history;
+  const now = h[h.length - 1];
+  const back = h.reduce((a, b) => (Math.abs(now.time - 120 - b.time) < Math.abs(now.time - 120 - a.time) ? b : a));
+  return { p: Math.round(1000 * now.win! + 10 * dead) / 1000, base: now.win!, trend: Math.round(1000 * (now.win! - back.win!)) / 10 };
+}
+
+// The Syndra game at 18:32 scored: behind 2.7k with their soul point up, but the draft scales
+// better, so Stall. Vi and Nautilus are dead (+2 points on the live number).
+const behindGame: GameAdvice = {
+  ...riftGame,
+  gold: riftGoldWin,
+  readiness: {
+    verdict: 'avoid',
+    text: 'Their team is stronger right now: avoid fights, farm safely',
+    reasons: ['item gold −8 points', 'draft and scaling +5 points', 'dragons −4 points', 'kills −3 points', 'towers −2 points', 'levels −1 points', '2 enemies dead (Vi, Nautilus)'],
+  },
+  win: {
+    ...scored(riftGoldWin, 2),
+    factors: [
+      { key: 'gold', label: 'item gold', points: -8.1 },
+      { key: 'outlook', label: 'draft and scaling', points: 4.6 },
+      { key: 'drakes', label: 'dragons', points: -3.9 },
+      { key: 'kills', label: 'kills', points: -3.2 },
+      { key: 'towers', label: 'towers', points: -2.4 },
+      { key: 'dead', label: 'players dead', points: 2.0 },
+      { key: 'level', label: 'levels', points: -1.2 },
+    ],
+    stakes: [
+      { name: 'Baron', swing: 14.1, note: null },
+      { name: 'Dragon', swing: 9.3, note: 'their soul' },
+      { name: 'Your death', swing: 4.8, note: '33 s dead' },
+      { name: 'Tower', swing: 3.6, note: null },
+    ],
+    outlook: { now: 1.8, later: 3.4, later_min: 28 },
+    rough: false,
+    source: 'from the scoreboard · fit on 16.22 (10k games)',
+  },
+  posture: {
+    stance: 'stall',
+    headline: 'Behind, but time is on your side: the game comes to you',
+    why: ['item gold −8 points', 'draft and scaling +5 points', 'dragons −4 points', 'Draft and scaling favour you from here: +1.8 now, +3.4 at 28 min'],
+    options: ['Least to lose: next tower, ±4 points', 'Zhonya’s Hourglass in ~3:46 at your income', 'Dying now costs 5 points (33 s dead)'],
+  },
+};
+
+// The same ten champions at 22:20, my team ahead 3.1k and 17–11 with Baron up and Vi and
+// Nautilus dead (+7 points on the live number); the draft is even from here, so Press.
+const AHEAD_KDA: Record<number, [number, number, number, number]> = { 238: [7, 3, 1, 1600], 145: [2, 5, -2, -2300], 254: [1, 4, -1, -700], 122: [1, 3, -1, -900], 111: [0, 2, -1, -800] };
+const aheadGame: GameAdvice = {
+  ...riftGame,
+  time: 1340,
+  buy_next: riftGame.buy_next && { ...riftGame.buy_next, reason: 'Zed is 7/3 and killed you 3×' },
+  gold: riftAheadGold,
+  threats: riftGame.threats.map((t) => {
+    const [kills, deaths, level_diff, item_gold_diff] = AHEAD_KDA[t.champ];
+    return { ...t, kills, deaths, level_diff, item_gold_diff };
+  }),
+  me: { ...riftGame.me, item_gold_vs_opp: -1600, level_vs_opp: -1, deaths: 3, killers: [[238, 3]] },
+  timers: [
+    { name: 'Dragon', next_spawn: 1395 },
+    { name: 'Baron', next_spawn: 1200 },
+    { name: 'Atakhan', next_spawn: null },
+  ],
+  deaths: {
+    enemies: [
+      { champ: 254, in_s: 24 },
+      { champ: 111, in_s: 31 },
+    ],
+    allies: [],
+  },
+  bounties: [
+    { champ: 238, ally: false, me: false, streak: 4, cold: 0, item_lead: 1900, text: '4-kill streak: big shutdown' },
+    { champ: 222, ally: true, me: false, streak: 0, cold: 0, item_lead: 2300, text: '2.3k item gold over their team: shutdown' },
+  ],
+  readiness: {
+    verdict: 'fight',
+    text: 'Your team is stronger right now: look for a fight or an objective',
+    reasons: ['item gold +7 points', 'towers +4 points', 'kills +3 points', 'draft and scaling +3 points', 'levels +1 points', '2 enemies dead (Vi, Nautilus)'],
+  },
+  calls: [
+    {
+      key: 'take-Baron-1320',
+      text: 'Baron is up: Vi (24 s) and Nautilus (31 s) dead, their jungler can’t smite. Take it (±13)',
+      say: 'Their jungler is dead. Take Baron.',
+    },
+    { key: 'stance-press-1', text: 'Ahead: the lead is worth most now', say: 'You’re ahead. The lead is worth most now.' },
+  ],
+  win: {
+    ...scored(riftAheadGold, 7),
+    factors: [
+      { key: 'gold', label: 'item gold', points: 7.2 },
+      { key: 'dead', label: 'players dead', points: 6.9 },
+      { key: 'towers', label: 'towers', points: 4.1 },
+      { key: 'kills', label: 'kills', points: 3.2 },
+      { key: 'outlook', label: 'draft and scaling', points: 2.6 },
+      { key: 'level', label: 'levels', points: 1.3 },
+    ],
+    stakes: [
+      { name: 'Baron', swing: 13.2, note: null },
+      { name: 'Your death', swing: 6.4, note: '37 s dead' },
+      { name: 'Dragon', swing: 5.1, note: null },
+      { name: 'Tower', swing: 3.0, note: null },
+    ],
+    outlook: { now: 2.6, later: 3.0, later_min: 32 },
+    rough: false,
+    source: 'from the scoreboard · fit on 16.22 (10k games)',
+  },
+  posture: {
+    stance: 'press',
+    headline: 'Ahead: the lead is worth most now',
+    why: ['item gold +7 points', 'players dead +7 points', 'towers +4 points', 'Draft and scaling: about even from here (+2.6 now, +3.0 at 32 min)'],
+    options: ['Baron up now, ±13 points', 'Dead on their side: Vi (24 s) and Nautilus (31 s)', 'Zed is on a 4-kill streak: a big shutdown'],
+  },
+};
+
+// The Mayhem game scored by the ARAM model, always rough there: 58 %, even; the next tower decides most.
+const mayhemRough: GameAdvice = {
+  ...mayhemGame,
+  gold: mayhemGoldWin,
+  readiness: {
+    verdict: 'even',
+    text: 'Even: fight only with numbers or near your side',
+    reasons: ['item gold +5 points', 'draft and scaling −2 points', 'kills +2 points', 'levels +1 points'],
+  },
+  win: {
+    ...scored(mayhemGoldWin, 0),
+    factors: [
+      { key: 'gold', label: 'item gold', points: 5.2 },
+      { key: 'outlook', label: 'draft and scaling', points: -2.3 },
+      { key: 'kills', label: 'kills', points: 1.8 },
+      { key: 'level', label: 'levels', points: 1.1 },
+    ],
+    stakes: [{ name: 'Tower', swing: 6.2, note: null }],
+    outlook: { now: -0.8, later: -2.0, later_min: 17 },
+    rough: true,
+    source: 'ARAM model, augments not counted · fit on 16.22 (6.2k games)',
+  },
+  posture: {
+    stance: 'even',
+    headline: 'Even: the next tower decides most (±6 points)',
+    why: ['item gold +5 points', 'draft and scaling −2 points', 'kills +2 points', 'Draft and scaling favour them from here: −0.8 now, −2.0 at 17 min'],
+    options: ['Next tower, ±6 points', 'Rabadon’s Deathcap in ~1:22 at your income'],
   },
 };
 
@@ -923,6 +1076,9 @@ export const fixtures = {
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
   'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },
   'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull, goal_progress: liveGoals.slice(1) },
+  'ingame ahead': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: aheadGame, goal_progress: liveGoals, plan: riftPlan },
+  'ingame behind': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: behindGame, goal_progress: liveGoals, plan: riftPlan },
+  'ingame mayhem rough': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemRough, goal_progress: liveGoals.slice(1) },
   loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }), plan: riftPlan },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
   'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, history: [], sources: src({}) },

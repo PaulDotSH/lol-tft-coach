@@ -339,6 +339,54 @@ data! {
     }
 }
 
+/// A build decision: the legendary after `n` held (a support's quest item counted), or boots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BuildSlot {
+    Legendary(usize),
+    Boots,
+}
+
+/// Coachless' game situations in the site's order, three per group: damage, range, tankiness,
+/// crowd control, win probability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Situation {
+    PhysicalDamage,
+    BalancedDamage,
+    MagicDamage,
+    LowRange,
+    NormalRange,
+    HighRange,
+    Squishy,
+    NormalTankiness,
+    Tanky,
+    LowCc,
+    NormalCc,
+    HighCc,
+    Behind,
+    Even,
+    Ahead,
+}
+
+impl Situation {
+    pub const ALL: [Situation; 15] = {
+        use Situation::*;
+        [PhysicalDamage, BalancedDamage, MagicDamage, LowRange, NormalRange, HighRange, Squishy, NormalTankiness, Tanky, LowCc, NormalCc, HighCc, Behind, Even, Ahead]
+    };
+
+    /// 0 damage, 1 range, 2 tankiness, 3 crowd control, 4 win probability.
+    pub fn group(self) -> usize {
+        self as usize / 3
+    }
+}
+
+/// Coachless `GetItemDetailed` for one item in one build slot: WPA overall and, per situation,
+/// (situation, WPA, games). WPA in win-rate points; `by` is empty when Coachless has no games.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ItemSituations {
+    pub overall: f32,
+    pub by: Vec<(Situation, f32, f64)>,
+}
+
 /// Hand-written laning notes, keyed by Data Dragon id.
 #[derive(Debug, Clone, Default)]
 pub struct LaneNotes {

@@ -166,6 +166,43 @@ fn mode(game: &Value) -> Mode {
     }
 }
 
+/// Side that owns a structure, its lane and tier, from its name after `prefix`:
+/// `Turret_TChaos_L1_P3_2254202041_0`, `Inhib_TOrder_L1_P1_196971597_0` (L0 bot, L1 mid, L2 top;
+/// P3 outer, P2 inner, P1 inhibitor turret, P4 and P5 nexus). The older `Turret_T2_R_03_A`
+/// (T1 Order, T2 Chaos; L, C, R) gives no tier. None for any other name.
+fn structure(name: &str, prefix: &str) -> Option<(Team, Option<Lane>, u32)> {
+    let mut parts = name.strip_prefix(prefix)?.split('_');
+    let (side, lane, pos) = (parts.next()?, parts.next()?, parts.next()?);
+    let team = match side {
+        "TOrder" | "T1" => Team::Order,
+        "TChaos" | "T2" => Team::Chaos,
+        _ => return None,
+    };
+    if side.len() == 2 {
+        let lane = match lane {
+            "L" => Some(Lane::Top),
+            "R" => Some(Lane::Bottom),
+            "C" => None,
+            _ => return None,
+        };
+        return Some((team, lane, 0));
+    }
+    let lane = match lane {
+        "L0" => Lane::Bottom,
+        "L1" => Lane::Middle,
+        "L2" => Lane::Top,
+        _ => return None,
+    };
+    let tier = match pos {
+        "P3" => 1,
+        "P2" => 2,
+        "P1" => 3,
+        "P4" | "P5" => 4,
+        _ => return None,
+    };
+    Some((team, (tier < 4).then_some(lane), tier))
+}
+
 /// Q, W, E, R ranks from `activePlayer.abilities`; None without the block.
 fn abilities(v: &Value) -> Option<[u32; 4]> {
     v.is_object().then(|| ["Q", "W", "E", "R"].map(|k| count(&v[k]["abilityLevel"])))
@@ -200,6 +237,14 @@ pub fn parse(json: &Value, sd: &StaticData) -> Option<GameSnapshot> {
                 "BaronKill" => GameEvent::Baron { time, team: team() },
                 "HeraldKill" => GameEvent::Herald { time, team: team() },
                 "GameEnd" => GameEvent::GameEnd { time, win: e["Result"] == "Win" },
+                "TurretKilled" => {
+                    let (team, lane, tier) = structure(str_of(&e["TurretKilled"]), "Turret_")?;
+                    GameEvent::Tower { time, team, lane, tier }
+                }
+                n @ ("InhibKilled" | "InhibRespawned") => {
+                    let (team, lane, _) = structure(str_of(&e[n]), "Inhib_")?;
+                    GameEvent::Inhib { time, team, lane, respawned: n == "InhibRespawned" }
+                }
                 // HordeKill (voidgrubs), AtakhanKill, … → name without the suffix.
                 n if n.len() > 4 && n.ends_with("Kill") => GameEvent::Objective { time, team: team(), name: n[..n.len() - 4].to_string() },
                 _ => return None,

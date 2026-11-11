@@ -1,0 +1,14 @@
+# Win probability coefficients, written by tools/winprob/fit.py (see
+# docs/superpowers/specs/2026-11-11-win-probability-design.md). `games = 0`: no fit yet, and the
+# coach shows no win probability.
+#
+# Per mode table: one array per feature key (winprob::KEYS), a value per knot (minutes); a key
+# left out counts 0. `[rift.metrics]` / `[aram.metrics]`: held-out log_loss, brier, ece (points)
+# and accuracy at 10 / 15 / 20 / 25 min.
+patch = ""
+games = 0
+knots = [0, 10, 15, 20, 25, 30, 40]
+
+[rift]
+
+[aram]

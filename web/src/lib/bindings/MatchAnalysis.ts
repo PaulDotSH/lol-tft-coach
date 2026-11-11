@@ -12,6 +12,7 @@ import type { MatchPlayer } from "./MatchPlayer";
 import type { PastCompare } from "./PastCompare";
 import type { PastGame } from "./PastGame";
 import type { PhaseRow } from "./PhaseRow";
+import type { Swing } from "./Swing";
 import type { Takeaway } from "./Takeaway";
 import type { TimelineMark } from "./TimelineMark";
 
@@ -58,4 +59,8 @@ note: GameNote | null,
 /**
  * Rift, when I jungled: replaces `laning`.
  */
-jungle: JungleReview | null, };
+jungle: JungleReview | null, 
+/**
+ * The five largest changes of `gold[i].win`, largest first; empty without a curve.
+ */
+swings: Array<Swing>, };

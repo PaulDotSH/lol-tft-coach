@@ -23,7 +23,7 @@ fn jungle_lobby() -> Vec<Player> {
 
 fn advise(s: &GameSnapshot, stats: Option<&ChampStats>, tracker: &Tracker) -> GameAdvice {
     let sd = sd();
-    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker, ults: &HashMap::new(), notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     a
 }
@@ -271,7 +271,7 @@ fn read(name: &str) -> serde_json::Value {
 /// The recorded flex game as its blue-side jungler (Diana); Viego jungled for red.
 fn jungle_game() -> MatchAnalysis {
     let d = clients::history::parse_match(&read("match_game_jungle.json"), Some("me-puuid"), Some(&read("match_timeline_flex.json"))).unwrap();
-    coach::analyze_match(&d, &sd(), None, None)
+    coach::analyze_match(&d, &sd(), None, None, coach::winprob::Model::shipped())
 }
 
 #[test]
@@ -292,6 +292,6 @@ fn the_review_has_a_jungle_section_instead_of_laning() {
 #[test]
 fn a_laner_review_keeps_laning() {
     let d = clients::history::parse_match(&read("match_game_flex.json"), Some("me-puuid"), Some(&read("match_timeline_flex.json"))).unwrap();
-    let a = coach::analyze_match(&d, &sd(), None, None);
+    let a = coach::analyze_match(&d, &sd(), None, None, coach::winprob::Model::shipped());
     assert!(a.laning.is_some() && a.jungle.is_none());
 }

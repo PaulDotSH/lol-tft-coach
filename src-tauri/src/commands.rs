@@ -82,7 +82,9 @@ pub async fn analyze_game(sh: Sh<'_>, game_id: u64) -> Result<MatchAnalysis, Str
     };
     let recap = selfcoach::recap_for(g);
     tracing::info!("analysed game {game_id} (live recap: {})", recap.is_some());
-    let mut a = coach::analyze_match(&d, &sd, stats.as_deref(), recap.as_ref());
+    let no_fit = coach::winprob::Model::default();
+    let winprob = if sh.settings().win_prob { coach::winprob::Model::shipped() } else { &no_fit };
+    let mut a = coach::analyze_match(&d, &sd, stats.as_deref(), recap.as_ref(), winprob);
     let (past, phase, session) = {
         let ui = sh.ui.lock().unwrap();
         (ui.history.clone(), ui.phase, ui.trends.as_ref().and_then(|t| t.session.clone()))

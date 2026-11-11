@@ -5,6 +5,7 @@
 use crate::common::inventory;
 use crate::consts;
 use crate::gank::SightLog;
+use crate::gold::SAMPLE_STEP;
 use crate::sight;
 use model::*;
 
@@ -58,6 +59,8 @@ pub struct GameLog {
     pub buys: u32,
     pub followed: u32,
     lane_opps: Vec<ChampKey>,
+    /// (game time, `WinProb::base`) every `SAMPLE_STEP` while the advice carries a win chance.
+    pub win_curve: Vec<(f32, f32)>,
 }
 
 /// Items in `now` that were not in `before` (multiset difference).
@@ -78,6 +81,11 @@ fn new_items(before: &[ItemId], now: &[ItemId]) -> Vec<ItemId> {
 impl GameLog {
     pub fn observe(&mut self, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, sights: Option<&SightLog>) {
         let Some(me) = snap.players.get(snap.me) else { return };
+        if let Some(w) = advice.win.as_ref().map(|w| w.base)
+            && self.win_curve.last().is_none_or(|l| snap.time - l.0 >= SAMPLE_STEP)
+        {
+            self.win_curve.push((snap.time, w));
+        }
         self.shop_on_death = snap.mode != Mode::Rift;
         let lane = if snap.mode == Mode::Rift { me.position } else { None };
         self.lane_opps = sight::lane_opponents(lane, snap.players.iter().filter(|p| p.team != me.team).map(|p| (p.champ, p.position)));
@@ -351,7 +359,7 @@ fn sight_notes(d: &[&DeathNote]) -> Vec<String> {
 
 /// "the enemy jungle", "bot lane".
 pub(crate) fn the(place: &str) -> String {
-    if place.ends_with("lane") { place.to_string() } else { format!("the {place}") }
+    if place.ends_with("lane") || place.starts_with("your ") { place.to_string() } else { format!("the {place}") }
 }
 
 /// The game's numbers for trends. `ended` is unix seconds.

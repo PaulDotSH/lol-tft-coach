@@ -163,7 +163,7 @@ fn laning_panel_shows_both_enemy_bot_laners_with_r_now() {
         player(CAITLYN, Team::Chaos, Some(Lane::Bottom)),
     ];
     let s = snap(players, vec![]);
-    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     let (notes, spells) = (notes(), spells());
     live_extras(&mut a, &LiveInput { snap: &s, sd: &sd, tracker: &Tracker::default(), ults: &HashMap::new(), notes: &notes, spells: &spells, memory: &[] });
     // Bot laner first, then their support (my lane opponent).
@@ -176,7 +176,7 @@ fn laning_panel_shows_both_enemy_bot_laners_with_r_now() {
     // Mid: just my lane opponent.
     let players = vec![player(AHRI, Team::Order, Some(Lane::Middle)), player(ZED, Team::Chaos, Some(Lane::Middle)), player(THRESH, Team::Chaos, Some(Lane::Support))];
     let s = snap(players, vec![]);
-    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None });
+    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: &s, sd: &sd, tracker: &Tracker::default(), ults: &HashMap::new(), notes: &notes, spells: &spells, memory: &[] });
     assert_eq!(a.matchup.iter().map(|c| c.champ).collect::<Vec<_>>(), [ZED]);
     assert!(a.matchup[0].spells.is_empty() && a.matchup[0].note.is_some());

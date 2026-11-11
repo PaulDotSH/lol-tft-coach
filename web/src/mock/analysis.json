@@ -364,157 +364,188 @@
     {
       "time": 0.0,
       "team": 0,
-      "lane": 0
+      "lane": 0,
+      "win": 0.512
     },
     {
       "time": 60.011,
       "team": 20,
-      "lane": 0
+      "lane": 0,
+      "win": 0.513
     },
     {
       "time": 120.027,
       "team": 193,
-      "lane": -18
+      "lane": -18,
+      "win": 0.533
     },
     {
       "time": 180.032,
       "team": 663,
-      "lane": 0
+      "lane": 0,
+      "win": 0.519
     },
     {
       "time": 240.04,
       "team": 705,
-      "lane": -168
+      "lane": -168,
+      "win": 0.463
     },
     {
       "time": 300.155,
       "team": 335,
-      "lane": -266
+      "lane": -266,
+      "win": 0.622
     },
     {
       "time": 360.185,
       "team": 1205,
-      "lane": -212
+      "lane": -212,
+      "win": 0.599
     },
     {
       "time": 420.189,
       "team": 1087,
-      "lane": -252
+      "lane": -252,
+      "win": 0.689
     },
     {
       "time": 480.2,
       "team": 2233,
-      "lane": 295
+      "lane": 295,
+      "win": 0.673
     },
     {
       "time": 540.224,
       "team": 2867,
-      "lane": 378
+      "lane": 378,
+      "win": 0.854
     },
     {
       "time": 600.239,
       "team": 3275,
-      "lane": 487
+      "lane": 487,
+      "win": 0.844
     },
     {
       "time": 660.255,
       "team": 3066,
-      "lane": 517
+      "lane": 517,
+      "win": 0.877
     },
     {
       "time": 720.261,
       "team": 3163,
-      "lane": 344
+      "lane": 344,
+      "win": 0.811
     },
     {
       "time": 780.268,
       "team": 3623,
-      "lane": 316
+      "lane": 316,
+      "win": 0.792
     },
     {
       "time": 840.289,
       "team": 3501,
-      "lane": 415
+      "lane": 415,
+      "win": 0.822
     },
     {
       "time": 900.299,
       "team": 2133,
-      "lane": 345
+      "lane": 345,
+      "win": 0.829
     },
     {
       "time": 960.323,
       "team": 3259,
-      "lane": 766
+      "lane": 766,
+      "win": 0.814
     },
     {
       "time": 1020.336,
       "team": 3069,
-      "lane": 920
+      "lane": 920,
+      "win": 0.759
     },
     {
       "time": 1080.349,
       "team": 3253,
-      "lane": 893
+      "lane": 893,
+      "win": 0.785
     },
     {
       "time": 1140.379,
       "team": 3992,
-      "lane": 925
+      "lane": 925,
+      "win": 0.849
     },
     {
       "time": 1200.395,
       "team": 4154,
-      "lane": 810
+      "lane": 810,
+      "win": 0.833
     },
     {
       "time": 1260.427,
       "team": 4681,
-      "lane": 789
+      "lane": 789,
+      "win": 0.837
     },
     {
       "time": 1320.436,
       "team": 6228,
-      "lane": 924
+      "lane": 924,
+      "win": 0.859
     },
     {
       "time": 1380.442,
       "team": 7155,
-      "lane": 1104
+      "lane": 1104,
+      "win": 0.93
     },
     {
       "time": 1440.457,
       "team": 9240,
-      "lane": 1240
+      "lane": 1240,
+      "win": 0.946
     },
     {
       "time": 1500.464,
       "team": 9411,
-      "lane": 1276
+      "lane": 1276,
+      "win": 0.933
     },
     {
       "time": 1560.473,
       "team": 6259,
-      "lane": 882
+      "lane": 882,
+      "win": 0.868
     },
     {
       "time": 1620.505,
       "team": 6887,
-      "lane": 1019
+      "lane": 1019,
+      "win": 0.86
     },
     {
       "time": 1680.536,
       "team": 7814,
-      "lane": 1301
+      "lane": 1301,
+      "win": 0.913
     },
     {
       "time": 1740.546,
       "team": 9591,
-      "lane": 1389
+      "lane": 1389,
+      "win": 0.977
     },
     {
       "time": 1786.339,
       "team": 13232,
-      "lane": 1900
+      "lane": 1900,
+      "win": 0.997
     }
   ],
   "marks": [
@@ -1872,5 +1903,37 @@
       }
     ],
     "rules_v": 1
-  }
+  },
+  "swings": [
+    {
+      "time": 536.741,
+      "delta": 18.1,
+      "kind": "fight",
+      "text": "Grubs ×3 taken, fight won 2 for 0 in the river"
+    },
+    {
+      "time": 300.155,
+      "delta": 15.9,
+      "kind": "other",
+      "text": "Buys and levels, no fight or objective"
+    },
+    {
+      "time": 420.189,
+      "delta": 9.0,
+      "kind": "other",
+      "text": "Buys and levels, no fight or objective"
+    },
+    {
+      "time": 1380.442,
+      "delta": 7.1,
+      "kind": "other",
+      "text": "Buys and levels, no fight or objective"
+    },
+    {
+      "time": 657.403,
+      "delta": -6.6,
+      "kind": "fight",
+      "text": "Fight lost 1 for 2 in bot lane, you died"
+    }
+  ]
 }

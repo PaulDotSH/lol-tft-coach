@@ -59,6 +59,19 @@ pub const PLAN_SHOW_S: f32 = 120.0;
 /// Enemies named on the record line.
 pub const PLAN_RECORD_MAX: usize = 3;
 
+// ---- posture (and fight readiness with a win probability) ----
+/// `WinProb::base` from here up is ahead, from the mirror down behind.
+pub const POSTURE_AHEAD: f32 = 0.60;
+pub const POSTURE_BEHIND: f32 = 0.40;
+/// A stance changes only this far past a threshold (0..1), and holds at least this long (s).
+pub const POSTURE_MARGIN: f32 = 0.03;
+pub const POSTURE_DWELL: f32 = 45.0;
+/// A stance change stays among the calls this long (s).
+pub const POSTURE_CALL_S: f32 = 45.0;
+/// Factors named in `why`, and options at most.
+pub const POSTURE_WHY: usize = 3;
+pub const POSTURE_OPTIONS: usize = 3;
+
 // ---- needs ----
 /// Bounds on the armor/MR need multiplier from my current resists.
 pub const RESIST_TILT_MIN: f32 = 0.5;
@@ -109,8 +122,19 @@ pub const SHRINK_GAMES: f32 = 1500.0;
 pub const REASON_SIT_MIN: f32 = 0.01;
 /// Mejai's Soulstealer, Dark Seal: their win rates come from games already won.
 pub const SNOWBALL: [model::ItemId; 2] = [3041, 1082];
-/// "Ahead" for snowball items: (kills + assists/2) ≥ this × (deaths + 1).
+/// "Ahead" for snowball items without a win probability: (kills + assists/2) ≥ this × (deaths + 1).
 pub const AHEAD_KDA: f32 = 2.5;
+/// `WinProb::base` at or below this is behind, at or above `STANDING_AHEAD` ahead (items).
+pub const STANDING_BEHIND: f32 = 0.42;
+pub const STANDING_AHEAD: f32 = 0.58;
+/// Defensive needs (armor, MR, HP, tenacity, cleanse, anti-burst, anti-crit, anti attack speed)
+/// × this when behind, × `AHEAD_DEFENSE` when ahead.
+pub const BEHIND_DEFENSE: f32 = 1.15;
+pub const AHEAD_DEFENSE: f32 = 0.9;
+/// Behind: score lost per minute an item's ETA at my income lies past `TEMPO_FREE_MIN`, at most `TEMPO_MAX`.
+pub const TEMPO_W: f32 = 0.002;
+pub const TEMPO_FREE_MIN: f32 = 3.0;
+pub const TEMPO_MAX: f32 = 0.015;
 /// Starting gold: the start set is the opening purchases that fit in it.
 pub const START_GOLD: u32 = 500;
 /// Item my champ builds, but in another slot.
@@ -162,6 +186,24 @@ pub const MPEN_PCT_UNIT: f32 = 0.6;
 pub const RESIST_UNIT: f32 = 80.0;
 pub const HP_UNIT: f32 = 450.0;
 
+// ---- Coachless situations (`situations.rs`) ----
+/// Cut-offs (below the first: low, above the second: high) of the enemy team's threat-weighted
+/// magic share, mean base attack range, mean tankiness (`Foe` armor and MR tank, items counted)
+/// and mean CC trait. Ours, not Coachless': Coachless does not publish how it cuts its situations,
+/// and its shares sit near a third each, so these are terciles of 238 enemy teams in the recorded
+/// Rift games (both sides, one sample per 5 minutes from 10:00; 2026-11-11).
+pub const SIT_MAGIC: [f32; 2] = [0.35, 0.47];
+pub const SIT_RANGE: [f32; 2] = [305.0, 360.0];
+pub const SIT_TANK: [f32; 2] = [0.34, 0.465];
+pub const SIT_CC: [f32; 2] = [0.445, 0.515];
+/// A situation counts from this many games; its WPA over the item's is shrunk by games / (games + `SIT_SHRINK_K`).
+pub const SIT_MIN_GAMES: f64 = 300.0;
+pub const SIT_SHRINK_K: f32 = 1000.0;
+/// Share of the answers·needs term an item with situation data keeps.
+pub const SIT_ANSWERS: f32 = 0.5;
+/// A situation's part (win-rate units) from which the reason names it.
+pub const SIT_REASON_MIN: f32 = 0.004;
+
 // ---- matchups ----
 pub const FAVOURED: f32 = 52.5;
 pub const UNFAVOURED: f32 = 47.5;
@@ -185,6 +227,12 @@ pub const HERALD_FIRST: f32 = 900.0;
 /// Void grubs spawn once (one wave) and leave when herald spawns.
 pub const GRUBS_FIRST: f32 = 480.0;
 pub const GRUBS_COUNT: u32 = 3;
+/// Hand of Baron and the Elder's Aspect of the Dragon last this long (wiki, checked for 26.22).
+pub const BARON_BUFF: f32 = 180.0;
+pub const ELDER_BUFF: f32 = 150.0;
+/// An inhibitor is back this long after it fell (recorded games, 2026-11: `InhibRespawned`).
+pub const INHIB_RESPAWN: f32 = 300.0;
+pub const INHIB_RESPAWN_ARAM: f32 = 250.0;
 
 // ---- champ select ----
 pub const TIER_MIN_GAMES: u32 = 500;

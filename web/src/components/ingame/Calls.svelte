@@ -13,9 +13,10 @@
 
 <script lang="ts">
   // Banner of live calls (back for an objective, take one with numbers, play safe on a streak).
-  // With audio on, each new call is spoken once per game.
+  // With audio on, each new call is spoken once per game; a stance change only with posture calls on.
   import type { Call } from '../../lib/bindings/Call';
   import { store } from '../../lib/store.svelte';
+  import { speakable } from '../../lib/winprob';
 
   let { calls }: { calls: Call[] } = $props();
 
@@ -23,8 +24,9 @@
     const time = store.state?.game?.time ?? 0;
     if (time < lastTime) spoken.clear();
     lastTime = time;
-    if (!store.state?.settings.audio || typeof speechSynthesis === 'undefined') return;
-    const fresh = calls.filter((c) => !spoken.has(c.key));
+    const settings = store.state?.settings;
+    if (!settings?.audio || typeof speechSynthesis === 'undefined') return;
+    const fresh = speakable(calls, settings.posture_calls).filter((c) => !spoken.has(c.key));
     const urgent = fresh.filter((c) => c.key.startsWith('gank-'));
     if (urgent.length) {
       if (!urgentLeft) speechSynthesis.cancel();
