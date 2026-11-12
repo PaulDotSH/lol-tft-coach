@@ -10,9 +10,9 @@ tft-embed.workspace = true
 strsim.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
-
-[dev-dependencies]
 tft-coach.workspace = true
 png = "0.18"
-tft-data.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+tft-data.workspace = true

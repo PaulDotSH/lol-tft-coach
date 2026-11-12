@@ -1,0 +1,31 @@
+
+# --- lol.foarte.top — LoL Coach service (systemd lol-coach-server -> 127.0.0.1:8787) ---
+# No Authelia: the client is the desktop app, not a browser. Every route but /v1/health needs the
+# service's own bearer token (/etc/lol-coach/server.toml).
+lol.foarte.top {
+	import ip_blocklist
+	import access_log
+	import ai_agent_gate
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options DENY
+		-Server
+	}
+	# Per-visitor cap (client_ip = real visitor behind Cloudflare). A first sync sends many files.
+	rate_limit {
+		zone lol_foarte {
+			key {client_ip}
+			events 1200
+			window 1m
+		}
+	}
+	request_body {
+		max_size 40MB
+	}
+	# Private data: never let Cloudflare or a shared cache keep a response.
+	header >Cache-Control "private, no-store"
+	reverse_proxy 127.0.0.1:8787
+}

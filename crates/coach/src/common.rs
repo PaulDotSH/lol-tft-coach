@@ -73,10 +73,13 @@ pub fn map_ok(item: &Item, mode: Mode) -> bool {
 pub fn build_source(stats: Option<&ChampStats>) -> String {
     match stats {
         Some(ChampStats { coachless: Some(p), .. }) => format!("Coachless {p}"),
-        Some(s) if s.patch.contains('.') => format!("lolalytics {}", s.patch),
-        Some(s) => format!("lolalytics, last {} days", s.patch),
+        Some(s) => lolalytics_source(s),
         None => String::new(),
     }
+}
+
+pub fn lolalytics_source(s: &ChampStats) -> String {
+    if s.patch.contains('.') { format!("lolalytics {}", s.patch) } else { format!("lolalytics, last {} days", s.patch) }
 }
 
 pub fn fmt_games(n: u64) -> String {

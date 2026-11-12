@@ -3,6 +3,7 @@
   import AugmentOffer from './AugmentOffer.svelte';
   import BuyNext from './BuyNext.svelte';
   import BuildPath from './BuildPath.svelte';
+  import SkillNext from './SkillNext.svelte';
   import Threats from './Threats.svelte';
   import SelfCoach from './SelfCoach.svelte';
   import Matchups from './Matchups.svelte';
@@ -19,14 +20,31 @@
   import Bounties from './Bounties.svelte';
   import Tips from './Tips.svelte';
   import Laning from './Laning.svelte';
+  import Jungle from './Jungle.svelte';
+  import WinProb from './WinProb.svelte';
+  import Posture from './Posture.svelte';
+  import { store } from '../../lib/store.svelte';
 
   let { game }: { game: GameAdvice } = $props();
   const rift = $derived(game.mode === 'rift');
   const laneOpp = $derived(game.threats.find((t) => t.lane_opp)?.champ ?? null);
+  const showWin = $derived(store.state?.settings.win_prob ?? true);
+  const win = $derived(showWin ? game.win : null);
+  const posture = $derived(showWin ? game.posture : null);
 </script>
 
 <div class="ingame" class:rift>
-  {#if game.calls.length}<div class="calls"><Calls calls={game.calls} /></div>{/if}
+  {#if game.calls.length || win || posture}
+    <div class="calls">
+      {#if game.calls.length}<Calls calls={game.calls} />{/if}
+      {#if win || posture}
+        <div class="read" class:both={win && posture}>
+          {#if win}<WinProb w={win} history={game.gold.history} />{/if}
+          {#if posture}<Posture p={posture} />{/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
   {#if game.augments || game.my_augments.length}
     <div class="aug">
       {#if game.augments}<AugmentOffer advice={game.augments} champ={game.my_champ} />{/if}
@@ -36,12 +54,13 @@
   <div class="build">
     <Shopping list={game.shopping} at={game.time} />
     {#if game.tips.length}<Tips tips={game.tips} />{/if}
-    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} />
+    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} whatIf={game.what_if} />
+    {#if game.skill}<SkillNext skill={game.skill} />{/if}
     {#if game.gold_sinks.length}<GoldSinks sinks={game.gold_sinks} />{/if}
     <BuildPath owned={game.owned} path={game.path} source={game.build_source} />
   </div>
   <div class="threats">
-    {#if game.matchup.length}<Laning cards={game.matchup} me={game.my_champ} at={game.time} />{/if}
+    {#if game.jungle}<Jungle j={game.jungle} />{:else if game.matchup.length}<Laning cards={game.matchup} me={game.my_champ} at={game.time} />{/if}
     {#if game.tab_hint}<TabHint hint={game.tab_hint} />{/if}
     {#if game.readiness}<Readiness r={game.readiness} />{/if}
     <Threats threats={game.threats} />
@@ -50,7 +69,7 @@
   </div>
   <div class="me"><SelfCoach me={game.me} {laneOpp} /></div>
   {#if game.defense}<div class="def"><Defense d={game.defense} /></div>{/if}
-  <div class="gold"><GoldDiff g={game.gold} /></div>
+  <div class="gold"><GoldDiff g={game.gold} win={!!win} /></div>
   {#if rift}
     <div class="side">
       <Matchups matchups={game.matchups} />
@@ -76,6 +95,17 @@
   }
   .calls {
     grid-area: calls;
+    display: grid;
+    gap: var(--gap);
+    min-width: 0;
+  }
+  .read {
+    display: grid;
+    gap: var(--gap);
+    align-items: start;
+  }
+  .read.both {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   }
   .aug {
     grid-area: aug;
@@ -135,6 +165,9 @@
     .ingame {
       grid-template-columns: 1fr;
       grid-template-areas: 'calls' 'aug' 'build' 'threats' 'me' 'def' 'gold' 'side';
+    }
+    .read.both {
+      grid-template-columns: 1fr;
     }
   }
 </style>

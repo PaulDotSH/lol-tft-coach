@@ -24,8 +24,8 @@
 
 use crate::num;
 use model_static::{
-    Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, Matchup, MatchupBuild, Mode, RuneData, RunePage,
-    RuneStat, TierEntry,
+    Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, LengthWin, Matchup, MatchupBuild, Mode, RuneData,
+    RunePage, RuneStat, TierEntry,
 };
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -37,6 +37,9 @@ const TTL: Duration = Duration::from_secs(12 * 3600);
 /// Below this many games on the current patch, use the last 30 days.
 pub const MIN_GAMES: u64 = 3000;
 const FALLBACK_PATCH: &str = "30";
+/// A lane page with fewer games by game length than this gives way to the champion's main lane.
+pub const LANE_MIN_GAMES: u64 = 1000;
+const LENGTH_FROM: [u32; 7] = [0, 15, 20, 25, 30, 35, 40];
 const MAX_EARLY: usize = 20;
 const TIERS: [&str; 15] = ["S+", "S", "S-", "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-"];
 
@@ -99,9 +102,53 @@ pub async fn champ_stats(
         counters,
         benchmarks: page.benchmarks,
         runes: page.runes,
+        coachless_runes: None,
         coachless: None,
         summoners: vec![],
+        skill_order: page.skill_order,
+        skill_order_games: page.skill_order_games,
+        skill_priority: page.skill_priority,
+        by_length: page.by_length,
     })
+}
+
+/// Games and wins by game length from the build page alone (the URL `champ_stats` uses, so
+/// the disk cache is shared), and the lane the page is for: the last 30 days when the patch
+/// is thin, the champion's main lane (None) when its lane has under `LANE_MIN_GAMES`.
+pub async fn length_stats(
+    http: &crate::Http,
+    champ: &Champion,
+    lane: Option<Lane>,
+    mode: Mode,
+    tier: &str,
+    region: &str,
+    patch: &str,
+) -> anyhow::Result<(Option<Lane>, Vec<LengthWin>)> {
+    let lane = if mode == Mode::Rift { lane } else { None };
+    let page = |lane: Option<Lane>, patch: &str| {
+        let url = Query { slug: &champ.slug, lane, mode, tier, region, patch: patch.to_owned() }.page();
+        async move { http.get_parsed(&url, TTL, parse_build_page).await.map(|p| p.by_length) }
+    };
+    let games = |b: &[LengthWin]| b.iter().map(|w| w.games as u64).sum::<u64>();
+    let mut best = page(lane, patch).await?;
+    if games(&best) < MIN_GAMES && patch != FALLBACK_PATCH {
+        match page(lane, FALLBACK_PATCH).await {
+            Ok(b) if games(&b) > games(&best) => best = b,
+            Ok(_) => {}
+            Err(e) => tracing::warn!("lolalytics 30-day length fallback for {}: {e:#}", champ.slug),
+        }
+    }
+    if lane.is_some() && games(&best) < LANE_MIN_GAMES {
+        match page(None, patch).await {
+            Ok(b) if games(&b) > games(&best) => return Ok((None, b)),
+            Ok(_) => {}
+            Err(e) => tracing::warn!("lolalytics main-lane length for {}: {e:#}", champ.slug),
+        }
+    }
+    if best.is_empty() {
+        anyhow::bail!("no game-length histogram for {}", champ.slug);
+    }
+    Ok((lane, best))
 }
 
 /// My win rate against every champion in another lane: `vslane` (support vs bot laners).
@@ -321,6 +368,10 @@ pub struct PageStats {
     pub pick_rate: Option<f32>,
     pub benchmarks: Benchmarks,
     pub runes: Option<RuneData>,
+    pub skill_order: String,
+    pub skill_order_games: u32,
+    pub skill_priority: String,
+    pub by_length: Vec<LengthWin>,
 }
 
 /// Header and per-minute benchmarks from a build page; missing parts are None.
@@ -336,7 +387,10 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
             (!m.is_empty()).then_some(m)
         })
         .unwrap_or_default();
-    let minutes = q.find_map(3, &["time", "timeWin"], |v| avg_minutes(&v["time"]));
+    let hist = q.find_map(3, &["time", "timeWin"], |v| Some((avg_minutes(&v["time"])?, by_length(&v))));
+    let minutes = hist.as_ref().map(|h| h.0);
+    let pick = q.find_map(3, &["pick", "win"], |v| v["pick"]["skillorder"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
+    let (skill_order, skill_order_games) = skill_order(&pick);
     let per_min = |keys: &[&str]| {
         let total: Option<f64> = keys.iter().map(|k| averages.get(*k).copied()).sum();
         Some((total? / minutes?) as f32)
@@ -352,6 +406,10 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
             vision_per_min: per_min(&["visionScore"]),
         },
         runes: parse_runes(&q),
+        skill_order,
+        skill_order_games,
+        skill_priority: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
+        by_length: hist.map_or(vec![], |h| h.1),
     })
 }
 
@@ -369,6 +427,7 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
     let first_id = |v: &Value| num(if v.is_array() { &v[0]["id"] } else { &v["id"] }).map(|n| n as ItemId);
     let (it, set) = (&pick["items"], &pick["runes"]["set"]);
     let s = &it["start"];
+    let (skill_order, skill_order_games) = skill_order(&pick);
     Ok(MatchupBuild {
         vs,
         games,
@@ -378,24 +437,41 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
         start_wr: num(&s["wr"]).unwrap_or(0.0) as f32,
         core: ["item1", "item2", "item3"].iter().filter_map(|k| first_id(&it[*k])).collect(),
         runes: ids(&set["pri"]).into_iter().chain(ids(&set["sec"])).collect(),
+        rune_page: rune_page(&pick),
         summoners: ids(&pick["sums"]["ids"]),
         skills: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
+        skill_order,
+        skill_order_games,
+    })
+}
+
+/// `skillorder` of a `pick` summary: `id` has one digit per level, 1..4 = Q W E R.
+/// Empty with 0 games when a digit is outside 1..4 or the order is shorter than 6 levels.
+fn skill_order(summary: &Value) -> (String, u32) {
+    let row = &summary["skillorder"];
+    let id = row["id"].as_u64().map(|n| n.to_string()).or_else(|| row["id"].as_str().map(str::to_owned)).unwrap_or_default();
+    let order: Option<String> = id.chars().map(|c| "QWER".chars().nth((c.to_digit(10)? as usize).checked_sub(1)?)).collect();
+    match order {
+        Some(o) if o.len() >= 6 => (o, num(&row["n"]).unwrap_or(0.0) as u32),
+        _ => (String::new(), 0),
+    }
+}
+
+/// `{runes: {set: {pri, sec, mod}, wr, n}}` of a `pick` or `win` summary.
+fn rune_page(r: &Value) -> Option<RunePage> {
+    let ids = |v: &Value| -> Option<Vec<u32>> { v.as_array()?.iter().map(|x| num(x).map(|n| n as u32)).collect() };
+    let set = &r["runes"]["set"];
+    Some(RunePage {
+        primary: ids(&set["pri"])?,
+        secondary: ids(&set["sec"])?,
+        shards: ids(&set["mod"])?,
+        win_rate: num(&r["runes"]["wr"])? as f32,
+        games: num(&r["runes"]["n"])? as u32,
     })
 }
 
 fn parse_runes(q: &crate::qwik::Qwik) -> Option<RuneData> {
-    let ids = |v: &Value| -> Option<Vec<u32>> { v.as_array()?.iter().map(|x| num(x).map(|n| n as u32)).collect() };
-    let page = |r: &Value| {
-        let set = &r["runes"]["set"];
-        Some(RunePage {
-            primary: ids(&set["pri"])?,
-            secondary: ids(&set["sec"])?,
-            shards: ids(&set["mod"])?,
-            win_rate: num(&r["runes"]["wr"])? as f32,
-            games: num(&r["runes"]["n"])? as u32,
-        })
-    };
-    let (popular, best) = q.find_map(5, &["pick", "win"], |v| Some((page(&v["pick"])?, page(&v["win"])?)))?;
+    let (popular, best) = q.find_map(5, &["pick", "win"], |v| Some((rune_page(&v["pick"])?, rune_page(&v["win"])?)))?;
     // Keyed by rune id; other `{stats}` objects (per-game averages) are arrays.
     let stats = q
         .find_map(4, &["stats"], |v| {
@@ -424,6 +500,15 @@ fn avg_minutes(hist: &Value) -> Option<f64> {
         }
     });
     (n > 0.0).then(|| sum / n)
+}
+
+/// `time` / `timeWin` buckets 1..7 as games and wins (a bucket left out had no games); empty without them.
+fn by_length(v: &Value) -> Vec<LengthWin> {
+    if !v["time"].is_object() || !v["timeWin"].is_object() {
+        return vec![];
+    }
+    let n = |h: &str, i: usize| num(&v[h][(i + 1).to_string()]).unwrap_or(0.0) as u32;
+    LENGTH_FROM.iter().enumerate().map(|(i, &from_min)| LengthWin { from_min, games: n("time", i), wins: n("timeWin", i) }).collect()
 }
 
 pub fn parse_tier_list(json: &str, lane: Lane) -> anyhow::Result<Vec<TierEntry>> {
@@ -509,7 +594,10 @@ mod tests {
         assert_eq!((m.start.as_slice(), m.start_games, m.start_wr), ([3865, 2003, 2003].as_slice(), 1776, 57.83));
         assert_eq!(m.core, [3876, 3047, 3190]);
         assert_eq!(m.runes, [8465, 8463, 8473, 8242, 8347, 8345]);
+        let p = m.rune_page.unwrap();
+        assert_eq!((p.shards.as_slice(), p.win_rate, p.games), ([5005, 5001, 5001].as_slice(), 57.95, 1648));
         assert_eq!((m.summoners.as_slice(), m.skills.as_str()), ([4, 7].as_slice(), "QEW"));
+        assert_eq!((m.skill_order.as_str(), m.skill_order_games), ("QEWQQRQEQEREEWW", 301));
     }
 
     #[test]
@@ -546,6 +634,24 @@ mod tests {
     }
 
     #[test]
+    fn build_page_by_length() {
+        let p = parse_build_page(&fixture("lolalytics-build-ahri-middle.html")).unwrap();
+        let rows: Vec<(u32, u32, u32)> = p.by_length.iter().map(|w| (w.from_min, w.games, w.wins)).collect();
+        assert_eq!(
+            rows,
+            [(0, 177, 78), (15, 1247, 624), (20, 2612, 1321), (25, 5578, 3027), (30, 4464, 2340), (35, 1871, 968), (40, 690, 355)]
+        );
+        let a = parse_build_page(&fixture("lolalytics-build-ahri-aram.html")).unwrap();
+        let aram: Vec<(u32, u32)> = a.by_length.iter().map(|w| (w.games, w.wins)).collect();
+        assert_eq!(aram, [(96, 63), (213, 128), (141, 64), (45, 23), (5, 2), (2, 2), (1, 0)]);
+        assert_eq!(a.by_length.iter().map(|w| w.games as u64).sum::<u64>(), a.games.unwrap());
+        assert_eq!(a.by_length.iter().map(|w| w.from_min).collect::<Vec<_>>(), LENGTH_FROM);
+        let short = by_length(&serde_json::json!({ "time": { "1": 5 }, "timeWin": { "1": 2 } }));
+        assert_eq!((short.len(), short[0].games, short[0].wins, short[6].games), (7, 5, 2, 0), "a missing bucket had no games");
+        assert!(by_length(&serde_json::json!({ "time": 3 })).is_empty());
+    }
+
+    #[test]
     fn build_page_runes() {
         let p = parse_build_page(&fixture("lolalytics-build-thresh-support.html")).unwrap();
         assert_eq!(p.games, Some(62757));
@@ -559,6 +665,17 @@ mod tests {
         let unflinching = &r.stats[&8242];
         assert_eq!((unflinching[0].games, unflinching[1].games), (43786, 11828));
         assert_eq!(r.stats[&5013].len(), 1, "shards have one row");
+    }
+
+    #[test]
+    fn build_page_skill_order() {
+        let p = parse_build_page(&fixture("lolalytics-build-thresh-support.html")).unwrap();
+        assert_eq!((p.skill_order.as_str(), p.skill_order_games, p.skill_priority.as_str()), ("QEWQQRQEQEREEWW", 7509, "QEW"));
+        let row = |id: Value| skill_order(&serde_json::json!({ "skillorder": { "id": id, "n": 50 } }));
+        assert_eq!(row(312114.into()), ("EQWQQR".into(), 50));
+        assert_eq!(row("1321".into()), (String::new(), 0), "shorter than 6 levels");
+        assert_eq!(row(1321514.into()), (String::new(), 0), "digit outside 1-4");
+        assert_eq!(row(Value::Null), (String::new(), 0));
     }
 
     #[test]

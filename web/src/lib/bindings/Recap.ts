@@ -13,4 +13,8 @@ recommended: Array<number>, notes: Array<string>,
 /**
  * Self-coaching (absent in recaps saved before it existed).
  */
-review: DeathReview | null, summary: GameSummary | null, goals: Array<GoalProgress>, };
+review: DeathReview | null, summary: GameSummary | null, goals: Array<GoalProgress>, 
+/**
+ * (game time, `WinProb::base`) about every 20 s while the win chance was shown.
+ */
+win_curve: Array<[number, number]>, };

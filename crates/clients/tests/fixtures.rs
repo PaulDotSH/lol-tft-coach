@@ -152,23 +152,56 @@ fn live_full_game() {
     assert_eq!((me.riot_id.as_str(), me.team, me.position, me.level), ("Mid Main#EUW", Team::Order, Some(Lane::Middle), 11));
     assert_eq!((me.kills, me.deaths, me.assists, me.cs), (1, 2, 1, 142));
     assert_eq!(me.items, vec![1056, 6655, 3020, 1058, 3340]);
+    assert_eq!(g.my_abilities, Some([5, 2, 2, 2]));
     let nau = &g.players[9];
     assert_eq!((nau.team, nau.position), (Team::Chaos, Some(Lane::Support)));
     let jinx = &g.players[3];
     assert!(jinx.dead && (jinx.respawn_in - 18.6).abs() < 1e-3);
+    let smite: Vec<usize> = (0..10).filter(|&i| g.players[i].smite).collect();
+    assert_eq!(smite, [1, 6], "the two junglers take Smite");
+    assert_eq!(g.players[1].spells, ["SummonerFlash", "SummonerSmite"]);
+    assert!(g.players.iter().all(|p| p.spells.len() == 2));
+    assert!(!g.swiftplay);
 
     use GameEvent::*;
     let ev = &g.events;
-    assert_eq!(ev.len(), 11, "{ev:#?}");
+    assert_eq!(ev.len(), 12, "{ev:#?}");
     assert!(matches!(ev[0], Kill { killer: Some(7), victim: 2, ref assisters, .. } if *assisters == [6]));
     assert!(ev[1..4].iter().all(|e| matches!(e, Objective { team: Some(Team::Order), name, .. } if name == "Horde")));
     assert!(matches!(&ev[4], Dragon { team: Some(Team::Chaos), kind, .. } if kind == "Fire"));
     assert!(matches!(ev[5], Kill { killer: Some(2), victim: 7, .. }));
     assert!(matches!(ev[6], Kill { killer: None, victim: 0, ref assisters, .. } if *assisters == [5]));
-    assert!(matches!(ev[7], Kill { killer: Some(7), victim: 2, ref assisters, .. } if assisters.is_empty()));
-    assert!(matches!(ev[8], Herald { team: Some(Team::Chaos), .. }));
-    assert!(matches!(&ev[9], Dragon { team: Some(Team::Order), kind, .. } if kind == "Earth"));
-    assert!(matches!(ev[10], Kill { killer: Some(8), victim: 3, .. }));
+    assert!(matches!(ev[7], Tower { team: Team::Chaos, lane: Some(Lane::Bottom), tier: 0, .. }), "the side that lost it, from the old name");
+    assert!(matches!(ev[8], Kill { killer: Some(7), victim: 2, ref assisters, .. } if assisters.is_empty()));
+    assert!(matches!(ev[9], Herald { team: Some(Team::Chaos), .. }));
+    assert!(matches!(&ev[10], Dragon { team: Some(Team::Order), kind, .. } if kind == "Earth"));
+    assert!(matches!(ev[11], Kill { killer: Some(8), victim: 3, .. }));
+}
+
+/// Events from recorded games (2026-11), names swapped for the fixture's players.
+#[test]
+fn live_towers_and_inhibitors() {
+    let mut j = fixture("live_allgamedata.json");
+    j["events"]["Events"] = fixture("live_structure_events.json");
+    let g = live::parse(&j, &sd()).unwrap();
+    use GameEvent::*;
+    let towers: Vec<(Team, Option<Lane>, u32)> = g.events.iter().filter_map(|e| if let Tower { team, lane, tier, .. } = e { Some((*team, *lane, *tier)) } else { None }).collect();
+    assert_eq!(
+        towers,
+        [
+            (Team::Chaos, Some(Lane::Bottom), 1),
+            (Team::Order, Some(Lane::Middle), 1),
+            (Team::Order, Some(Lane::Middle), 2),
+            (Team::Order, Some(Lane::Middle), 3),
+            (Team::Order, None, 4),
+            (Team::Chaos, Some(Lane::Top), 1),
+        ],
+        "a minion's kill counts; an unknown name is skipped"
+    );
+    let inhibs: Vec<(f32, Team, Option<Lane>, bool)> =
+        g.events.iter().filter_map(|e| if let Inhib { time, team, lane, respawned } = e { Some((*time, *team, *lane, *respawned)) } else { None }).collect();
+    assert_eq!(inhibs, [(1402.25, Team::Order, Some(Lane::Middle), false), (1702.25, Team::Order, Some(Lane::Middle), true)]);
+    assert_eq!(g.events.len(), 8, "{:#?}", g.events);
 }
 
 #[test]
@@ -194,6 +227,9 @@ fn live_modes_end_and_unknowns() {
     assert_eq!(live::parse(&j, &sd).unwrap().mode, Mode::Mayhem);
     j["gameData"]["mapNumber"] = 11.into();
     assert_eq!(live::parse(&j, &sd).unwrap().mode, Mode::Rift);
+
+    j["activePlayer"]["abilities"] = serde_json::Value::Null;
+    assert_eq!(live::parse(&j, &sd).unwrap().my_abilities, None);
 
     // Spectator mode: activePlayer is an error object.
     j["activePlayer"] = serde_json::json!({ "error": "Spectator mode doesn't currently support this feature" });

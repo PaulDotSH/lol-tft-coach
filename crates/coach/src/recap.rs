@@ -36,5 +36,5 @@ pub fn recap(eog: &EogStats, b: &Benchmarks, recommended: &[ItemId], sd: &Static
         let n = recommended.iter().filter(|r| eog.items.contains(r)).count();
         notes.push(format!("Built {n} of {} recommended items", recommended.len()));
     }
-    Recap { stats: eog.clone(), benchmarks: b.clone(), recommended: recommended.to_vec(), notes, review: None, summary: None, goals: vec![] }
+    Recap { stats: eog.clone(), benchmarks: b.clone(), recommended: recommended.to_vec(), notes, review: None, summary: None, goals: vec![], win_curve: vec![] }
 }

@@ -1,17 +1,40 @@
 // Realistic AppState samples, one per phase/screen, for UI work without the backend.
 import type { AppState } from '../lib/bindings/AppState';
 import type { GameAdvice } from '../lib/bindings/GameAdvice';
+import type { GoldDiff } from '../lib/bindings/GoldDiff';
+import type { ReaderHealth } from '../lib/bindings/ReaderHealth';
 import type { Recap } from '../lib/bindings/Recap';
 import type { Settings } from '../lib/bindings/Settings';
 import type { Sources } from '../lib/bindings/Sources';
-import { mayhemGold, riftGold } from './gold';
+import { mayhemGold, mayhemGoldWin, riftAheadGold, riftGold, riftGoldWin } from './gold';
 import { macroFewGames, macroReport } from './macro';
 import { goals, liveGoals, recapGoals, review, summary, trends } from './selfcoach';
 import { history } from './history';
 import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items';
+import { riftPlan } from './plan';
 import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoeCard, zoeLaning } from './matchup';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: true };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, server_url: '', server_token: '' };
+
+const rp = (id: number, name: string, icon: string, reason: string | null = null) => ({ id, name, icon: `perk-images/${icon}`, reason });
+const electrocute = rp(8112, 'Electrocute', 'Styles/Domination/Electrocute/Electrocute.png');
+const tasteOfBlood = rp(8139, 'Taste of Blood', 'Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png');
+const grisly = rp(8140, 'Grisly Mementos', 'Styles/Domination/GrislyMementos/GrislyMementos.png');
+const ultimateHunter = rp(8106, 'Ultimate Hunter', 'Styles/Domination/UltimateHunter/UltimateHunter.png');
+const manaflow = rp(8226, 'Manaflow Band', 'Styles/Sorcery/ManaflowBand/ManaflowBand.png');
+const transcendence = rp(8210, 'Transcendence', 'Styles/Sorcery/Transcendence/Transcendence.png');
+const adaptive = rp(5008, 'Adaptive Force', 'StatMods/StatModsAdaptiveForceIcon.png');
+const tenacity = rp(5013, 'Tenacity and Slow Resist', 'StatMods/StatModsTenacityIcon.png', 'CC from Leona, Malphite, Sejuani (53.4% over 1.2k games)');
+
+const tp = (champ: number, tier: string, win_rate: number, pick_rate: number, vs_wr: number, vs_games: number) => ({
+  champ,
+  tier,
+  win_rate,
+  pick_rate,
+  vs_wr,
+  vs_games,
+  mine: false,
+});
 
 const src = (p: Partial<Sources>): Sources => ({
   client: 'ok',
@@ -19,6 +42,7 @@ const src = (p: Partial<Sources>): Sources => ({
   lolalytics: 'ok',
   ugg: 'ok',
   ocr: 'off',
+  minimap: 'off',
   coachless: 'off',
   coachless_premium: false,
   message: null,
@@ -51,10 +75,18 @@ const recap: Recap = {
   review,
   summary,
   goals: recapGoals,
+  win_curve: [],
 };
 
 const base = {
   settings,
+  sync: 'Off: no server address set.',
+  readers: [
+    { name: 'Augment offer', state: 'ok', detail: null, last_ok: 1_794_058_000_000 },
+    { name: 'Tab scoreboard', state: 'shifted', detail: 'found at 0.92× (HUD scale)', last_ok: 1_794_058_100_000 },
+    { name: 'Minimap', state: 'unverified', detail: 'not checked since 16.21', last_ok: null },
+  ] as ReaderHealth[],
+  plan: null,
   champ_select: null,
   game: null,
   recap: null,
@@ -188,6 +220,69 @@ const riftGame: GameAdvice = {
     { key: 'control-ward', kind: 'vision', text: 'Next back: buy a Control Ward (75 g)' },
   ],
   matchup: [zedLaning],
+  jungle: null,
+  win: null,
+  posture: null,
+  skill: { key: 'W', unspent: 0, at_level: 14, priority: 'QWE', source: 'vs Zed, 2.1k games' },
+  what_if: [
+    {
+      item: 3157,
+      damage: 0.07,
+      burst: 0.07,
+      sustained: 0.065,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 238, burst: 0.07, sustained: 0.066, lane: true },
+        { champ: 145, burst: 0.07, sustained: 0.066, lane: false },
+        { champ: 254, burst: 0.07, sustained: 0.066, lane: false },
+        { champ: 122, burst: 0.069, sustained: 0.064, lane: false },
+        { champ: 111, burst: 0.068, sustained: 0.063, lane: false },
+      ],
+      ehp: 0.27,
+      ehp_physical: 0.36,
+      ehp_magic: 0,
+      rough: false,
+      note: null,
+    },
+    {
+      item: 3102,
+      damage: 0.08,
+      burst: 0.08,
+      sustained: 0.075,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 238, burst: 0.08, sustained: 0.076, lane: true },
+        { champ: 145, burst: 0.08, sustained: 0.076, lane: false },
+        { champ: 254, burst: 0.08, sustained: 0.076, lane: false },
+        { champ: 122, burst: 0.078, sustained: 0.073, lane: false },
+        { champ: 111, burst: 0.077, sustained: 0.072, lane: false },
+      ],
+      ehp: 0.09,
+      ehp_physical: 0,
+      ehp_magic: 0.31,
+      rough: false,
+      note: null,
+    },
+    {
+      item: 3135,
+      damage: 0.19,
+      burst: 0.19,
+      sustained: 0.18,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 238, burst: 0.12, sustained: 0.11, lane: true },
+        { champ: 145, burst: 0.14, sustained: 0.13, lane: false },
+        { champ: 254, burst: 0.17, sustained: 0.16, lane: false },
+        { champ: 122, burst: 0.27, sustained: 0.26, lane: false },
+        { champ: 111, burst: 0.31, sustained: 0.3, lane: false },
+      ],
+      ehp: 0,
+      ehp_physical: 0,
+      ehp_magic: 0,
+      rough: false,
+      note: null,
+    },
+  ],
 };
 
 const mayhemGame: GameAdvice = {
@@ -270,6 +365,50 @@ const mayhemGame: GameAdvice = {
   calls: [],
   tips: [],
   matchup: [],
+  jungle: null,
+  win: null,
+  posture: null,
+  skill: { key: 'E', unspent: 1, at_level: 9, priority: 'QEW', source: 'lolalytics 16.21' },
+  what_if: [
+    {
+      item: 3089,
+      damage: 0.24,
+      burst: 0.24,
+      sustained: 0.22,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 55, burst: 0.24, sustained: 0.22, lane: false },
+        { champ: 11, burst: 0.24, sustained: 0.22, lane: false },
+        { champ: 36, burst: 0.23, sustained: 0.21, lane: false },
+        { champ: 16, burst: 0.24, sustained: 0.22, lane: false },
+        { champ: 22, burst: 0.24, sustained: 0.22, lane: false },
+      ],
+      ehp: 0,
+      ehp_physical: 0,
+      ehp_magic: 0,
+      rough: false,
+      note: 'Augment procs not counted',
+    },
+    {
+      item: 3157,
+      damage: 0.06,
+      burst: 0.06,
+      sustained: 0.055,
+      burst_leads: true,
+      per_enemy: [
+        { champ: 55, burst: 0.06, sustained: 0.055, lane: false },
+        { champ: 11, burst: 0.06, sustained: 0.055, lane: false },
+        { champ: 36, burst: 0.058, sustained: 0.053, lane: false },
+        { champ: 16, burst: 0.06, sustained: 0.055, lane: false },
+        { champ: 22, burst: 0.06, sustained: 0.055, lane: false },
+      ],
+      ehp: 0.22,
+      ehp_physical: 0.38,
+      ehp_magic: 0,
+      rough: false,
+      note: 'Augment procs not counted',
+    },
+  ],
 };
 
 // Same Mayhem game, a minute later: I died with 3720 g, enemies are dead too.
@@ -323,6 +462,183 @@ const laningGame: GameAdvice = {
   bounties: [],
   readiness: null,
   matchup: [asheLaning, zoeLaning],
+  skill: { key: 'R', unspent: 1, at_level: 6, priority: 'QWE', source: 'vs Ashe, 1.2k games' },
+  what_if: [],
+};
+
+// Viego jungle at 3:22, blue side: level 4 on pace, Darius pushed up top, Lee Sin just seen bot side.
+const jungleGame: GameAdvice = {
+  ...riftGame,
+  time: 202,
+  my_champ: 234,
+  buy_next: null,
+  alternatives: [],
+  path: [],
+  owned: [1103, 2003],
+  calls: [{ key: 'gank-jg-2', text: 'Lee Sin seen bot side', say: 'Lee Sin seen bot side.' }],
+  tips: [{ key: 'jg-objective', kind: 'back', text: 'Dragon in 1:38: no full item yet, 650 g short of Kindlegem' }],
+  bounties: [],
+  readiness: null,
+  matchup: [],
+  what_if: [],
+  skill: { key: 'E', unspent: 1, at_level: 4, priority: 'QEW', source: 'lolalytics 16.21' },
+  jungle: {
+    pace: 'Level 4 at 3:22: on pace',
+    minimap: true,
+    lanes: [
+      { lane: 'top', score: 4.0, reasons: ['Darius is pushed up', 'Garen has CC'], enemy: [122] },
+      { lane: 'middle', score: 1.0, reasons: ['Lee Sin was just seen bot side', 'lane is even'], enemy: [238] },
+      { lane: 'bottom', score: -2.0, reasons: ['nothing special'], enemy: [222, 412] },
+    ],
+    camps: [],
+  },
+};
+
+/** `base` is the gold history's last sample, `trend` its change over 120 s, `p` adds `dead` points. */
+function scored(g: GoldDiff, dead: number) {
+  const h = g.history;
+  const now = h[h.length - 1];
+  const back = h.reduce((a, b) => (Math.abs(now.time - 120 - b.time) < Math.abs(now.time - 120 - a.time) ? b : a));
+  return { p: Math.round(1000 * now.win! + 10 * dead) / 1000, base: now.win!, trend: Math.round(1000 * (now.win! - back.win!)) / 10 };
+}
+
+// The Syndra game at 18:32 scored: behind 2.7k with their soul point up, but the draft scales
+// better, so Stall. Vi and Nautilus are dead (+2 points on the live number).
+const behindGame: GameAdvice = {
+  ...riftGame,
+  gold: riftGoldWin,
+  readiness: {
+    verdict: 'avoid',
+    text: 'Their team is stronger right now: avoid fights, farm safely',
+    reasons: ['item gold −8 points', 'draft and scaling +5 points', 'dragons −4 points', 'kills −3 points', 'towers −2 points', 'levels −1 points', '2 enemies dead (Vi, Nautilus)'],
+  },
+  win: {
+    ...scored(riftGoldWin, 2),
+    factors: [
+      { key: 'gold', label: 'item gold', points: -8.1 },
+      { key: 'outlook', label: 'draft and scaling', points: 4.6 },
+      { key: 'drakes', label: 'dragons', points: -3.9 },
+      { key: 'kills', label: 'kills', points: -3.2 },
+      { key: 'towers', label: 'towers', points: -2.4 },
+      { key: 'dead', label: 'players dead', points: 2.0 },
+      { key: 'level', label: 'levels', points: -1.2 },
+    ],
+    stakes: [
+      { name: 'Baron', swing: 14.1, note: null },
+      { name: 'Dragon', swing: 9.3, note: 'their soul' },
+      { name: 'Your death', swing: 4.8, note: '33 s dead' },
+      { name: 'Tower', swing: 3.6, note: null },
+    ],
+    outlook: { now: 1.8, later: 3.4, later_min: 28 },
+    rough: false,
+    source: 'from the scoreboard · fit on 16.22 (10k games)',
+  },
+  posture: {
+    stance: 'stall',
+    headline: 'Behind, but time is on your side: the game comes to you',
+    why: ['item gold −8 points', 'draft and scaling +5 points', 'dragons −4 points', 'Draft and scaling favour you from here: +1.8 now, +3.4 at 28 min'],
+    options: ['Least to lose: next tower, ±4 points', 'Zhonya’s Hourglass in ~3:46 at your income', 'Dying now costs 5 points (33 s dead)'],
+  },
+};
+
+// The same ten champions at 22:20, my team ahead 3.1k and 17–11 with Baron up and Vi and
+// Nautilus dead (+7 points on the live number); the draft is even from here, so Press.
+const AHEAD_KDA: Record<number, [number, number, number, number]> = { 238: [7, 3, 1, 1600], 145: [2, 5, -2, -2300], 254: [1, 4, -1, -700], 122: [1, 3, -1, -900], 111: [0, 2, -1, -800] };
+const aheadGame: GameAdvice = {
+  ...riftGame,
+  time: 1340,
+  buy_next: riftGame.buy_next && { ...riftGame.buy_next, reason: 'Zed is 7/3 and killed you 3×' },
+  gold: riftAheadGold,
+  threats: riftGame.threats.map((t) => {
+    const [kills, deaths, level_diff, item_gold_diff] = AHEAD_KDA[t.champ];
+    return { ...t, kills, deaths, level_diff, item_gold_diff };
+  }),
+  me: { ...riftGame.me, item_gold_vs_opp: -1600, level_vs_opp: -1, deaths: 3, killers: [[238, 3]] },
+  timers: [
+    { name: 'Dragon', next_spawn: 1395 },
+    { name: 'Baron', next_spawn: 1200 },
+    { name: 'Atakhan', next_spawn: null },
+  ],
+  deaths: {
+    enemies: [
+      { champ: 254, in_s: 24 },
+      { champ: 111, in_s: 31 },
+    ],
+    allies: [],
+  },
+  bounties: [
+    { champ: 238, ally: false, me: false, streak: 4, cold: 0, item_lead: 1900, text: '4-kill streak: big shutdown' },
+    { champ: 222, ally: true, me: false, streak: 0, cold: 0, item_lead: 2300, text: '2.3k item gold over their team: shutdown' },
+  ],
+  readiness: {
+    verdict: 'fight',
+    text: 'Your team is stronger right now: look for a fight or an objective',
+    reasons: ['item gold +7 points', 'towers +4 points', 'kills +3 points', 'draft and scaling +3 points', 'levels +1 points', '2 enemies dead (Vi, Nautilus)'],
+  },
+  calls: [
+    {
+      key: 'take-Baron-1320',
+      text: 'Baron is up: Vi (24 s) and Nautilus (31 s) dead, their jungler can’t smite. Take it (±13)',
+      say: 'Their jungler is dead. Take Baron.',
+    },
+    { key: 'stance-press-1', text: 'Ahead: the lead is worth most now', say: 'You’re ahead. The lead is worth most now.' },
+  ],
+  win: {
+    ...scored(riftAheadGold, 7),
+    factors: [
+      { key: 'gold', label: 'item gold', points: 7.2 },
+      { key: 'dead', label: 'players dead', points: 6.9 },
+      { key: 'towers', label: 'towers', points: 4.1 },
+      { key: 'kills', label: 'kills', points: 3.2 },
+      { key: 'outlook', label: 'draft and scaling', points: 2.6 },
+      { key: 'level', label: 'levels', points: 1.3 },
+    ],
+    stakes: [
+      { name: 'Baron', swing: 13.2, note: null },
+      { name: 'Your death', swing: 6.4, note: '37 s dead' },
+      { name: 'Dragon', swing: 5.1, note: null },
+      { name: 'Tower', swing: 3.0, note: null },
+    ],
+    outlook: { now: 2.6, later: 3.0, later_min: 32 },
+    rough: false,
+    source: 'from the scoreboard · fit on 16.22 (10k games)',
+  },
+  posture: {
+    stance: 'press',
+    headline: 'Ahead: the lead is worth most now',
+    why: ['item gold +7 points', 'players dead +7 points', 'towers +4 points', 'Draft and scaling: about even from here (+2.6 now, +3.0 at 32 min)'],
+    options: ['Baron up now, ±13 points', 'Dead on their side: Vi (24 s) and Nautilus (31 s)', 'Zed is on a 4-kill streak: a big shutdown'],
+  },
+};
+
+// The Mayhem game scored by the ARAM model, always rough there: 58 %, even; the next tower decides most.
+const mayhemRough: GameAdvice = {
+  ...mayhemGame,
+  gold: mayhemGoldWin,
+  readiness: {
+    verdict: 'even',
+    text: 'Even: fight only with numbers or near your side',
+    reasons: ['item gold +5 points', 'draft and scaling −2 points', 'kills +2 points', 'levels +1 points'],
+  },
+  win: {
+    ...scored(mayhemGoldWin, 0),
+    factors: [
+      { key: 'gold', label: 'item gold', points: 5.2 },
+      { key: 'outlook', label: 'draft and scaling', points: -2.3 },
+      { key: 'kills', label: 'kills', points: 1.8 },
+      { key: 'level', label: 'levels', points: 1.1 },
+    ],
+    stakes: [{ name: 'Tower', swing: 6.2, note: null }],
+    outlook: { now: -0.8, later: -2.0, later_min: 17 },
+    rough: true,
+    source: 'ARAM model, augments not counted · fit on 16.22 (6.2k games)',
+  },
+  posture: {
+    stance: 'even',
+    headline: 'Even: the next tower decides most (±6 points)',
+    why: ['item gold +5 points', 'draft and scaling −2 points', 'kills +2 points', 'Draft and scaling favour them from here: −0.8 now, −2.0 at 17 min'],
+    options: ['Next tower, ±6 points', 'Rabadon’s Deathcap in ~1:22 at your income'],
+  },
 };
 
 export const fixtures = {
@@ -335,6 +651,7 @@ export const fixtures = {
   idle: { ...base, phase: 'idle', recap, sources: src({}) },
   'champselect rift': {
     ...base,
+    plan: riftPlan,
     phase: 'champselect',
     sources: src({ message: 'lolalytics: patch 16.21 sample small, using last 30 days', lolalytics: 'degraded' }),
     champ_select: {
@@ -364,34 +681,54 @@ export const fixtures = {
       },
       runes: {
         summoners: ['Flash', 'Ignite'],
-        source: 'Coachless 16.20',
-        primary: [
-          { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
-          { id: 8139, name: 'Taste of Blood', icon: 'perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png', reason: null },
-          { id: 8140, name: 'Grisly Mementos', icon: 'perk-images/Styles/Domination/GrislyMementos/GrislyMementos.png', reason: null },
-          { id: 8106, name: 'Ultimate Hunter', icon: 'perk-images/Styles/Domination/UltimateHunter/UltimateHunter.png', reason: null },
-        ],
-        secondary: [
-          { id: 8226, name: 'Manaflow Band', icon: 'perk-images/Styles/Sorcery/ManaflowBand/ManaflowBand.png', reason: null },
-          { id: 8210, name: 'Transcendence', icon: 'perk-images/Styles/Sorcery/Transcendence/Transcendence.png', reason: null },
-        ],
-        shards: [
-          { id: 5008, name: 'Adaptive Force', icon: 'perk-images/StatMods/StatModsAdaptiveForceIcon.png', reason: null },
-          { id: 5008, name: 'Adaptive Force', icon: 'perk-images/StatMods/StatModsAdaptiveForceIcon.png', reason: null },
+        options: [
           {
-            id: 5013,
-            name: 'Tenacity and Slow Resist',
-            icon: 'perk-images/StatMods/StatModsTenacityIcon.png',
-            reason: 'CC from Leona, Malphite, Sejuani (53.4% over 1.2k games)',
+            label: 'vs Zed',
+            source: 'Coachless 16.20',
+            vs: 238,
+            primary: [electrocute, tasteOfBlood, grisly, ultimateHunter],
+            secondary: [manaflow, transcendence],
+            shards: [adaptive, adaptive, tenacity],
+            win_rate: 53.4,
+            games: 920,
+            also: ['vs Zed · lolalytics 16.21'],
+          },
+          {
+            label: 'Best WPA',
+            source: 'Coachless 16.20',
+            vs: null,
+            primary: [
+              { id: 8229, name: 'Arcane Comet', icon: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png', reason: null },
+              manaflow,
+              transcendence,
+              { id: 8236, name: 'Gathering Storm', icon: 'perk-images/Styles/Sorcery/GatheringStorm/GatheringStorm.png', reason: null },
+            ],
+            secondary: [
+              { id: 8345, name: 'Biscuit Delivery', icon: 'perk-images/Styles/Inspiration/BiscuitDelivery/BiscuitDelivery.png', reason: null },
+              { id: 8347, name: 'Cosmic Insight', icon: 'perk-images/Styles/Inspiration/CosmicInsight/CosmicInsight.png', reason: null },
+            ],
+            shards: [adaptive, adaptive, tenacity],
+            win_rate: 53.6,
+            games: 4210,
+            also: [],
+          },
+          {
+            label: 'Most played',
+            source: 'lolalytics 16.21',
+            vs: null,
+            primary: [
+              electrocute,
+              { id: 8126, name: 'Cheap Shot', icon: 'perk-images/Styles/Domination/CheapShot/CheapShot.png', reason: null },
+              grisly,
+              ultimateHunter,
+            ],
+            secondary: [manaflow, transcendence],
+            shards: [adaptive, adaptive, tenacity],
+            win_rate: 52.1,
+            games: 18240,
+            also: [],
           },
         ],
-        win_rate: 52.1,
-        games: 18240,
-        alt: {
-          keystone: { id: 8229, name: 'Arcane Comet', icon: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png', reason: null },
-          win_rate: 53.6,
-          games: 4210,
-        },
       },
       bench: [],
       team: null,
@@ -399,6 +736,31 @@ export const fixtures = {
         zedCard.record!,
         { champ: 145, games: 2, wins: 2, lane_games: 0, gold_15: null, killed_me: 1, early_kills: 0, same_games: 1, same_wins: 1, last: [true, true] },
       ],
+      tiers: {
+        lane: 'middle',
+        vs: 238,
+        counters: [
+          tp(90, 'S', 51.8, 4.1, 55.6, 1840),
+          tp(1, 'A+', 51.2, 3.0, 55.1, 1210),
+          tp(3, 'A', 50.9, 2.2, 54.7, 960),
+          tp(61, 'S-', 51.0, 6.8, 53.9, 2410),
+          tp(112, 'S+', 52.4, 9.1, 53.2, 2950),
+          tp(103, 'S', 51.6, 10.4, 52.0, 3880),
+          tp(99, 'A+', 50.8, 5.6, 51.7, 1530),
+          tp(910, 'A', 50.6, 3.9, 51.1, 870),
+          { ...tp(134, 'S', 51.4, 6.1, 46.8, 2140), mine: true },
+        ],
+        best: [
+          tp(112, 'S+', 52.4, 9.1, 53.2, 2950),
+          tp(103, 'S', 51.6, 10.4, 52.0, 3880),
+          { ...tp(134, 'S', 51.4, 6.1, 46.8, 2140), mine: true },
+          tp(90, 'S', 51.8, 4.1, 55.6, 1840),
+          tp(61, 'S-', 51.0, 6.8, 53.9, 2410),
+          tp(777, 'A+', 50.4, 11.2, 49.0, 4100),
+          tp(1, 'A+', 51.2, 3.0, 55.1, 1210),
+          tp(84, 'A', 49.9, 8.8, 47.5, 3300),
+        ],
+      },
       matchup: {
         lane: 'middle',
         allies: [134],
@@ -415,6 +777,9 @@ export const fixtures = {
           runes: [8112, 8139, 8140, 8106, 8226, 8210],
           summoners: [4, 12],
           skills: 'QWE',
+          skill_order: 'QWEQQRQWQWRWWEE',
+          skill_order_games: 1480,
+          rune_page: null,
         },
         runes: [
           { id: 8112, name: 'Electrocute', icon: 'perk-images/Styles/Domination/Electrocute/Electrocute.png', reason: null },
@@ -490,6 +855,7 @@ export const fixtures = {
       runes: null,
       bench: [],
       team: null,
+      tiers: null,
       memory: [nautilusCard.record!],
       enemies: [81, 111],
       draft: null,
@@ -509,6 +875,9 @@ export const fixtures = {
           runes: [8465, 8463, 8473, 8242, 8347, 8345],
           summoners: [4, 3],
           skills: 'QEW',
+          skill_order: 'QEWQQRQEQEREEWW',
+          skill_order_games: 860,
+          rune_page: null,
         },
         runes: [
           { id: 8465, name: 'Guardian', icon: 'perk-images/Styles/Resolve/Guardian/Guardian.png', reason: null },
@@ -535,6 +904,7 @@ export const fixtures = {
       runes: null,
       bench: [],
       team: null,
+      tiers: null,
       memory: [zoeCard.record!],
       enemies: [22, 142],
       draft: null,
@@ -554,6 +924,9 @@ export const fixtures = {
           runes: [8439, 8446, 8429, 8451, 8347, 8345],
           summoners: [4, 14],
           skills: 'WQE',
+          skill_order: 'WQEWWRWQWQRQQEE',
+          skill_order_games: 420,
+          rune_page: null,
         },
         runes: [
           { id: 8439, name: 'Aftershock', icon: 'perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png', reason: null },
@@ -618,6 +991,7 @@ export const fixtures = {
       ],
       enemies: [],
       draft: null,
+      tiers: null,
       memory: [],
       matchup: null,
       team: {
@@ -677,6 +1051,7 @@ export const fixtures = {
       ],
       enemies: [],
       draft: null,
+      tiers: null,
       memory: [],
       matchup: null,
       team: {
@@ -695,12 +1070,17 @@ export const fixtures = {
       },
     },
   },
-  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals },
+  'ingame rift': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: riftGame, goal_progress: liveGoals, plan: riftPlan },
+  'ingame start': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: { ...riftGame, time: 35, calls: [], tips: [] }, goal_progress: liveGoals, plan: riftPlan },
+  'ingame jungle': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: jungleGame, goal_progress: liveGoals },
   'ingame laning': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: laningGame, goal_progress: liveGoals },
   'ingame mayhem': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemGame, goal_progress: liveGoals.slice(1) },
   'ingame dead': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemDead, goal_progress: liveGoals.slice(1) },
   'ingame mayhem full': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemFull, goal_progress: liveGoals.slice(1) },
-  loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }) },
+  'ingame ahead': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: aheadGame, goal_progress: liveGoals, plan: riftPlan },
+  'ingame behind': { ...base, phase: 'ingame', sources: src({ game: 'ok' }), game: behindGame, goal_progress: liveGoals, plan: riftPlan },
+  'ingame mayhem rough': { ...base, phase: 'ingame', sources: src({ game: 'ok', ocr: 'ok' }), game: mayhemRough, goal_progress: liveGoals.slice(1) },
+  loading: { ...base, phase: 'loading', sources: src({ game: 'degraded', message: 'Game is loading' }), plan: riftPlan },
   postgame: { ...base, phase: 'postgame', recap, sources: src({}) },
   'idle new account': { ...base, phase: 'idle', macro_report: macroFewGames, trends: null, history: [], sources: src({}) },
 } satisfies Record<string, AppState>;

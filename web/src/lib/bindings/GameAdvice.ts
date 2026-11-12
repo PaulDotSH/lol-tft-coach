@@ -8,17 +8,22 @@ import type { GoldDiff } from "./GoldDiff";
 import type { GoldEta } from "./GoldEta";
 import type { GoldSink } from "./GoldSink";
 import type { ItemPick } from "./ItemPick";
+import type { JungleAdvice } from "./JungleAdvice";
 import type { LiveTip } from "./LiveTip";
 import type { MatchupCard } from "./MatchupCard";
 import type { MatchupTip } from "./MatchupTip";
 import type { Mode } from "./Mode";
 import type { MyAugment } from "./MyAugment";
 import type { ObjectiveTimer } from "./ObjectiveTimer";
+import type { Posture } from "./Posture";
 import type { Readiness } from "./Readiness";
 import type { SelfStats } from "./SelfStats";
 import type { ShoppingList } from "./ShoppingList";
+import type { SkillNext } from "./SkillNext";
 import type { TabHint } from "./TabHint";
 import type { Threat } from "./Threat";
+import type { WhatIf } from "./WhatIf";
+import type { WinProb } from "./WinProb";
 
 export type GameAdvice = { time: number, mode: Mode, my_champ: number, buy_next: ItemPick | null, alternatives: Array<ItemPick>, 
 /**
@@ -72,4 +77,20 @@ tips: Array<LiveTip>,
 /**
  * Rift: tips against my lane opponent(s), both enemy bot laners in bot lane.
  */
-matchup: Array<MatchupCard>, };
+matchup: Array<MatchupCard>, 
+/**
+ * Which ability to level next; None when the skill order can't describe my champion.
+ */
+skill: SkillNext | null, what_if: Array<WhatIf>, 
+/**
+ * Rift, when I jungle: clear pace and the lane board.
+ */
+jungle: JungleAdvice | null, 
+/**
+ * My team's chance to win; None until the model is fitted for the mode.
+ */
+win: WinProb | null, 
+/**
+ * How the next minutes look, from `win`; None without it.
+ */
+posture: Posture | null, };

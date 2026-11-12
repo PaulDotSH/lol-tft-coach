@@ -6,11 +6,23 @@ use model_core::AugmentId;
 use std::collections::HashMap;
 
 mod matching;
+pub mod minimap;
+pub mod offer;
 pub mod scoreboard;
 #[cfg(windows)]
 mod win;
 
 pub use matching::match_augments;
+pub use minimap::enemy_blips;
+
+/// Where a locator found its element: client pixels, its size over the expected size, and
+/// how sure it is (0..1).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Found {
+    pub rect: scoreboard::Rect,
+    pub scale: f32,
+    pub score: f32,
+}
 
 /// BGRA8 pixels, top-down.
 #[derive(Clone)]

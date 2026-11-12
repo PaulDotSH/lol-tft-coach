@@ -349,6 +349,8 @@ pub fn player(champ: ChampKey, team: Team, position: Option<Lane>) -> Player {
         items: vec![RUBY],
         dead: false,
         respawn_in: 0.0,
+        smite: false,
+        spells: vec![],
     }
 }
 
@@ -391,7 +393,7 @@ pub fn lobby(enemies: [(ChampKey, Lane); 5]) -> Vec<Player> {
 }
 
 pub fn snap(players: Vec<Player>, events: Vec<GameEvent>) -> GameSnapshot {
-    GameSnapshot { time: 900.0, mode: Mode::Rift, map: 11, me: 0, my_gold: 500.0, players, events, my_stats: None }
+    GameSnapshot { time: 900.0, mode: Mode::Rift, map: 11, me: 0, my_gold: 500.0, players, events, my_stats: None, my_abilities: None, swiftplay: false }
 }
 
 pub fn kill(time: f32, killer: usize, victim: usize) -> GameEvent {
@@ -476,7 +478,12 @@ pub fn ahri_stats() -> ChampStats {
             vision_per_min: None,
         },
         runes: None,
+        coachless_runes: None,
         coachless: None,
         summoners: vec![],
+        skill_order: "QWEQQRQWQWRWWEE".into(),
+        skill_order_games: 5_000,
+        skill_priority: "QWE".into(),
+        by_length: vec![],
     }
 }

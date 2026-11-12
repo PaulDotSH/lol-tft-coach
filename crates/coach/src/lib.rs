@@ -3,6 +3,7 @@
 mod analysis;
 mod augment_tags;
 mod augments;
+pub mod brief;
 mod calls;
 mod champ_select;
 mod common;
@@ -11,7 +12,9 @@ mod gold;
 mod draft;
 mod enemy_augments;
 mod fights;
+mod gank;
 mod items;
+pub mod jungle;
 mod lane_matchup;
 mod laning;
 mod macro_coach;
@@ -21,6 +24,8 @@ mod memory;
 mod modes;
 mod needs;
 mod picks;
+mod plan;
+mod posture;
 mod recap;
 mod resists;
 mod runes;
@@ -28,7 +33,10 @@ mod self_stats;
 mod ranked;
 mod selfcoach;
 mod session;
+pub mod sight;
+pub mod situations;
 mod shop;
+pub mod skills;
 mod spikes;
 mod team;
 mod threat;
@@ -36,7 +44,9 @@ mod tips;
 mod timers;
 mod tracker;
 mod trends;
+mod whatif;
 mod windows;
+pub mod winprob;
 
 pub use analysis::{analyze_match, compare_past};
 pub use augments::offer_places;
@@ -48,8 +58,12 @@ pub use selfcoach::{GameLog, HOLDING_GOLD, Now, SPIKE_LEVELS, death_review, goal
 pub use ranked::{ladder, rank_trends};
 pub use trends::trends;
 pub use picks::AugmentTracker;
+pub use plan::{Curve, PlanInput as GamePlanInput, game_plan, roster_draft};
+pub use posture::PostureMemo;
+pub use gank::{GankEnemies, GankTracker, MapView, Seen, SightLog, Sighting};
 use model::*;
 pub use shop::{eta as gold_eta, shopping};
+pub use runes::VsRunes;
 pub use threat::lane_opponent;
 pub use tracker::Tracker;
 
@@ -74,10 +88,22 @@ pub struct GameInput<'a> {
     pub enemy_augments: EnemyAugmentInput<'a>,
     /// Last tick's Buy next: kept unless something clearly beats it.
     pub keep: Option<ItemId>,
+    /// Rift: lolalytics matchup page against my lane opponent (its skill order).
+    pub matchup: Option<&'a MatchupBuild>,
+    /// Games and wins by game length of the champions in the game, as far as fetched.
+    pub curves: &'a std::collections::HashMap<ChampKey, Curve>,
+    /// My income, gold per second (`Tracker::income`); None until enough samples.
+    pub income: Option<f32>,
+    /// Win probability coefficients; None reads the built-in `winprob.toml`.
+    pub winprob: Option<&'a winprob::Model>,
+    /// Rift: Coachless WPA by game situation for this slot's candidates, as far as fetched.
+    pub situations: &'a std::collections::HashMap<ItemId, ItemSituations>,
 }
 
 pub fn game_advice(input: &GameInput) -> GameAdvice {
-    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments, keep } = *input;
+    let GameInput { snap, sd, stats, augments, offered, gold_history, my_augments, enemy_augments, keep, matchup, curves, income, winprob, situations: sits } = *input;
+    let win = winprob::win_prob(&winprob::Input { model: winprob.unwrap_or(winprob::Model::shipped()), snap, sd, curves, history: gold_history });
+    let standing = items::Standing::of(win.as_ref());
     let me = snap.players.get(snap.me);
     let my_champ = me.map_or(0, |p| p.champ);
     let owned = me.map_or(&[][..], |p| &p.items);
@@ -88,15 +114,25 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     enemy_augments::adjust_needs(&mut needs, &a, &aug_tags);
     rules.scale_needs(&mut needs.p);
     resists::tilt_needs(&mut needs.p, snap.my_stats.as_ref());
+    if let Some(s) = standing {
+        needs::standing(&mut needs.p, s);
+    }
     let mut ctx = items::Ctx::new(sd, stats, common::champ(sd, my_champ), snap.mode);
     ctx.keep = keep;
-    ctx.ahead = me.is_some_and(|p| {
-        p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0)
+    ctx.ahead = me.is_some_and(|p| match standing {
+        Some(s) => {
+            let team: Vec<u32> = snap.players.iter().filter(|q| q.team == p.team).map(|q| common::inventory(sd, &q.items).gold).collect();
+            s == items::Standing::Ahead && common::inventory(sd, &p.items).gold as f32 * team.len() as f32 >= team.iter().sum::<u32>() as f32
+        }
+        None => p.kills as f32 + p.assists as f32 / 2.0 >= consts::AHEAD_KDA * (p.deaths as f32 + 1.0),
     });
+    ctx.tempo = income.filter(|_| standing == Some(items::Standing::Behind)).map(|income| items::Tempo { income, gold: snap.my_gold, owned });
+    if snap.mode == Mode::Rift && standing.is_some() {
+        ctx.situations = Some(sits);
+        ctx.now = situations::live(&a.foes, standing);
+    }
     ctx.live = snap.my_stats.as_ref();
-    ctx.support = snap.mode == Mode::Rift
-        && (me.is_some_and(|p| p.position == Some(Lane::Support))
-            || owned.iter().any(|i| consts::SUPPORT_QUEST.contains(i) || consts::SUPPORT_UPGRADES.contains(i)));
+    ctx.support = support(snap);
     ctx.aug = augment_tags::AugEffects::new(my_augments);
     if ctx.aug.find(augment_tags::Tag::Tenacity).is_some() {
         needs.p[modes::TENACITY] *= augment_tags::AUG_TENACITY_NEED;
@@ -104,6 +140,8 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let est = resists::enemies(snap, sd, rules);
     ctx.pen = resists::Targets::new(&est, &a.foes, snap.my_stats.as_ref(), resists::item_pen(sd, owned));
     let notes = ctx.pen.as_ref().map_or(vec![], |t| t.notes(sd, ctx.champ.traits.magic_share));
+    let lane_opp = a.lane_opp.and_then(|i| snap.players.get(i)).map(|p| p.champ);
+    ctx.sim = whatif::Sim::new(&whatif::SimInput { snap, sd, stats, champ: ctx.champ, est: &est, foes: &a.foes, lane_opp, rules });
     let b = if me.is_some() { items::build(&ctx, owned, &needs) } else { items::Build { path: vec![], alts: vec![] } };
     let finished = owned.iter().filter(|i| sd.items.get(i).is_some_and(|i| i.completed)).count();
     let gold_sinks = match me {
@@ -116,8 +154,9 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let pick = |s: &items::Scored, g| items::to_pick(&ctx, s, &needs, &a.foes, g);
     let me_stats = self_stats::self_stats(snap, sd, stats, a.lane_opp);
     let my_lane = stats.and_then(|s| s.lane);
-    let gold_diff = gold::gold_diff(snap, sd, a.lane_opp, my_lane, me_stats.item_gold_vs_opp, gold_history);
+    let gold_diff = gold::gold_diff(snap, sd, a.lane_opp, my_lane, me_stats.item_gold_vs_opp, win.as_ref().map(|w| w.base), gold_history);
     let path_ids: Vec<ItemId> = b.path.iter().map(|s| s.id).collect();
+    let what_if = ctx.sim.as_ref().map_or(vec![], |s| b.path.first().into_iter().chain(&b.alts).filter_map(|x| sd.items.get(&x.id)).map(|it| s.eval(it)).collect());
     GameAdvice {
         time: snap.time,
         mode: snap.mode,
@@ -146,7 +185,38 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         calls: vec![],
         tips: vec![],
         matchup: vec![],
+        skill: skills::advice(snap, sd, stats, matchup),
+        what_if,
+        jungle: None,
+        win,
+        posture: None,
     }
+}
+
+/// Rift support: the quest item holds a slot.
+fn support(snap: &GameSnapshot) -> bool {
+    let me = snap.players.get(snap.me);
+    snap.mode == Mode::Rift
+        && me.is_some_and(|p| p.position == Some(Lane::Support) || p.items.iter().any(|i| consts::SUPPORT_QUEST.contains(i) || consts::SUPPORT_UPGRADES.contains(i)))
+}
+
+/// The items whose Coachless situations the next tick can use, with the build slot each is
+/// scored in: Buy next and the alternatives, then the next two path items; at most six.
+pub fn situation_items(advice: &GameAdvice, snap: &GameSnapshot, sd: &StaticData) -> Vec<(ItemId, BuildSlot)> {
+    let owned = snap.players.get(snap.me).map_or(&[][..], |p| &p.items);
+    let mut legend = owned.iter().filter(|i| sd.items.get(i).is_some_and(|i| i.completed && !i.boots)).count() + support(snap) as usize;
+    let mut path = advice.path.iter().map(|p| {
+        let slot = if sd.items.get(&p.item).is_some_and(|i| i.boots) { BuildSlot::Boots } else { legend += 1; BuildSlot::Legendary(legend - 1) };
+        (p.item, slot)
+    });
+    let Some(first) = path.next() else { return vec![] };
+    let mut out = vec![first];
+    for (id, slot) in advice.alternatives.iter().map(|a| (a.item, first.1)).chain(path.take(2)) {
+        if out.len() < 6 && !out.iter().any(|o| o.0 == id) {
+            out.push((id, slot));
+        }
+    }
+    out
 }
 
 /// State the orchestrator keeps or fetches across ticks, for [`live_extras`].
@@ -173,8 +243,15 @@ pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
     spikes::annotate(&mut advice.threats, snap, tracker, ults);
     calls::annotate(advice, snap, sd);
     tips::annotate(advice, snap, sd, tracker);
+    jungle::annotate(advice, snap, sd, tracker);
     let me = snap.players.get(snap.me).map_or(0, |p| p.champ);
     advice.matchup = lane_matchup::laning(advice, snap, &CardData { sd, notes, me, spells, memory });
+}
+
+/// After [`live_extras`]: the posture read from `advice.win` (None without it), kept steady by
+/// `memo`; a stance change adds one call (key `stance-…`, spoken only with `posture_calls`).
+pub fn posture(advice: &mut GameAdvice, memo: &mut PostureMemo, snap: &GameSnapshot, sd: &StaticData) {
+    posture::annotate(advice, memo, snap, sd);
 }
 
 pub struct ChampSelectInput<'a> {
@@ -195,6 +272,11 @@ pub struct ChampSelectInput<'a> {
 
 pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
     champ_select::advice(input)
+}
+
+/// `champ_select_advice`'s rune pages with the pages against my lane opponent added.
+pub fn champ_select_runes(input: &ChampSelectInput, vs: &VsRunes) -> Option<RuneAdvice> {
+    champ_select::rune_pages(input, Some(vs))
 }
 
 pub fn recap(eog: &EogStats, benchmarks: &Benchmarks, recommended: &[ItemId], sd: &StaticData) -> Recap {

@@ -218,8 +218,11 @@ best Mayhem-tier champion is not always the best for *this* team.
 - **Policy:** low (own team only; enemies hidden in ARAM) · **Effort:** M
 
 ### V9. Runes (display only, Rift)
-lolalytics runes for champ/lane, nudged by enemy comp (e.g. Bone Plating vs
-burst lanes). Display only, no import (see R7). Mayhem has no runes.
+Rune pages to choose from: against the lane opponent (Coachless filtered to the
+matchup, lolalytics' matchup page), Coachless' best WPA page, lolalytics' most
+played and highest win rate pages; equal pages merged. Each is nudged by enemy
+comp (e.g. Bone Plating vs burst, Nullifying Orb vs magic burst). Display only,
+no import (see R7). Mayhem has no runes.
 - **Policy:** none · **Effort:** M
 
 ### V10. Death review (recap)

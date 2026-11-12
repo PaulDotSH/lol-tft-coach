@@ -27,3 +27,24 @@ pub fn save(s: &Settings) -> anyhow::Result<()> {
     std::fs::write(dir.join("settings.toml"), toml::to_string(s)?)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overlay_is_opt_in() {
+        assert!(!Settings::default().overlay);
+        let old: Settings = toml::from_str("tier = \"all\"\nregion = \"all\"\nocr_enabled = true\nrecord_fixtures = false\n").unwrap();
+        assert!(!old.overlay);
+        assert!(old.audio && old.gank_warn && old.game_note);
+        assert!(!old.tft_crops && !Settings::default().tft_crops);
+    }
+
+    #[test]
+    fn win_probability_is_shown_and_posture_calls_are_silent_by_default() {
+        let old: Settings = toml::from_str("tier = \"all\"\nregion = \"all\"\nocr_enabled = true\nrecord_fixtures = false\n").unwrap();
+        assert!(old.win_prob && !old.posture_calls);
+        assert!(Settings::default().win_prob && !Settings::default().posture_calls);
+    }
+}

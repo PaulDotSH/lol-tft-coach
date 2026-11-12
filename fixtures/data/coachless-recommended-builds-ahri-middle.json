@@ -1,0 +1,1684 @@
+{
+  "builds": [
+    {
+      "firstItemId": 2503,
+      "itemBlocks": [
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 1056,
+              "occurrence": 31526,
+              "wpa": 0.752
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2003,
+              "occurrence": null,
+              "wpa": null
+            }
+          ],
+          "type": 0
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 1082,
+              "occurrence": 44075,
+              "wpa": 1.556
+            }
+          ],
+          "type": 1
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3802,
+              "occurrence": 250089,
+              "wpa": 0.949
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2508,
+              "occurrence": 60377,
+              "wpa": 0.769
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2503,
+              "occurrence": 17261,
+              "wpa": 1.904
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3047,
+              "occurrence": 1181,
+              "wpa": 5.705
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3158,
+              "occurrence": 32136,
+              "wpa": 0.863
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3020,
+              "occurrence": 27087,
+              "wpa": 0.935
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3111,
+              "occurrence": 6564,
+              "wpa": 0.85
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3100,
+              "occurrence": 30968,
+              "wpa": 1.229
+            }
+          ],
+          "type": 2
+        },
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3157,
+              "occurrence": 12329,
+              "wpa": 0.272
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3089,
+              "occurrence": 9670,
+              "wpa": 0.168
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 3082,
+              "wpa": 2.015
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 6341,
+              "wpa": -0.255
+            }
+          ],
+          "type": 3
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3089,
+              "occurrence": 6197,
+              "wpa": 0.692
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3157,
+              "occurrence": 5131,
+              "wpa": -0.082
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3135,
+              "occurrence": 2111,
+              "wpa": 0.76
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 4645,
+              "occurrence": 1974,
+              "wpa": -1.156
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3137,
+              "occurrence": 1768,
+              "wpa": -0.024
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 2397,
+              "wpa": -0.913
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 6653,
+              "occurrence": 251,
+              "wpa": 1.331
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3102,
+              "occurrence": 860,
+              "wpa": 1.127
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3152,
+              "occurrence": 140,
+              "wpa": 0.759
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3165,
+              "occurrence": 532,
+              "wpa": -1.711
+            }
+          ],
+          "type": 4
+        }
+      ],
+      "keystone": 8992,
+      "mostPopular": false,
+      "occurrence": 17261,
+      "runes": {
+        "primaryTree": 8200,
+        "runeStats": [
+          {
+            "occurrence": 120,
+            "rune": 8008,
+            "wpa": -4.882
+          },
+          {
+            "occurrence": 176,
+            "rune": 8010,
+            "wpa": 0.693
+          },
+          {
+            "occurrence": 221699,
+            "rune": 8112,
+            "wpa": -0.094
+          },
+          {
+            "occurrence": 611,
+            "rune": 8128,
+            "wpa": -3.816
+          },
+          {
+            "occurrence": 1020,
+            "rune": 8214,
+            "wpa": 4.094
+          },
+          {
+            "occurrence": 826,
+            "rune": 8229,
+            "wpa": -4.498
+          },
+          {
+            "occurrence": 157,
+            "rune": 8230,
+            "wpa": -2.975
+          },
+          {
+            "occurrence": 555,
+            "rune": 8369,
+            "wpa": 1.231
+          },
+          {
+            "occurrence": 31786,
+            "rune": 8992,
+            "wpa": 0.76
+          },
+          {
+            "occurrence": 859,
+            "rune": 8224,
+            "wpa": 2.158
+          },
+          {
+            "occurrence": 30860,
+            "rune": 8226,
+            "wpa": -0.056
+          },
+          {
+            "occurrence": null,
+            "rune": 8275,
+            "wpa": null
+          },
+          {
+            "occurrence": 30914,
+            "rune": 8210,
+            "wpa": -0.008
+          },
+          {
+            "occurrence": 247,
+            "rune": 8233,
+            "wpa": 2.08
+          },
+          {
+            "occurrence": 625,
+            "rune": 8234,
+            "wpa": -0.402
+          },
+          {
+            "occurrence": 2110,
+            "rune": 8236,
+            "wpa": -1.08
+          },
+          {
+            "occurrence": 29641,
+            "rune": 8237,
+            "wpa": 0.091
+          },
+          {
+            "occurrence": 310,
+            "rune": 8444,
+            "wpa": 2.007
+          },
+          {
+            "occurrence": 2956,
+            "rune": 8473,
+            "wpa": 2.242
+          },
+          {
+            "occurrence": 562,
+            "rune": 8242,
+            "wpa": 1.961
+          },
+          {
+            "occurrence": 2596,
+            "rune": 8451,
+            "wpa": 2.974
+          },
+          {
+            "occurrence": null,
+            "rune": 8453,
+            "wpa": null
+          }
+        ],
+        "secondaryTree": 8400,
+        "selectedRunes": [
+          8992,
+          8226,
+          8210,
+          8237,
+          8451,
+          8473
+        ],
+        "selectedShards": [
+          5008,
+          5010,
+          5011
+        ],
+        "shardStats": [
+          [
+            {
+              "occurrence": 28354,
+              "rune": 5005,
+              "wpa": -0.288
+            },
+            {
+              "occurrence": 494,
+              "rune": 5007,
+              "wpa": 0.212
+            },
+            {
+              "occurrence": 2938,
+              "rune": 5008,
+              "wpa": 2.746
+            }
+          ],
+          [
+            {
+              "occurrence": null,
+              "rune": 5001,
+              "wpa": null
+            },
+            {
+              "occurrence": 30022,
+              "rune": 5008,
+              "wpa": -0.127
+            },
+            {
+              "occurrence": 1696,
+              "rune": 5010,
+              "wpa": 2.263
+            }
+          ],
+          [
+            {
+              "occurrence": 26646,
+              "rune": 5001,
+              "wpa": -0.224
+            },
+            {
+              "occurrence": 4670,
+              "rune": 5011,
+              "wpa": 1.282
+            },
+            {
+              "occurrence": 470,
+              "rune": 5013,
+              "wpa": -0.015
+            }
+          ]
+        ]
+      },
+      "secondItemId": 3100,
+      "starterIds": [
+        1056
+      ],
+      "tier": 1,
+      "winrate": 53.32
+    },
+    {
+      "firstItemId": 2503,
+      "itemBlocks": [
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 1056,
+              "occurrence": 220600,
+              "wpa": -0.096
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2003,
+              "occurrence": null,
+              "wpa": null
+            }
+          ],
+          "type": 0
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 1082,
+              "occurrence": 44075,
+              "wpa": 1.556
+            }
+          ],
+          "type": 1
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3802,
+              "occurrence": 250089,
+              "wpa": 0.949
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2508,
+              "occurrence": 60377,
+              "wpa": 0.769
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2503,
+              "occurrence": 49488,
+              "wpa": 0.828
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3047,
+              "occurrence": 1181,
+              "wpa": 5.705
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3020,
+              "occurrence": 27087,
+              "wpa": 0.935
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3158,
+              "occurrence": 32136,
+              "wpa": 0.863
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3111,
+              "occurrence": 6564,
+              "wpa": 0.85
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3100,
+              "occurrence": 30968,
+              "wpa": 1.229
+            }
+          ],
+          "type": 2
+        },
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 3082,
+              "wpa": 2.015
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3157,
+              "occurrence": 12329,
+              "wpa": 0.272
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3089,
+              "occurrence": 9670,
+              "wpa": 0.168
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 6341,
+              "wpa": -0.255
+            }
+          ],
+          "type": 3
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3089,
+              "occurrence": 6197,
+              "wpa": 0.692
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3157,
+              "occurrence": 5131,
+              "wpa": -0.082
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3135,
+              "occurrence": 2111,
+              "wpa": 0.76
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3102,
+              "occurrence": 860,
+              "wpa": 1.127
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3137,
+              "occurrence": 1768,
+              "wpa": -0.024
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 2397,
+              "wpa": -0.913
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 1974,
+              "wpa": -1.156
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3165,
+              "occurrence": 532,
+              "wpa": -1.711
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4629,
+              "occurrence": 453,
+              "wpa": -0.674
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3118,
+              "occurrence": 298,
+              "wpa": -0.664
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 6653,
+              "occurrence": 251,
+              "wpa": 1.331
+            }
+          ],
+          "type": 4
+        }
+      ],
+      "keystone": 8112,
+      "mostPopular": false,
+      "occurrence": 49488,
+      "runes": {
+        "primaryTree": 8100,
+        "runeStats": [
+          {
+            "occurrence": 120,
+            "rune": 8008,
+            "wpa": -4.882
+          },
+          {
+            "occurrence": 176,
+            "rune": 8010,
+            "wpa": 0.693
+          },
+          {
+            "occurrence": 221699,
+            "rune": 8112,
+            "wpa": -0.094
+          },
+          {
+            "occurrence": 611,
+            "rune": 8128,
+            "wpa": -3.816
+          },
+          {
+            "occurrence": 1020,
+            "rune": 8214,
+            "wpa": 4.094
+          },
+          {
+            "occurrence": 826,
+            "rune": 8229,
+            "wpa": -4.498
+          },
+          {
+            "occurrence": 157,
+            "rune": 8230,
+            "wpa": -2.975
+          },
+          {
+            "occurrence": 555,
+            "rune": 8369,
+            "wpa": 1.231
+          },
+          {
+            "occurrence": 31786,
+            "rune": 8992,
+            "wpa": 0.76
+          },
+          {
+            "occurrence": 4629,
+            "rune": 8126,
+            "wpa": 0.213
+          },
+          {
+            "occurrence": 208044,
+            "rune": 8139,
+            "wpa": -0.076
+          },
+          {
+            "occurrence": 9026,
+            "rune": 8143,
+            "wpa": 1.647
+          },
+          {
+            "occurrence": 17936,
+            "rune": 8137,
+            "wpa": 1.259
+          },
+          {
+            "occurrence": 200468,
+            "rune": 8140,
+            "wpa": -0.141
+          },
+          {
+            "occurrence": 3295,
+            "rune": 8141,
+            "wpa": 1.739
+          },
+          {
+            "occurrence": 1161,
+            "rune": 8105,
+            "wpa": 0.246
+          },
+          {
+            "occurrence": 219173,
+            "rune": 8106,
+            "wpa": 0.002
+          },
+          {
+            "occurrence": 1365,
+            "rune": 8135,
+            "wpa": -0.51
+          },
+          {
+            "occurrence": 136,
+            "rune": 8446,
+            "wpa": -0.174
+          },
+          {
+            "occurrence": 1334,
+            "rune": 8444,
+            "wpa": -1.242
+          },
+          {
+            "occurrence": 12847,
+            "rune": 8473,
+            "wpa": 2.07
+          },
+          {
+            "occurrence": 3820,
+            "rune": 8242,
+            "wpa": 1.777
+          },
+          {
+            "occurrence": 9613,
+            "rune": 8451,
+            "wpa": 2.08
+          },
+          {
+            "occurrence": 620,
+            "rune": 8453,
+            "wpa": -2.972
+          }
+        ],
+        "secondaryTree": 8400,
+        "selectedRunes": [
+          8112,
+          8143,
+          8137,
+          8106,
+          8473,
+          8451
+        ],
+        "selectedShards": [
+          5008,
+          5008,
+          5011
+        ],
+        "shardStats": [
+          [
+            {
+              "occurrence": 208516,
+              "rune": 5005,
+              "wpa": -0.058
+            },
+            {
+              "occurrence": 2016,
+              "rune": 5007,
+              "wpa": 0.329
+            },
+            {
+              "occurrence": 11167,
+              "rune": 5008,
+              "wpa": 1.018
+            }
+          ],
+          [
+            {
+              "occurrence": 423,
+              "rune": 5001,
+              "wpa": -1.066
+            },
+            {
+              "occurrence": 217362,
+              "rune": 5008,
+              "wpa": -0.014
+            },
+            {
+              "occurrence": 3914,
+              "rune": 5010,
+              "wpa": 0.883
+            }
+          ],
+          [
+            {
+              "occurrence": 171554,
+              "rune": 5001,
+              "wpa": -0.396
+            },
+            {
+              "occurrence": 47182,
+              "rune": 5011,
+              "wpa": 1.507
+            },
+            {
+              "occurrence": 2963,
+              "rune": 5013,
+              "wpa": -1.065
+            }
+          ]
+        ]
+      },
+      "secondItemId": 3100,
+      "starterIds": [
+        1056
+      ],
+      "tier": 1,
+      "winrate": 52.74
+    },
+    {
+      "firstItemId": 3118,
+      "itemBlocks": [
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 1056,
+              "occurrence": 31526,
+              "wpa": 0.752
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2003,
+              "occurrence": null,
+              "wpa": null
+            }
+          ],
+          "type": 0
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 1082,
+              "occurrence": 44075,
+              "wpa": 1.556
+            }
+          ],
+          "type": 1
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3802,
+              "occurrence": 250089,
+              "wpa": -0.212
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 1026,
+              "occurrence": 201144,
+              "wpa": -0.284
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3118,
+              "occurrence": 10946,
+              "wpa": 0.323
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3158,
+              "occurrence": 34189,
+              "wpa": 0.199
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3020,
+              "occurrence": 100846,
+              "wpa": -0.287
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3111,
+              "occurrence": 16104,
+              "wpa": 0.232
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3100,
+              "occurrence": 39702,
+              "wpa": 1.296
+            }
+          ],
+          "type": 2
+        },
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3102,
+              "occurrence": 1843,
+              "wpa": 1.131
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 6036,
+              "wpa": 1.489
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 14038,
+              "wpa": 0.459
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3089,
+              "occurrence": 25500,
+              "wpa": -0.222
+            }
+          ],
+          "type": 3
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3089,
+              "occurrence": 14769,
+              "wpa": 0.3
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3102,
+              "occurrence": 2101,
+              "wpa": 2.441
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3157,
+              "occurrence": 11661,
+              "wpa": 0.187
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 4646,
+              "occurrence": 1131,
+              "wpa": 0.449
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4629,
+              "occurrence": 628,
+              "wpa": 1.358
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3165,
+              "occurrence": 871,
+              "wpa": -0.263
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 4402,
+              "wpa": 0.244
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3135,
+              "occurrence": 4995,
+              "wpa": -0.321
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3137,
+              "occurrence": 1914,
+              "wpa": -1.613
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 2984,
+              "wpa": 0.247
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3152,
+              "occurrence": 308,
+              "wpa": -0.858
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 6653,
+              "occurrence": 313,
+              "wpa": -0.999
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 6655,
+              "occurrence": 389,
+              "wpa": -1.973
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2503,
+              "occurrence": 211,
+              "wpa": -0.391
+            }
+          ],
+          "type": 4
+        }
+      ],
+      "keystone": 8992,
+      "mostPopular": false,
+      "occurrence": 10946,
+      "runes": {
+        "primaryTree": 8200,
+        "runeStats": [
+          {
+            "occurrence": 120,
+            "rune": 8008,
+            "wpa": -4.882
+          },
+          {
+            "occurrence": 176,
+            "rune": 8010,
+            "wpa": 0.693
+          },
+          {
+            "occurrence": 221699,
+            "rune": 8112,
+            "wpa": -0.094
+          },
+          {
+            "occurrence": 611,
+            "rune": 8128,
+            "wpa": -3.816
+          },
+          {
+            "occurrence": 1020,
+            "rune": 8214,
+            "wpa": 4.094
+          },
+          {
+            "occurrence": 826,
+            "rune": 8229,
+            "wpa": -4.498
+          },
+          {
+            "occurrence": 157,
+            "rune": 8230,
+            "wpa": -2.975
+          },
+          {
+            "occurrence": 555,
+            "rune": 8369,
+            "wpa": 1.231
+          },
+          {
+            "occurrence": 31786,
+            "rune": 8992,
+            "wpa": 0.76
+          },
+          {
+            "occurrence": 859,
+            "rune": 8224,
+            "wpa": 2.158
+          },
+          {
+            "occurrence": 30860,
+            "rune": 8226,
+            "wpa": -0.056
+          },
+          {
+            "occurrence": null,
+            "rune": 8275,
+            "wpa": null
+          },
+          {
+            "occurrence": 30914,
+            "rune": 8210,
+            "wpa": -0.008
+          },
+          {
+            "occurrence": 247,
+            "rune": 8233,
+            "wpa": 2.08
+          },
+          {
+            "occurrence": 625,
+            "rune": 8234,
+            "wpa": -0.402
+          },
+          {
+            "occurrence": 2110,
+            "rune": 8236,
+            "wpa": -1.08
+          },
+          {
+            "occurrence": 29641,
+            "rune": 8237,
+            "wpa": 0.091
+          },
+          {
+            "occurrence": 310,
+            "rune": 8444,
+            "wpa": 2.007
+          },
+          {
+            "occurrence": 2956,
+            "rune": 8473,
+            "wpa": 2.242
+          },
+          {
+            "occurrence": 562,
+            "rune": 8242,
+            "wpa": 1.961
+          },
+          {
+            "occurrence": 2596,
+            "rune": 8451,
+            "wpa": 2.974
+          },
+          {
+            "occurrence": null,
+            "rune": 8453,
+            "wpa": null
+          }
+        ],
+        "secondaryTree": 8400,
+        "selectedRunes": [
+          8992,
+          8226,
+          8210,
+          8237,
+          8451,
+          8473
+        ],
+        "selectedShards": [
+          5008,
+          5010,
+          5011
+        ],
+        "shardStats": [
+          [
+            {
+              "occurrence": 28354,
+              "rune": 5005,
+              "wpa": -0.288
+            },
+            {
+              "occurrence": 494,
+              "rune": 5007,
+              "wpa": 0.212
+            },
+            {
+              "occurrence": 2938,
+              "rune": 5008,
+              "wpa": 2.746
+            }
+          ],
+          [
+            {
+              "occurrence": null,
+              "rune": 5001,
+              "wpa": null
+            },
+            {
+              "occurrence": 30022,
+              "rune": 5008,
+              "wpa": -0.127
+            },
+            {
+              "occurrence": 1696,
+              "rune": 5010,
+              "wpa": 2.263
+            }
+          ],
+          [
+            {
+              "occurrence": 26646,
+              "rune": 5001,
+              "wpa": -0.224
+            },
+            {
+              "occurrence": 4670,
+              "rune": 5011,
+              "wpa": 1.282
+            },
+            {
+              "occurrence": 470,
+              "rune": 5013,
+              "wpa": -0.015
+            }
+          ]
+        ]
+      },
+      "secondItemId": 3100,
+      "starterIds": [
+        1056
+      ],
+      "tier": 2,
+      "winrate": 51.75
+    },
+    {
+      "firstItemId": 3118,
+      "itemBlocks": [
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 1056,
+              "occurrence": 220600,
+              "wpa": -0.096
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 2003,
+              "occurrence": null,
+              "wpa": null
+            }
+          ],
+          "type": 0
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 1082,
+              "occurrence": 44075,
+              "wpa": 1.556
+            }
+          ],
+          "type": 1
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3802,
+              "occurrence": 250089,
+              "wpa": -0.212
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 1026,
+              "occurrence": 201144,
+              "wpa": -0.284
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3118,
+              "occurrence": 143250,
+              "wpa": -0.398
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3158,
+              "occurrence": 34189,
+              "wpa": 0.199
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3047,
+              "occurrence": 2451,
+              "wpa": 1.484
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3111,
+              "occurrence": 16104,
+              "wpa": 0.232
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3020,
+              "occurrence": 100846,
+              "wpa": -0.287
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3100,
+              "occurrence": 39702,
+              "wpa": 1.296
+            }
+          ],
+          "type": 2
+        },
+        {
+          "items": [
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 6036,
+              "wpa": 1.489
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 14038,
+              "wpa": 0.459
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3089,
+              "occurrence": 25500,
+              "wpa": -0.222
+            },
+            {
+              "chooseOne": true,
+              "highlighted": false,
+              "itemId": 3157,
+              "occurrence": 34110,
+              "wpa": -0.542
+            }
+          ],
+          "type": 3
+        },
+        {
+          "items": [
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3089,
+              "occurrence": 14769,
+              "wpa": 0.3
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3102,
+              "occurrence": 2101,
+              "wpa": 2.441
+            },
+            {
+              "chooseOne": false,
+              "highlighted": true,
+              "itemId": 3157,
+              "occurrence": 11661,
+              "wpa": 0.187
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3041,
+              "occurrence": 4402,
+              "wpa": 0.244
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4645,
+              "occurrence": 2984,
+              "wpa": 0.247
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3135,
+              "occurrence": 4995,
+              "wpa": -0.321
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4646,
+              "occurrence": 1131,
+              "wpa": 0.449
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3137,
+              "occurrence": 1914,
+              "wpa": -1.613
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 4629,
+              "occurrence": 628,
+              "wpa": 1.358
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3165,
+              "occurrence": 871,
+              "wpa": -0.263
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 6653,
+              "occurrence": 313,
+              "wpa": -0.999
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 6655,
+              "occurrence": 389,
+              "wpa": -1.973
+            },
+            {
+              "chooseOne": false,
+              "highlighted": false,
+              "itemId": 3152,
+              "occurrence": 308,
+              "wpa": -0.858
+            }
+          ],
+          "type": 4
+        }
+      ],
+      "keystone": 8112,
+      "mostPopular": true,
+      "occurrence": 143250,
+      "runes": {
+        "primaryTree": 8100,
+        "runeStats": [
+          {
+            "occurrence": 120,
+            "rune": 8008,
+            "wpa": -4.882
+          },
+          {
+            "occurrence": 176,
+            "rune": 8010,
+            "wpa": 0.693
+          },
+          {
+            "occurrence": 221699,
+            "rune": 8112,
+            "wpa": -0.094
+          },
+          {
+            "occurrence": 611,
+            "rune": 8128,
+            "wpa": -3.816
+          },
+          {
+            "occurrence": 1020,
+            "rune": 8214,
+            "wpa": 4.094
+          },
+          {
+            "occurrence": 826,
+            "rune": 8229,
+            "wpa": -4.498
+          },
+          {
+            "occurrence": 157,
+            "rune": 8230,
+            "wpa": -2.975
+          },
+          {
+            "occurrence": 555,
+            "rune": 8369,
+            "wpa": 1.231
+          },
+          {
+            "occurrence": 31786,
+            "rune": 8992,
+            "wpa": 0.76
+          },
+          {
+            "occurrence": 4629,
+            "rune": 8126,
+            "wpa": 0.213
+          },
+          {
+            "occurrence": 208044,
+            "rune": 8139,
+            "wpa": -0.076
+          },
+          {
+            "occurrence": 9026,
+            "rune": 8143,
+            "wpa": 1.647
+          },
+          {
+            "occurrence": 17936,
+            "rune": 8137,
+            "wpa": 1.259
+          },
+          {
+            "occurrence": 200468,
+            "rune": 8140,
+            "wpa": -0.141
+          },
+          {
+            "occurrence": 3295,
+            "rune": 8141,
+            "wpa": 1.739
+          },
+          {
+            "occurrence": 1161,
+            "rune": 8105,
+            "wpa": 0.246
+          },
+          {
+            "occurrence": 219173,
+            "rune": 8106,
+            "wpa": 0.002
+          },
+          {
+            "occurrence": 1365,
+            "rune": 8135,
+            "wpa": -0.51
+          },
+          {
+            "occurrence": 136,
+            "rune": 8446,
+            "wpa": -0.174
+          },
+          {
+            "occurrence": 1334,
+            "rune": 8444,
+            "wpa": -1.242
+          },
+          {
+            "occurrence": 12847,
+            "rune": 8473,
+            "wpa": 2.07
+          },
+          {
+            "occurrence": 3820,
+            "rune": 8242,
+            "wpa": 1.777
+          },
+          {
+            "occurrence": 9613,
+            "rune": 8451,
+            "wpa": 2.08
+          },
+          {
+            "occurrence": 620,
+            "rune": 8453,
+            "wpa": -2.972
+          }
+        ],
+        "secondaryTree": 8400,
+        "selectedRunes": [
+          8112,
+          8143,
+          8137,
+          8106,
+          8473,
+          8451
+        ],
+        "selectedShards": [
+          5008,
+          5008,
+          5011
+        ],
+        "shardStats": [
+          [
+            {
+              "occurrence": 208516,
+              "rune": 5005,
+              "wpa": -0.058
+            },
+            {
+              "occurrence": 2016,
+              "rune": 5007,
+              "wpa": 0.329
+            },
+            {
+              "occurrence": 11167,
+              "rune": 5008,
+              "wpa": 1.018
+            }
+          ],
+          [
+            {
+              "occurrence": 423,
+              "rune": 5001,
+              "wpa": -1.066
+            },
+            {
+              "occurrence": 217362,
+              "rune": 5008,
+              "wpa": -0.014
+            },
+            {
+              "occurrence": 3914,
+              "rune": 5010,
+              "wpa": 0.883
+            }
+          ],
+          [
+            {
+              "occurrence": 171554,
+              "rune": 5001,
+              "wpa": -0.396
+            },
+            {
+              "occurrence": 47182,
+              "rune": 5011,
+              "wpa": 1.507
+            },
+            {
+              "occurrence": 2963,
+              "rune": 5013,
+              "wpa": -1.065
+            }
+          ]
+        ]
+      },
+      "secondItemId": 3100,
+      "starterIds": [
+        1056
+      ],
+      "tier": 2,
+      "winrate": 51.32
+    }
+  ],
+  "role": 2,
+  "spellDuos": [
+    {
+      "occurrence": 182176,
+      "spellIds": [
+        4,
+        14
+      ],
+      "wpa": 0.266
+    },
+    {
+      "occurrence": 69433,
+      "spellIds": [
+        4,
+        12
+      ],
+      "wpa": -0.629
+    },
+    {
+      "occurrence": 3403,
+      "spellIds": [
+        4,
+        3
+      ],
+      "wpa": -0.426
+    }
+  ]
+}

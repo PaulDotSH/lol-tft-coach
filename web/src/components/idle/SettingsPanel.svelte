@@ -1,9 +1,19 @@
 <script lang="ts">
+  import type { ReaderHealth } from '../../lib/bindings/ReaderHealth';
+  import type { ReaderState } from '../../lib/bindings/ReaderState';
   import type { Settings } from '../../lib/bindings/Settings';
   import type { Sources } from '../../lib/bindings/Sources';
   import { coachless, saveSettings } from '../../lib/store.svelte';
 
-  let { settings, sources }: { settings: Settings; sources: Sources } = $props();
+  let { settings, sources, readers = [], sync = '' }: { settings: Settings; sources: Sources; readers?: ReaderHealth[]; sync?: string } = $props();
+
+  const READER_STATES: Record<ReaderState, string> = {
+    ok: 'OK',
+    shifted: 'Found, moved',
+    notfound: 'Not found',
+    off: 'Off',
+    unverified: 'Not checked',
+  };
   const signedIn = $derived(sources.coachless !== 'off');
 
   const TIERS = [
@@ -39,6 +49,16 @@
     <button id="coachless" onclick={() => coachless(!signedIn)}>{signedIn ? 'Sign out' : 'Sign in'}</button>
     <label for="audio">Speak in-game calls aloud</label>
     <input id="audio" type="checkbox" checked={settings.audio} onchange={(e) => set('audio', e.currentTarget.checked)} />
+    <label for="winprob">
+      Win chance and posture in game
+      <small>your team's chance from the scoreboard, what moves it, what the next objectives are worth and a read of the next minutes; needs a fitted model</small>
+    </label>
+    <input id="winprob" type="checkbox" checked={settings.win_prob} onchange={(e) => set('win_prob', e.currentTarget.checked)} />
+    <label for="posture">
+      Speak posture changes
+      <small>with calls spoken aloud: says when the read changes, as from ahead to even</small>
+    </label>
+    <input id="posture" type="checkbox" checked={settings.posture_calls} onchange={(e) => set('posture_calls', e.currentTarget.checked)} />
     <label for="overlay">
       In-game overlay over the game window
       <small>borderless or windowed; exclusive fullscreen hides it</small>
@@ -46,9 +66,43 @@
     <input id="overlay" type="checkbox" checked={settings.overlay} onchange={(e) => set('overlay', e.currentTarget.checked)} />
     <label for="ocr">Read Mayhem augments from screen</label>
     <input id="ocr" type="checkbox" checked={settings.ocr_enabled} onchange={(e) => set('ocr_enabled', e.currentTarget.checked)} />
+    <label for="gank">
+      Gank warnings
+      <small>reads the minimap on the Rift and warns of ganks on your lane, the enemy jungler, roams and enemies in your jungle</small>
+    </label>
+    <input id="gank" type="checkbox" checked={settings.gank_warn} onchange={(e) => set('gank_warn', e.currentTarget.checked)} />
+    <label for="note">
+      Coach's note in game reviews
+      <small>a few connected takeaways and a focus, written by rules from the game's own facts after it ends</small>
+    </label>
+    <input id="note" type="checkbox" checked={settings.game_note} onchange={(e) => set('game_note', e.currentTarget.checked)} />
     <label for="rec">Record games as test fixtures</label>
     <input id="rec" type="checkbox" checked={settings.record_fixtures} onchange={(e) => set('record_fixtures', e.currentTarget.checked)} />
+    <label for="crops">
+      Collect TFT unit crops
+      <small>saves unit pictures of each fight and scouted board for training unit recognition; always on in debug mode</small>
+    </label>
+    <input id="crops" type="checkbox" checked={settings.tft_crops} onchange={(e) => set('tft_crops', e.currentTarget.checked)} />
+    <label for="server">
+      Server address
+      <small>your minipc service keeps your games, recaps and rank history; leave empty to keep everything on this PC</small>
+    </label>
+    <input id="server" type="text" placeholder="https://" autocomplete="off" spellcheck="false" value={settings.server_url} onchange={(e) => set('server_url', e.currentTarget.value.trim())} />
+    <label for="token">Access token</label>
+    <input id="token" type="password" autocomplete="off" value={settings.server_token} onchange={(e) => set('server_token', e.currentTarget.value.trim())} />
   </div>
+  {#if sync}<p class="sync">{sync}</p>{/if}
+  {#if readers.length}
+    <h3>Screen reading</h3>
+    <ul class="readers">
+      {#each readers as r (r.name)}
+        <li class={r.state}>
+          <span class="name">{r.name}</span>
+          <span class="state">{READER_STATES[r.state]}{#if r.detail}<small>{r.detail}</small>{/if}</span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </section>
 
 <style>
@@ -63,6 +117,20 @@
   }
   small {
     display: block;
+    color: var(--faint);
+    font-size: 12px;
+  }
+  input[type='text'],
+  input[type='password'] {
+    width: 220px;
+    padding: 3px 6px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--raised);
+    color: inherit;
+  }
+  .sync {
+    margin: 8px 0 0;
     color: var(--faint);
     font-size: 12px;
   }
@@ -87,5 +155,56 @@
     width: 18px;
     height: 18px;
     accent-color: var(--gold);
+  }
+  h3 {
+    margin: 16px 0 6px;
+    font: 600 14px var(--cond);
+    color: var(--muted);
+  }
+  .readers {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+  }
+  .readers li {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .readers .name {
+    color: var(--muted);
+  }
+  .readers .state {
+    text-align: right;
+  }
+  .readers .state::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--faint);
+    vertical-align: 1px;
+  }
+  .readers .ok .state::before {
+    background: var(--good);
+  }
+  .readers .shifted .state::before,
+  .readers .unverified .state::before {
+    background: var(--warn);
+    opacity: 0.6;
+  }
+  .readers .notfound .state::before {
+    background: var(--warn);
+  }
+  .readers .off {
+    color: var(--faint);
+  }
+  .readers .off .state::before {
+    background: none;
+    box-shadow: inset 0 0 0 1.5px var(--faint);
   }
 </style>

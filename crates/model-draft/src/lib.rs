@@ -28,32 +28,36 @@ data! {
         pub name: String,
         /// Data Dragon image path under `cdn/img/`.
         pub icon: String,
-        /// Why it replaces the most played rune in its row; None when it is the most played.
+        /// Why it replaces the page's own rune in its row; None when it is the page's.
         pub reason: Option<String>,
     }
 
-    pub struct RuneAdvice {
+    /// One rune page to choose from.
+    pub struct RuneOption {
+        /// "vs Zed", "Best WPA", "Most played", "Highest win rate".
+        pub label: String,
+        /// Where the page came from: "Coachless 16.20", "lolalytics 16.21".
+        pub source: String,
+        /// The lane opponent a matchup page was played against.
+        pub vs: Option<ChampKey>,
         /// Keystone first.
         pub primary: Vec<RunePick>,
         pub secondary: Vec<RunePick>,
         pub shards: Vec<RunePick>,
-        /// Of the most played page this one starts from.
+        /// Of the page this one starts from.
         pub win_rate: f32,
         pub games: u32,
-        /// Highest win rate page when its keystone differs: keystone, win rate, games.
-        pub alt: Option<RuneAlt>,
+        /// Other options that came out as this same page: "Most played · lolalytics 16.21".
+        #[serde(default)]
+        pub also: Vec<String>,
+    }
+
+    pub struct RuneAdvice {
+        /// Against my lane opponent first, then Coachless, then lolalytics; equal pages merged.
+        pub options: Vec<RuneOption>,
         /// Summoner spells to take (Coachless only), e.g. ["Flash", "Ignite"].
         #[serde(default)]
         pub summoners: Vec<String>,
-        /// Where the page came from: "Coachless 16.20", "lolalytics 16.21".
-        #[serde(default)]
-        pub source: String,
-    }
-
-    pub struct RuneAlt {
-        pub keystone: RunePick,
-        pub win_rate: f32,
-        pub games: u32,
     }
 
     pub struct BenchRank {
@@ -90,6 +94,35 @@ data! {
         /// Rift: my lane opponent(s) once my lane and champion are known.
         #[serde(default)]
         pub matchup: Option<MatchupPlan>,
+        /// Rift with my lane known: the lane's tier list and its counters to my lane opponent.
+        #[serde(default)]
+        pub tiers: Option<TierBoard>,
+    }
+
+    /// My lane's tier list (lolalytics), banned and taken champions dropped.
+    pub struct TierBoard {
+        pub lane: Lane,
+        /// My lane opponent once revealed and placed in my lane.
+        pub vs: Option<ChampKey>,
+        /// Tier list champions best against `vs` (by win rate against them); my champion
+        /// last when not among them. Empty until their matchups are fetched.
+        pub counters: Vec<TierPick>,
+        /// The tier list, best first; my champion last when not among them.
+        pub best: Vec<TierPick>,
+    }
+
+    pub struct TierPick {
+        pub champ: ChampKey,
+        /// lolalytics tier ("S+", "S", "A", …).
+        pub tier: Option<String>,
+        /// In the lane, percent.
+        pub win_rate: f32,
+        pub pick_rate: f32,
+        /// Win rate against my lane opponent, percent, and its games; None without one.
+        pub vs_wr: Option<f32>,
+        pub vs_games: u32,
+        /// My hovered or picked champion.
+        pub mine: bool,
     }
 
     /// Champ select: my lane opponent(s) with tips; in bot lane both of theirs and my partner.
@@ -219,5 +252,51 @@ data! {
         pub allies: DraftSide,
         pub enemies: DraftSide,
         pub lanes: Vec<DraftLane>,
+    }
+
+    /// How the game goes by length: both teams' win rate by game length (lolalytics build pages),
+    /// the scaling champions, the comps and my lane. Champ select preview and the start of a game.
+    pub struct GamePlan {
+        /// Early, mid, late.
+        pub phases: Vec<PlanPhase>,
+        pub scalers: Vec<Scaler>,
+        /// At most five, in order: "scaling", "comp", "spikes", "lane", "record".
+        pub lines: Vec<PlanLine>,
+        /// The folded line: "Stronger early · they scale: Kayle".
+        pub fold: String,
+        /// "lolalytics", "lolalytics ARAM data".
+        pub source: String,
+        /// Some champion's curve is missing: `curves` of `champs` are in.
+        pub partial: bool,
+        pub curves: u32,
+        pub champs: u32,
+        /// The full card shows until this game time (s), the folded line after.
+        pub show_s: f32,
+    }
+
+    pub struct PlanPhase {
+        /// "Early", "Mid", "Late".
+        pub name: String,
+        pub from_min: u32,
+        pub to_min: Option<u32>,
+        /// Win-rate points, my team's mean minus theirs.
+        pub edge: f32,
+        /// Under the even threshold: reads "even".
+        pub even: bool,
+    }
+
+    /// The champion of a side doing best late or early against its own average, win-rate points.
+    pub struct Scaler {
+        pub champ: ChampKey,
+        pub ally: bool,
+        pub late: f32,
+        pub early: f32,
+        /// Few games in the lane they play: the data is their main lane's.
+        pub off_lane: bool,
+    }
+
+    pub struct PlanLine {
+        pub kind: String,
+        pub text: String,
     }
 }

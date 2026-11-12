@@ -2,9 +2,10 @@
   // Item gold (cost of held items, as the scoreboard shows) — never enemy gold, which the game hides.
   import type { GoldDiff } from '../../lib/bindings/GoldDiff';
   import { LANE_NAMES, gold, signed } from '../../lib/ui';
+  import { winPath } from '../../lib/winprob';
   import Icon from '../Icon.svelte';
 
-  let { g }: { g: GoldDiff } = $props();
+  let { g, win = false }: { g: GoldDiff; win?: boolean } = $props();
   const uid = $props.id();
   const [mine, theirs] = $derived(g.team_item_gold);
   const share = $derived(mine + theirs > 0 ? (100 * mine) / (mine + theirs) : 50);
@@ -25,7 +26,7 @@
     const path = (pts: [number, number][]) => pts.map(([t, v], i) => `${i ? 'L' : 'M'}${pt(t, v)}`).join('');
     const team = path(h.map((s) => [s.time, s.team]));
     const lanePts = h.filter((s) => s.lane != null).map((s): [number, number] => [s.time, s.lane!]);
-    return { team, area: `${team}L${W},${H / 2}L0,${H / 2}Z`, lane: lanePts.length > 1 ? path(lanePts) : null, max };
+    return { team, area: `${team}L${W},${H / 2}L0,${H / 2}Z`, lane: lanePts.length > 1 ? path(lanePts) : null, win: win ? winPath(h, W, H) : null, max };
   });
 </script>
 
@@ -57,11 +58,13 @@
         <path class="area down" d={spark.area} clip-path="url(#{uid}-down)" />
         <line class="zero" x1="0" x2={W} y1={H / 2} y2={H / 2} />
         {#if spark.lane}<path class="line lane" d={spark.lane} />{/if}
+        {#if spark.win}<path class="line win" d={spark.win} />{/if}
         <path class="line" d={spark.team} />
       </svg>
       <div class="legend">
         <span>team</span>
         {#if spark.lane}<span class="lane">your lane</span>{/if}
+        {#if spark.win}<span class="win" title="Win chance, 50% on the line">win %</span>{/if}
         <span class="scale num">±{gold(spark.max)}</span>
       </div>
     </div>
@@ -186,6 +189,11 @@
     stroke: var(--gold);
     stroke-dasharray: 3 2;
     opacity: 0.85;
+  }
+  .line.win {
+    stroke: var(--muted);
+    stroke-dasharray: 1 2.5;
+    stroke-width: 2;
   }
   .legend {
     display: flex;

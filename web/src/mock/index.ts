@@ -101,6 +101,11 @@ function lookup(champ: number, lane: ChampStats['lane'], mode: ChampStats['mode'
     counters,
     benchmarks: { cs_per_min: 6 + r() * 2, gold_per_min: 380 + r() * 80, damage_per_min: 700 + r() * 400, vision_per_min: 0.6 + r() * 0.5 },
     runes: null,
+    coachless_runes: null,
+    skill_order: 'QEWQQRQEQEREEWW',
+    skill_order_games: Math.round(2000 + r() * 8000),
+    skill_priority: 'QEW',
+    by_length: [],
   };
 }
 

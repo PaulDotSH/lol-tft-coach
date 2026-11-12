@@ -1,6 +1,6 @@
 //! What the enemy team demands, weighted by threat.
 
-use crate::{common::*, consts::*, threat::Foe};
+use crate::{common::*, consts::*, items::Standing, threat::Foe};
 use model::*;
 
 pub struct Needs {
@@ -80,6 +80,19 @@ pub fn needs(foes: &[Foe]) -> Needs {
         n.driver[i] = if v > 0.0 { d } else { None };
     }
     n
+}
+
+/// Armor, MR, HP, tenacity, cleanse, anti-burst, anti-crit, anti attack speed.
+const DEFENSIVE: [usize; 8] = [0, 1, 2, 4, 5, 6, 9, 10];
+
+/// Behind, defensive needs weigh more; ahead, less.
+pub fn standing(p: &mut [f32; N], s: Standing) {
+    let m = match s {
+        Standing::Behind => BEHIND_DEFENSE,
+        Standing::Even => return,
+        Standing::Ahead => AHEAD_DEFENSE,
+    };
+    DEFENSIVE.iter().for_each(|&i| p[i] = clamp01(p[i] * m));
 }
 
 /// An answered need decays.

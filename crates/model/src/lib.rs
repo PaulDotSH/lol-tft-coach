@@ -20,6 +20,11 @@ enums! {
     pub enum Phase { NoClient, Idle, ChampSelect, Loading, InGame, PostGame }
 
     pub enum SourceState { Off, Ok, Degraded, Error }
+
+    /// A screen reader's last word on its element: found where expected, found elsewhere (another
+    /// scale or place), not found in a whole game it should have shown in, not in use, or not checked
+    /// yet (this session, or since a patch changed the layout).
+    pub enum ReaderState { Ok, Shifted, NotFound, Off, Unverified }
 }
 
 data! {
@@ -29,6 +34,8 @@ data! {
         pub lolalytics: SourceState,
         pub ugg: SourceState,
         pub ocr: SourceState,
+        /// Minimap reading for the gank warnings: off outside the Rift.
+        pub minimap: SourceState,
         /// Off while signed out of Coachless.
         pub coachless: SourceState,
         /// The Coachless account has Premium (current patch).
@@ -50,9 +57,44 @@ data! {
         /// Speak in-game calls aloud.
         #[serde(default = "yes")]
         pub audio: bool,
-        /// Draw the click-through overlay over the game window (LoL and TFT).
-        #[serde(default = "yes")]
+        /// Draw the click-through overlay over the game window (LoL and TFT). Off by default: any
+        /// window over League costs it FPS, and drawing inside the game would need Riot's approval.
+        #[serde(default)]
         pub overlay: bool,
+        /// Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
+        #[serde(default = "yes")]
+        pub gank_warn: bool,
+        /// Write the coach's note in a game's review (rules only, after the game).
+        #[serde(default = "yes")]
+        pub game_note: bool,
+        /// Save TFT unit crops of every fight and scouted board for training unit recognition
+        /// (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
+        #[serde(default)]
+        pub tft_crops: bool,
+        /// Show the win probability and the posture read in game (needs a fitted model).
+        #[serde(default = "yes")]
+        pub win_prob: bool,
+        /// Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
+        #[serde(default)]
+        pub posture_calls: bool,
+        /// Address of the minipc service (`https://host`); empty keeps everything on this PC.
+        #[serde(default)]
+        pub server_url: String,
+        /// Bearer token of that service. A secret: never logged, never copied to the service.
+        #[serde(default)]
+        pub server_token: String,
+    }
+
+    /// One screen reader's health (Settings, "Screen reading").
+    pub struct ReaderHealth {
+        /// "Augment offer", "Tab scoreboard", "Minimap".
+        pub name: String,
+        pub state: ReaderState,
+        /// e.g. "found at 0.92× (HUD scale)", "not checked since 16.22".
+        pub detail: Option<String>,
+        /// Unix ms of the last find this session.
+        #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+        pub last_ok: Option<u64>,
     }
 
     /// One rank badge over an offered augment card. Ranks only, never win rates.
@@ -125,6 +167,15 @@ data! {
         /// LP over my ranked games, Solo/Duo then Flex.
         #[serde(default)]
         pub ranked: Vec<RankTrend>,
+        /// Screen readers and whether they find their elements.
+        #[serde(default)]
+        pub readers: Vec<ReaderHealth>,
+        /// Game-plan card: champ select preview (Rift, all ten shown), loading and in game.
+        #[serde(default)]
+        pub plan: Option<GamePlan>,
+        /// One sentence on the sync with the minipc service (settings panel).
+        #[serde(default)]
+        pub sync: String,
     }
 }
 
@@ -134,6 +185,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: true }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, server_url: String::new(), server_token: String::new() }
     }
 }

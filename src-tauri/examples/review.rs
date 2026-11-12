@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
     let d = clients::history::parse_match(&game, Some(&puuid), Some(&timeline)).expect("game parses");
     let g = &d.game;
     let stats = data::lolalytics::champ_stats(&http, &sd.champs[&g.champ], g.lane, g.mode, "emerald_plus", "all", &patch).await.ok();
-    let a = coach::analyze_match(&d, &sd, stats.as_ref(), None);
+    let a = coach::analyze_match(&d, &sd, stats.as_ref(), None, coach::winprob::Model::shipped());
     for p in &a.players {
         let lane = p.lane.map_or("-", |l| l.as_str());
         println!("{} {:<8} {:<12} {}/{}/{} {:>3} cs {:>6} dmg", if p.ally { "us  " } else { "them" }, lane, sd.champ_name(p.champ), p.kills, p.deaths, p.assists, p.cs, p.damage);

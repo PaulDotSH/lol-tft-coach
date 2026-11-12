@@ -148,6 +148,13 @@ data! {
         pub default_lane: Option<Lane>,
     }
 
+    /// lolalytics build page game-length bucket: games ending at `from_min` up to the next bucket's start.
+    pub struct LengthWin {
+        pub from_min: u32,
+        pub games: u32,
+        pub wins: u32,
+    }
+
     pub struct ChampStats {
         pub champ: ChampKey,
         pub lane: Option<Lane>,
@@ -166,19 +173,33 @@ data! {
         pub early: Vec<EarlySet>,
         pub counters: Vec<Matchup>,
         pub benchmarks: Benchmarks,
-        /// Build page rune pages and per-rune stats; None when the page had none.
+        /// lolalytics build page rune pages and per-rune stats; None when the page had none.
         #[serde(default)]
         pub runes: Option<RuneData>,
-        /// Coachless patch ("16.20") when the item slots, boots, runes and summoners came
+        /// Coachless rune page (best WPA) and per-rune stats (Rift, signed in).
+        #[serde(default)]
+        pub coachless_runes: Option<RuneData>,
+        /// Coachless patch ("16.20") when the item slots, boots and summoners came
         /// from Coachless (Rift, signed in); None = lolalytics.
         #[serde(default)]
         pub coachless: Option<String>,
         /// Summoner spell ids to take (Coachless); empty without Coachless.
         #[serde(default)]
         pub summoners: Vec<u32>,
+        /// lolalytics most played skill order, one ability per level ("QEWQQRQEQEREEWW"); empty when unknown.
+        #[serde(default)]
+        pub skill_order: String,
+        #[serde(default)]
+        pub skill_order_games: u32,
+        /// lolalytics most played max order ("QEW"); empty when unknown.
+        #[serde(default)]
+        pub skill_priority: String,
+        /// lolalytics build page games and wins by game length, shortest first; empty when unknown.
+        #[serde(default)]
+        pub by_length: Vec<LengthWin>,
     }
 
-    /// One full rune page from lolalytics.
+    /// One full rune page (lolalytics, or Coachless' best WPA).
     pub struct RunePage {
         /// Keystone first, then the three primary-tree runes.
         pub primary: Vec<RuneId>,
@@ -267,10 +288,18 @@ data! {
         pub core: Vec<ItemId>,
         /// Most played rune page: primary tree (keystone first), then secondary.
         pub runes: Vec<RuneId>,
+        /// The same page with its shards, win rate and games; None when the page had none.
+        #[serde(default)]
+        pub rune_page: Option<RunePage>,
         /// Most played summoner spells (Data Dragon summoner keys: 4 Flash, 14 Ignite, …).
         pub summoners: Vec<u32>,
         /// Skill max order, e.g. "QEW".
         pub skills: String,
+        /// Most played skill order, one ability per level; empty when unknown.
+        #[serde(default)]
+        pub skill_order: String,
+        #[serde(default)]
+        pub skill_order_games: u32,
     }
 
     /// lolalytics `build-team` row: one teammate of `TeamSynergy::champ`.
@@ -308,6 +337,54 @@ data! {
         /// Base cooldown per rank, seconds.
         pub cooldown: Vec<f32>,
     }
+}
+
+/// A build decision: the legendary after `n` held (a support's quest item counted), or boots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BuildSlot {
+    Legendary(usize),
+    Boots,
+}
+
+/// Coachless' game situations in the site's order, three per group: damage, range, tankiness,
+/// crowd control, win probability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Situation {
+    PhysicalDamage,
+    BalancedDamage,
+    MagicDamage,
+    LowRange,
+    NormalRange,
+    HighRange,
+    Squishy,
+    NormalTankiness,
+    Tanky,
+    LowCc,
+    NormalCc,
+    HighCc,
+    Behind,
+    Even,
+    Ahead,
+}
+
+impl Situation {
+    pub const ALL: [Situation; 15] = {
+        use Situation::*;
+        [PhysicalDamage, BalancedDamage, MagicDamage, LowRange, NormalRange, HighRange, Squishy, NormalTankiness, Tanky, LowCc, NormalCc, HighCc, Behind, Even, Ahead]
+    };
+
+    /// 0 damage, 1 range, 2 tankiness, 3 crowd control, 4 win probability.
+    pub fn group(self) -> usize {
+        self as usize / 3
+    }
+}
+
+/// Coachless `GetItemDetailed` for one item in one build slot: WPA overall and, per situation,
+/// (situation, WPA, games). WPA in win-rate points; `by` is empty when Coachless has no games.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ItemSituations {
+    pub overall: f32,
+    pub by: Vec<(Situation, f32, f64)>,
 }
 
 /// Hand-written laning notes, keyed by Data Dragon id.

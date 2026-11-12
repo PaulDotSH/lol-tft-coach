@@ -2,7 +2,8 @@
 //! Nothing here touches the real screen except the `#[ignore]` manual test.
 
 use super::capture::Dib;
-use crate::{Frame, match_augments, recognize};
+use crate::scoreboard::Rect;
+use crate::{Frame, match_augments, offer, recognize, recognize_boxes};
 use model_core::AugmentId;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -100,6 +101,43 @@ impl Scene {
             self.text(cx, 760, 30, face, 0xd8c890, "Reroll");
         }
         self.dib.snapshot()
+    }
+}
+
+/// A `w`×`h` client with Mayhem cards on the default layout: titles centred on the card
+/// centres with their tops at `offer::TITLE_TOP`, a description under each.
+fn offer_client(w: i32, h: i32, names: [&str; 3]) -> Frame {
+    let mut s = Scene { dib: Dib::new(w, h).unwrap() };
+    s.dib.pixels_mut().as_chunks_mut::<4>().0.iter_mut().for_each(|p| *p = [30, 22, 16, 255]);
+    let size = h * 3 / 100;
+    for (i, n) in names.iter().enumerate() {
+        let cx = ((0.5 + (i as f32 - 1.0) * offer::PITCH) * w as f32) as i32;
+        s.text(cx, (offer::TITLE_TOP * h as f32) as i32, size, "Segoe UI", 0xffffff, n);
+        s.text(cx, (0.48 * h as f32) as i32, size * 2 / 3, "Segoe UI", 0x9aa4b0, "Gain 20% bonus damage");
+    }
+    s.dib.snapshot()
+}
+
+fn crop(f: &Frame, r: Rect) -> Frame {
+    let row = f.width as usize * 4;
+    let bgra = (r.y..r.y + r.h).flat_map(|y| &f.bgra[y as usize * row + r.x as usize * 4..][..r.w as usize * 4]).copied().collect();
+    Frame { width: r.w as u32, height: r.h as u32, bgra }
+}
+
+#[test]
+fn offer_cards_located_at_two_client_sizes() {
+    let names = ["Accelerating Sorcery", "Blade Waltz", "Courage of the Colossus"];
+    for (w, h) in [(1920, 1080), (2560, 1440)] {
+        let f = offer_client(w, h, names);
+        let r = offer::rect(w as u32, h as u32, offer::STRIP);
+        let boxes = recognize_boxes(&crop(&f, r)).unwrap();
+        let cards = offer::locate(&boxes, &pool(), r, (w as u32, h as u32));
+        assert_eq!(cards.iter().map(|c| c.id).collect::<Vec<_>>(), ids(&names), "{w}x{h}: {boxes:?}");
+        for (i, c) in cards.iter().enumerate() {
+            let x = 0.5 + (i as f32 - 1.0) * offer::PITCH;
+            assert!((c.x - x).abs() < 0.01 && (c.y - offer::TITLE_TOP).abs() < 0.015, "{w}x{h}: {c:?}");
+            assert!((c.found.scale - 1.0).abs() < 0.03, "{w}x{h}: {c:?}");
+        }
     }
 }
 

@@ -6,6 +6,7 @@
 //! Every snapshot field may be unreadable on any tick: None never counts as 0.
 
 use crate::board;
+use crate::fights::Fights;
 use crate::library::Library;
 use crate::scout::Scout;
 use std::collections::{HashSet, VecDeque};
@@ -76,6 +77,8 @@ pub struct Tracker {
     worn: Vec<Api>,
     /// Other players' units.
     scout: Scout,
+    /// Which player each fight was against.
+    fights: Fights,
     stage: Option<(u32, u32)>,
     /// Last tick where gold and shop were both readable: the baseline buys compare to.
     gold: Option<u32>,
@@ -117,7 +120,7 @@ impl Tracker {
             let (library, single) = (std::mem::take(&mut self.library), self.board.single_reads);
             *self = Tracker::default();
             self.library = library;
-            (self.board.single_reads, self.scout.single_reads) = (single, single);
+            (self.board.single_reads, self.scout.single_reads, self.fights.single_reads) = (single, single, single);
         }
         let same_stage = snap.stage.is_some() && snap.stage == self.stage;
         if snap.stage.is_some() {
@@ -127,6 +130,7 @@ impl Tracker {
         if !snap.augment_offer.is_empty() {
             return;
         }
+        self.fights.observe(snap);
         let round = self.round();
         let owned: Vec<(Api, u32)> = self.owned().into_iter().map(|o| (o.api, o.copies)).collect();
         self.scout.observe(snap, set, &self.library, round, &self.panel, &owned);
@@ -341,6 +345,7 @@ impl Tracker {
     pub fn single_reads(mut self) -> Tracker {
         self.board.single_reads = true;
         self.scout.single_reads = true;
+        self.fights.single_reads = true;
         self
     }
 
@@ -392,6 +397,11 @@ impl Tracker {
     /// Other players' units and trait panels, seen within SCOUT_DECAY rounds.
     pub fn scout(&self) -> &Scout {
         &self.scout
+    }
+
+    /// My fights and who each was against.
+    pub fn fights(&self) -> &Fights {
+        &self.fights
     }
 
     /// The last stage read.

@@ -19,12 +19,13 @@ mod native;
 use crate::state::Shared;
 use crate::tft::TftShared;
 use model::*;
+use ocr::offer::Card;
 use ocr::scoreboard::Rect;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// The strip: at most this share of the game window wide; its corner 0.6 % in from the right
-/// and 27 % up (above a default-size minimap) for LoL, 1 % / 9 % from the top left for TFT.
+/// and on the minimap's top edge (from League's minimap scale) for LoL, 1 % / 9 % from the top left for TFT.
 const STRIP_W: f32 = 0.22;
 /// A badge: at most this share of the game window wide.
 const BADGE_W: f32 = 0.17;
@@ -40,8 +41,8 @@ const TIMER_SOON: f32 = 60.0;
 /// the screen order no longer says which card is which.
 const CARDS: usize = 3;
 /// Mayhem cards span x 22–78 % of the client area (ocr's measured title strip), titles at y ≈ 41 %:
-/// badges sit just above the titles.
-const LOL_PITCH: f32 = 0.1867;
+/// badges sit just above the titles. The card titles' OCR boxes place them; these are the fallback.
+const LOL_PITCH: f32 = ocr::offer::PITCH;
 const LOL_BADGE_Y: f32 = 0.33;
 /// TFT augment cards, side by side and centred; the badge row at the top of tft-vision's offer
 /// strip (y 300 of 1440). First guesses: check in a real game.
@@ -108,9 +109,9 @@ pub fn spawn(sh: Arc<Shared>, tft: Arc<TftShared>) {
                 let view = match tft.overlay_input() {
                     Some((advice, offer)) => Some(tft_view(advice.as_ref(), &offer)),
                     None => {
-                        let seen = crate::orchestrator::cards_on_screen(&sh);
+                        let cards = crate::orchestrator::offer_on_screen(&sh);
                         let st = sh.ui.lock().unwrap();
-                        st.game.as_ref().filter(|_| st.phase == Phase::InGame).map(|g| lol_view(g, &seen))
+                        st.game.as_ref().filter(|_| st.phase == Phase::InGame).map(|g| lol_view(g, &cards))
                     }
                 };
                 let enabled = sh.ui.lock().unwrap().settings.overlay;
@@ -129,7 +130,8 @@ pub fn spawn(sh: Arc<Shared>, tft: Arc<TftShared>) {
                     }
                     said = news;
                 }
-                let mut scenes = scenes(client, view.as_ref(), now);
+                let strip_y = ocr::minimap::top_frac(sh.minimap_settings().scale);
+                let mut scenes = scenes(client, view.as_ref(), now, strip_y);
                 if Instant::now() >= until {
                     scenes[0] = None;
                 }
@@ -159,8 +161,9 @@ fn placement(enabled: bool, in_game: bool, client: Option<Rect>) -> Option<Rect>
     (r.w > 0 && r.h > 0 && r.x > -32000 && r.y > -32000).then_some(r)
 }
 
-/// [strip, badges] over the game's client area at game time `now`; None hides one.
-fn scenes(client: Option<Rect>, view: Option<&Overlay>, now: f32) -> [Option<Scene>; 2] {
+/// [strip, badges] over the game's client area at game time `now`, the LoL strip's bottom at
+/// `strip_y` (fraction of the height); None hides one.
+fn scenes(client: Option<Rect>, view: Option<&Overlay>, now: f32, strip_y: f32) -> [Option<Scene>; 2] {
     let (Some(r), Some(v)) = (client, view) else { return [None, None] };
     let at = |x: f32, y: f32| (r.x + (r.w as f32 * x).round() as i32, r.y + (r.h as f32 * y).round() as i32);
     let unit = r.h as f32 / 100.0;
@@ -190,7 +193,7 @@ fn scenes(client: Option<Rect>, view: Option<&Overlay>, now: f32) -> [Option<Sce
     let max_w = (r.w as f32 * STRIP_W).round() as i32;
     let strip = (!lines.is_empty()).then(|| match v.tft {
         true => Scene::Strip { lines, at: at(0.01, 0.09), bottom_right: false, max_w, unit },
-        false => Scene::Strip { lines, at: at(0.994, 0.73), bottom_right: true, max_w, unit },
+        false => Scene::Strip { lines, at: at(0.994, strip_y), bottom_right: true, max_w, unit },
     });
     let badges = (!v.badges.is_empty()).then(|| Scene::Badges {
         badges: v
@@ -248,14 +251,27 @@ fn badges(cards: Vec<(Option<u32>, Option<String>)>, pitch: f32) -> Vec<OverlayB
         .collect()
 }
 
-/// LoL: the advice's offer, while those same cards are on screen.
-fn lol_badges(advice: Option<&AugmentAdvice>, seen: &[AugmentId]) -> Vec<OverlayBadge> {
+/// LoL: the advice's offer, while those same cards are on screen, each badge over its title's box
+/// (the default card centre for a title without one).
+fn lol_badges(advice: Option<&AugmentAdvice>, cards: &[Card]) -> Vec<OverlayBadge> {
     let Some(a) = advice else { return vec![] };
-    if !a.offered.iter().map(|r| r.id).eq(seen.iter().copied()) {
+    if !a.offered.iter().map(|r| r.id).eq(cards.iter().map(|c| c.id)) {
         return vec![];
     }
     let places = coach::offer_places(&a.offered);
-    badges(a.offered.iter().zip(places).map(|(r, p)| (p, lol_reason(r))).collect(), LOL_PITCH)
+    let mut out = badges(a.offered.iter().zip(places).map(|(r, p)| (p, lol_reason(r))).collect(), LOL_PITCH);
+    for (b, c) in out.iter_mut().zip(cards) {
+        b.x = c.x;
+    }
+    out
+}
+
+/// The badge row's top: as far above the titles as on the default layout, scaled with the cards.
+fn lol_badge_y(cards: &[Card]) -> f32 {
+    match cards.first() {
+        Some(c) => cards.iter().map(|c| c.y).fold(f32::MAX, f32::min) - (ocr::offer::TITLE_TOP - LOL_BADGE_Y) * c.found.scale,
+        None => LOL_BADGE_Y,
+    }
 }
 
 /// The card's own reason: what it builds on, else its rank in my champion's list.
@@ -295,12 +311,12 @@ fn gold_text(e: &GoldEta) -> String {
     }
 }
 
-fn lol_view(g: &GameAdvice, seen: &[AugmentId]) -> Overlay {
+fn lol_view(g: &GameAdvice, cards: &[Card]) -> Overlay {
     let buy = g.buy_next.as_ref();
     Overlay {
         tft: false,
-        badge_y: LOL_BADGE_Y,
-        badges: lol_badges(g.augments.as_ref(), seen),
+        badge_y: lol_badge_y(cards),
+        badges: lol_badges(g.augments.as_ref(), cards),
         head: buy.map(|p| format!("Buy {}", p.name)),
         detail: g.gold_eta.as_ref().filter(|e| buy.is_some_and(|p| e.item == Some(p.item))).map(gold_text),
         call: g.calls.first().map(|c| c.text.clone()),
@@ -354,16 +370,19 @@ mod tests {
             timers: if timers { vec![ObjectiveTimer { name: "Dragon".into(), next_spawn: Some(300.0) }] } else { vec![] },
         };
         // LoL strip above the minimap, its corner 0.6 % in; nothing to draw, nothing shown.
-        let [strip, badges] = scenes(Some(R), Some(&view(false, 0, true)), 250.0);
+        let [strip, badges] = scenes(Some(R), Some(&view(false, 0, true)), 250.0, 0.73);
         let Some(Scene::Strip { lines, at, bottom_right, max_w, unit }) = strip else { panic!("{strip:?}") };
         assert_eq!((at, bottom_right, max_w, unit), ((2545, 1051), true, 563, 14.4));
         let text: Vec<(&str, Ink)> = lines[0].runs.iter().map(|r| (r.text.as_str(), r.ink)).collect();
         assert_eq!(text, [("Dragon ", Ink::Grey), ("0:50", Ink::Gold)]);
         assert_eq!(badges, None);
-        assert_eq!(scenes(Some(R), Some(&view(false, 0, false)), 0.0), [None, None]);
-        assert_eq!(scenes(None, Some(&view(false, 3, true)), 0.0), [None, None]);
+        // A bigger minimap moves the strip up with its top edge.
+        let Some(Scene::Strip { at, .. }) = scenes(Some(R), Some(&view(false, 0, true)), 250.0, 0.65)[0].clone() else { panic!() };
+        assert_eq!(at, (2545, 936));
+        assert_eq!(scenes(Some(R), Some(&view(false, 0, false)), 0.0, 0.73), [None, None]);
+        assert_eq!(scenes(None, Some(&view(false, 3, true)), 0.0, 0.73), [None, None]);
         // Cards up: a badge on each, the top pick gold; TFT strip top left.
-        let [strip, badges] = scenes(Some(R), Some(&view(true, 3, true)), 400.0);
+        let [strip, badges] = scenes(Some(R), Some(&view(true, 3, true)), 400.0, 0.73);
         assert!(matches!(strip, Some(Scene::Strip { at: (26, 130), bottom_right: false, .. })), "{strip:?}");
         let Some(Scene::Badges { badges, y, .. }) = badges else { panic!() };
         assert_eq!(y, 475);
@@ -406,6 +425,19 @@ mod tests {
         AugmentRank { id, name: String::new(), rarity: rank.map(|_| Rarity::Gold), rank, of: 20, synergy: synergy.map(str::to_string) }
     }
 
+    /// Cards read at the default centres (or `xs`), title tops at `y`, at `scale`.
+    fn cards(ids: &[AugmentId], xs: Option<&[f32]>, y: f32, scale: f32) -> Vec<Card> {
+        let def = card_centres(ids.len(), LOL_PITCH);
+        ids.iter()
+            .enumerate()
+            .map(|(i, &id)| {
+                let x = xs.map_or(def[i], |x| x[i]);
+                let rect = Rect { x: (x * 2560.0) as i32 - 100, y: (y * 1440.0) as i32, w: 200, h: 30 };
+                Card { id, x, y, found: ocr::Found { rect, scale, score: 1.0 } }
+            })
+            .collect()
+    }
+
     #[test]
     fn lol_badges_follow_screen_order_while_the_cards_show() {
         let advice = AugmentAdvice {
@@ -413,7 +445,8 @@ mod tests {
             best: Some(9),
             reason: String::new(),
         };
-        let b = lol_badges(Some(&advice), &[7, 8, 9]);
+        let at = |ids: &[AugmentId]| cards(ids, None, ocr::offer::TITLE_TOP, 1.0);
+        let b = lol_badges(Some(&advice), &at(&[7, 8, 9]));
         assert_eq!(b.iter().map(|b| b.place).collect::<Vec<_>>(), [Some(1), None, Some(0)]);
         assert_eq!(b[0].reason.as_deref(), Some("#10 of 20 Gold"));
         assert_eq!(b[1].reason, None);
@@ -422,10 +455,35 @@ mod tests {
         assert!((b[1].x - 0.5).abs() < 1e-6);
         // Cards gone (shop open), replaced, or a title unread: no badges.
         assert!(lol_badges(Some(&advice), &[]).is_empty());
-        assert!(lol_badges(Some(&advice), &[7, 8, 10]).is_empty());
+        assert!(lol_badges(Some(&advice), &at(&[7, 8, 10])).is_empty());
         let two = AugmentAdvice { offered: advice.offered[..2].to_vec(), ..advice.clone() };
-        assert!(lol_badges(Some(&two), &[7, 8]).is_empty());
-        assert!(lol_badges(None, &[7, 8, 9]).is_empty());
+        assert!(lol_badges(Some(&two), &at(&[7, 8])).is_empty());
+        assert!(lol_badges(None, &at(&[7, 8, 9])).is_empty());
+    }
+
+    #[test]
+    fn lol_badges_sit_over_the_title_boxes() {
+        let advice = AugmentAdvice { offered: vec![lol_rank(7, Some(0), None), lol_rank(8, Some(1), None), lol_rank(9, Some(2), None)], best: Some(7), reason: String::new() };
+        // A 1.2x layout, its titles lower: badges over the read centres, the row above the titles.
+        let xs = [0.5 - 1.2 * LOL_PITCH, 0.5, 0.5 + 1.2 * LOL_PITCH];
+        let read = cards(&[7, 8, 9], Some(&xs), 0.45, 1.2);
+        let b = lol_badges(Some(&advice), &read);
+        for (b, x) in b.iter().zip(xs) {
+            assert!((b.x - x).abs() < 0.01, "{b:?}");
+        }
+        let y = lol_badge_y(&read);
+        assert!((y - (0.45 - 1.2 * (ocr::offer::TITLE_TOP - LOL_BADGE_Y))).abs() < 1e-5 && y < 0.45);
+        // The default layout keeps the hand-placed row; no cards, the constant.
+        assert!((lol_badge_y(&cards(&[7, 8, 9], None, ocr::offer::TITLE_TOP, 1.0)) - LOL_BADGE_Y).abs() < 1e-6);
+        assert_eq!(lol_badge_y(&[]), LOL_BADGE_Y);
+        // On screen, the badges land within 1 % of the window width of the card centres.
+        let v = Overlay { tft: false, badge_y: y, badges: b, head: None, detail: None, call: None, time: 0.0, timers: vec![] };
+        let [_, badges] = scenes(Some(R), Some(&v), 0.0, 0.73);
+        let Some(Scene::Badges { badges, y: top, .. }) = badges else { panic!() };
+        for ((x, ..), want) in badges.iter().zip(xs) {
+            assert!(((*x as f32 / 2560.0) - want).abs() < 0.01, "{x} vs {want}");
+        }
+        assert_eq!(top, (y * 1440.0).round() as i32);
     }
 
     #[test]

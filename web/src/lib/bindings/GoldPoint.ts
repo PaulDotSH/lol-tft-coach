@@ -11,4 +11,9 @@ team: number,
 /**
  * Mine minus my lane opponent's.
  */
-lane: number | null, };
+lane: number | null, 
+/**
+ * My team's chance to win (0..1), deaths aside: the live number when the app watched
+ * the game, else the model on this frame. None without a fit for the mode.
+ */
+win: number | null, };

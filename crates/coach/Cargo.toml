@@ -10,3 +10,5 @@ toml.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+clients.workspace = true
+data.workspace = true

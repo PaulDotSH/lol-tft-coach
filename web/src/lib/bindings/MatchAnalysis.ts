@@ -3,13 +3,16 @@ import type { Benchmarks } from "./Benchmarks";
 import type { DeathReview } from "./DeathReview";
 import type { Fight } from "./Fight";
 import type { Focus } from "./Focus";
+import type { GameNote } from "./GameNote";
 import type { GoldPoint } from "./GoldPoint";
+import type { JungleReview } from "./JungleReview";
 import type { KillMark } from "./KillMark";
 import type { Laning } from "./Laning";
 import type { MatchPlayer } from "./MatchPlayer";
 import type { PastCompare } from "./PastCompare";
 import type { PastGame } from "./PastGame";
 import type { PhaseRow } from "./PhaseRow";
+import type { Swing } from "./Swing";
 import type { Takeaway } from "./Takeaway";
 import type { TimelineMark } from "./TimelineMark";
 
@@ -48,4 +51,16 @@ rich_marks: Array<number>, vs_past: PastCompare | null, focus: Focus | null,
 /**
  * Rift: my lane (bot lane: both duos) up to 14:00.
  */
-laning: Laning | null, };
+laning: Laning | null, 
+/**
+ * The coach's note, when the setting is on and the review was built after the game.
+ */
+note: GameNote | null, 
+/**
+ * Rift, when I jungled: replaces `laning`.
+ */
+jungle: JungleReview | null, 
+/**
+ * The five largest changes of `gold[i].win`, largest first; empty without a curve.
+ */
+swings: Array<Swing>, };

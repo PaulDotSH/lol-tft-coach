@@ -1,7 +1,8 @@
 //! Phase loop: polls the client / game at the phase's rate, keeps remote data
 //! warm in the background, runs the coach and pushes `state` to the UI on change.
 
-use crate::{debug, settings};
+use crate::health::Reader;
+use crate::{account, debug, settings};
 use crate::state::{Shared, StatsKey, ensure};
 use clients::live::{Live, LiveState};
 use model::*;
@@ -15,6 +16,19 @@ const OFFER_TTL: Duration = Duration::from_secs(3);
 const OFFER_HOLD_S: f32 = 120.0;
 /// Offer OCR cadence while a Mayhem game runs.
 const OFFER_SCAN: Duration = Duration::from_millis(500);
+/// The wider offer band is read at most this often, while an offer is expected and the strip shows none.
+const WIDE_EVERY: Duration = Duration::from_secs(5);
+/// A Mayhem game this long (s) has shown an offer (the first comes at the start).
+const OFFER_BY: f32 = 90.0;
+/// Minimap read cadence while a Rift match runs, and the parked thread's check rate.
+const MINIMAP_SCAN: Duration = Duration::from_millis(500);
+const MINIMAP_IDLE: Duration = Duration::from_secs(2);
+/// Gank warnings older than this are dropped (the game lost focus, the thread stalled).
+const MINIMAP_TTL: Duration = Duration::from_millis(1500);
+/// The minimap thread counts the game clock on from the last tick for at most this long.
+const CLOCK_ON: f32 = 5.0;
+/// Champion portraits (Data Dragon) are re-fetched after this long.
+const PORTRAIT_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
 struct PendingOffer {
     ids: Vec<AugmentId>,
@@ -38,6 +52,8 @@ struct Memo {
     built: Vec<ItemId>,
     /// Last tick's Buy next, kept while still about as good.
     last_buy: Option<ItemId>,
+    /// Last tick's candidates (`coach::situation_items`) whose Coachless situations are fetched.
+    situation_items: Vec<(ItemId, BuildSlot)>,
     last_champ: Option<ChampKey>,
     last_lane: Option<Lane>,
     recap_done: bool,
@@ -45,6 +61,7 @@ struct Memo {
     last_record: Option<Instant>,
     gold: coach::GoldHistory,
     tracker: coach::Tracker,
+    posture: coach::PostureMemo,
     log: coach::GameLog,
     goal_progress: Vec<GoalProgress>,
     /// Mayhem: augments I took, detected as offers close.
@@ -53,7 +70,17 @@ struct Memo {
     offer: Option<PendingOffer>,
     /// Every augment shown on a card this game (narrows lookalike scoreboard icons).
     offer_history: Vec<AugmentId>,
+    /// The game window's client size, last seen this game.
+    client: Option<(u32, u32)>,
+    /// Reader health was settled for this game.
+    health_done: bool,
+    /// Game-plan card, and what it was built from (rebuilt when that changes: a curve landed).
+    plan: Option<GamePlan>,
+    plan_key: Option<PlanKey>,
 }
+
+/// Lineups, curves ready, draft and lane card win rate known, record rows.
+type PlanKey = (Vec<(ChampKey, Option<Lane>)>, usize, bool, bool, usize);
 
 impl Memo {
     fn new_game(&mut self) {
@@ -68,9 +95,11 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let mut last_discover: Option<Instant> = None;
     let mut memo = Memo { recap: load_last_recap(), ..Memo::default() };
     let mut last_json = String::new();
-    let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
+    let mut macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
     let mut self_coach = crate::selfcoach::SelfCoach::default();
-    let rank_log = Arc::new(crate::ranked::RankLog::default());
+    let mut rank_log = Arc::new(crate::ranked::RankLog::default());
+    let account_watch = Arc::new(account::Watch::default());
+    let mut account_epoch = account::global().epoch();
     let (mut last_flow, mut last_phase, mut probed): (Option<String>, Option<Phase>, bool) = (None, None, false);
     let mut lcu_misses = 0u32;
 
@@ -93,6 +122,8 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             lcu = tokio::task::spawn_blocking(clients::lcu::discover).await.ok().flatten();
             if let Some(c) = &lcu {
                 tracing::info!("League client found at {}", c.base);
+                *sh.league_install.lock().unwrap() = c.install_dir.clone();
+                *sh.lcu.lock().unwrap() = Some(c.clone());
                 let (c2, sh2) = (c.clone(), sh.clone());
                 tokio::spawn(async move {
                     match c2.augment_names().await {
@@ -105,6 +136,14 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                     tokio::spawn(debug::probe_lcu(c.clone()));
                 }
             }
+        }
+        if account::global().epoch() != account_epoch {
+            account_epoch = account::global().epoch();
+            tracing::info!("the account's files changed: reading them again");
+            macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
+            self_coach = crate::selfcoach::SelfCoach::default();
+            rank_log = Arc::new(crate::ranked::RankLog::default());
+            memo.recap = load_last_recap();
         }
         let flow = match &lcu {
             Some(c) => match c.phase().await {
@@ -122,6 +161,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                 Err(e) => {
                     tracing::info!("League client lost: {e:#}");
                     lcu = None;
+                    *sh.lcu.lock().unwrap() = None;
                     lcu_misses = 0;
                     None
                 }
@@ -175,6 +215,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                             let me = cs.my_pick.or(cs.my_hover);
                             advice.memory = coach::matchup_memory(games.as_deref().map_or(&[], |g| g.as_slice()), &cs.enemies, cs.mode, me);
                             advice.matchup = crate::draft::matchup(&sh, &sd, &cs, &advice);
+                            select_plan(&sh, &sd, &cs, &advice, &mut memo);
                             debug::dump("champ-select-advice", Duration::from_secs(5), &advice);
                             champ_select = Some(advice);
                         }
@@ -234,6 +275,10 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             }
             Phase::PostGame => {
                 *sh.ocr_names.lock().unwrap() = None;
+                if !memo.health_done && memo.last_champ.is_some() {
+                    memo.health_done = true;
+                    end_game_health(&sh, memo.client);
+                }
                 if !memo.recap_done && !memo.not_lol && let Some(c) = &lcu {
                     if debug::on()
                         && let Ok(Some(raw)) = c.get("/lol-end-of-game/v1/eog-stats-block").await
@@ -261,7 +306,10 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         }
         if phase != Phase::InGame {
             *sh.ocr_names.lock().unwrap() = None;
+            *sh.gank_ctx.lock().unwrap() = None;
+            *sh.offer_expected.lock().unwrap() = false;
         }
+        sh.calib.lock().unwrap().save(false);
         if last_phase != Some(phase) {
             tracing::info!("phase {:?} → {phase:?}", last_phase);
             last_phase = Some(phase);
@@ -270,12 +318,13 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             debug::dump("game-advice", Duration::from_secs(15), g);
         }
 
-        let sources = Sources {
+        let mut sources = Sources {
             client: if lcu.is_some() { SourceState::Ok } else { SourceState::Off },
             game: game_src,
             lolalytics: flag(*sh.lola_ok.lock().unwrap()),
             ugg: flag(*sh.ugg_ok.lock().unwrap()),
             ocr: *sh.ocr_state.lock().unwrap(),
+            minimap: *sh.minimap_state.lock().unwrap(),
             coachless: match (sh.coachless_auth.signed_in(), *sh.coachless_ok.lock().unwrap()) {
                 (false, _) => SourceState::Off,
                 (true, Some(false)) => SourceState::Degraded,
@@ -284,12 +333,17 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             coachless_premium: sh.coachless_auth.premium(),
             message: debug::dir().map(|d| format!("Debug mode: logging to {}", d.display())),
         };
+        let readers = sh.health.lock().unwrap().report();
+        crate::health::degrade(&mut sources, &readers);
         let recap = memo.recap.clone();
         let macro_report = macro_sync.tick(&sh, &sd, lcu.as_ref(), phase);
         let trends = self_coach.tick(phase, macro_sync.games(), memo.recap.as_ref(), &settings.goals);
         let history = macro_sync.games().map(|g| g.to_vec()).unwrap_or_default();
         let ranked = rank_log.tick(lcu.as_ref(), phase);
+        account_watch.tick(lcu.as_ref(), phase);
+        let sync = sh.sync_status.lock().unwrap().clone();
         let goal_progress = if game.is_some() { memo.goal_progress.clone() } else { vec![] };
+        let plan = if matches!(phase, Phase::ChampSelect | Phase::Loading | Phase::InGame) { memo.plan.clone() } else { None };
         push(&app, &sh, &mut last_json, move |st| {
             st.phase = phase;
             st.sources = sources;
@@ -301,6 +355,9 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             st.goal_progress = goal_progress;
             st.history = history;
             st.ranked = ranked;
+            st.readers = readers;
+            st.plan = plan;
+            st.sync = sync;
         });
 
         let tick = match phase {
@@ -375,6 +432,28 @@ fn my_stats(sh: &Arc<Shared>, base: Option<Arc<ChampStats>>, lane: Option<Lane>,
     Some(base)
 }
 
+/// Coachless WPA by game situation for `want` (last tick's candidates), on the Rift and signed
+/// in, as far as fetched; asked after my first two completed items, as `my_stats` asks.
+fn situations(sh: &Arc<Shared>, champ: ChampKey, lane: Option<Lane>, vs: Option<ChampKey>, built: &[ItemId], want: &[(ItemId, BuildSlot)]) -> std::collections::HashMap<ItemId, ItemSituations> {
+    let (Some(lane), true) = (lane, sh.coachless_auth.signed_in()) else { return Default::default() };
+    let built = if lane == Lane::Support { &[][..] } else { built };
+    let (first, second) = (built.first().copied(), built.get(1).copied());
+    let vs = vs.filter(|_| sh.coachless_auth.premium());
+    let mut out = std::collections::HashMap::new();
+    for &(item, slot) in want {
+        let sh2 = sh.clone();
+        let found = ensure(sh, |s| &s.situations, |s| &s.coachless_ok, (champ, lane, vs, first, second, item, slot), move || async move {
+            let s = sh2.settings();
+            let q = data::coachless::Query { champ, lane, vs, tier: &s.tier, region: &s.region, first, second };
+            data::coachless::item_situations(&sh2.http, &sh2.coachless_auth, q, item, slot).await
+        });
+        if let Some(f) = found {
+            out.insert(item, (*f).clone());
+        }
+    }
+    out
+}
+
 fn tier_list(sh: &Arc<Shared>, lane: Lane) -> Option<Arc<Vec<TierEntry>>> {
     let patch = sh.patch()?;
     ensure(sh, |s| &s.tiers, |s| &s.lola_ok, lane, move || {
@@ -410,7 +489,7 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
     let mayhem = if cs.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
     let known: Vec<&ChampStats> = mine.as_deref().into_iter().chain(&enemies).collect();
     let (lane_stats, synergy) = crate::draft::fetch(sh, sd, cs, &known);
-    coach::champ_select_advice(&coach::ChampSelectInput {
+    let input = coach::ChampSelectInput {
         cs,
         sd,
         mine: mine.as_deref(),
@@ -418,21 +497,35 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         tier_list: tiers.as_deref().map_or(&[], |t| t.as_slice()),
         mayhem: mayhem.as_deref(),
         draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
-    })
+    };
+    let mut advice = coach::champ_select_advice(&input);
+    // Rune pages against my lane opponent need the lanes the draft report placed.
+    if let Some(v) = mine.as_deref().and_then(|m| crate::draft::vs_runes(sh, sd, cs, &advice, m.win_rate)) {
+        let vs = coach::VsRunes { vs: v.vs, coachless: v.coachless.as_deref().and_then(Option::as_ref), lolalytics: v.lolalytics.as_deref() };
+        advice.runes = coach::champ_select_runes(&input, &vs);
+    }
+    advice
 }
 
 /// `games`: my match history (record against my lane opponents).
 fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings: &Settings, memo: &mut Memo, games: &[PastGame]) -> GameAdvice {
     let me = &snap.players[snap.me];
+    if memo.last_champ.is_none() {
+        sh.health.lock().unwrap().start_game();
+    }
+    memo.client = ocr::league_client().or(memo.client);
     let lane = if snap.mode == Mode::Rift { me.position.or(memo.my_lane) } else { None };
     let base = stats(sh, sd, me.champ, lane, snap.mode);
-    let vs = coach::lane_opponent(snap, base.as_deref()).map(|i| snap.players[i].champ);
+    let opp = coach::lane_opponent(snap, base.as_deref()).map(|i| &snap.players[i]);
+    let vs = opp.map(|p| p.champ);
+    let vs_page = lane.zip(opp).and_then(|(l, p)| crate::draft::matchup_page(sh, sd, me.champ, p.champ, l, p.position.unwrap_or(l)));
     for &id in &me.items {
         if sd.items.get(&id).is_some_and(|i| i.completed && !i.boots) && !memo.built.contains(&id) {
             memo.built.push(id);
         }
     }
     let my_stats = my_stats(sh, base, lane, vs, &memo.built);
+    let situations = situations(sh, me.champ, lane, vs, &memo.built, &memo.situation_items);
 
     let mut pool = None;
     if snap.mode == Mode::Mayhem
@@ -494,7 +587,12 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
         }
     }
     let my_augments = my_augments(memo, snap.time);
+    let reading = snap.mode == Mode::Mayhem && settings.ocr_enabled;
+    *sh.offer_expected.lock().unwrap() = reading && seen.len() < 2 && coach::expected_augments(me.level) > my_augments.len();
 
+    let rift = snap.mode == Mode::Rift;
+    let curves = lengths(sh, sd, snap.players.iter().map(|p| (p.champ, p.position.filter(|_| rift))), snap.mode);
+    let (no_fit, fetched) = (coach::winprob::Model::default(), sh.winprob.lock().unwrap().clone());
     let mut advice = coach::game_advice(&coach::GameInput {
         snap,
         sd,
@@ -509,6 +607,11 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
             stale_since: memo.tab.stale_since,
         },
         keep: memo.last_buy,
+        matchup: vs_page.as_deref(),
+        curves: &curves,
+        income: memo.tracker.income(),
+        winprob: if settings.win_prob { fetched.as_deref() } else { Some(&no_fit) },
+        situations: &situations,
     });
     let ults = crate::ingame::ults(sh, sd, snap);
     let enemies: Vec<ChampKey> = snap.players.iter().filter(|p| p.team != me.team).map(|p| p.champ).collect();
@@ -525,24 +628,166 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let spells = crate::ingame::spells(sh, sd, &faced);
     let notes = crate::draft::lane_notes();
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
+    coach::posture(&mut advice, &mut memo.posture, snap, sd);
+    let watch = snap.mode == Mode::Rift && settings.gank_warn;
+    *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx {
+        time: snap.time,
+        at: Instant::now(),
+        blue: me.team == Team::Order,
+        lane,
+        enemies: Arc::new(gank_enemies(sh, sd, snap, me.team)),
+        board: advice.jungle.as_ref().and_then(|_| coach::jungle::board(snap, sd, &advice.gold)).map(Arc::new),
+    });
+    if watch {
+        let calls = sh.gank_calls.lock().unwrap();
+        if calls.1.elapsed() < MINIMAP_TTL {
+            inject_gank(&mut advice, &calls.0);
+        }
+        let lanes = sh.jungle_lanes.lock().unwrap();
+        if lanes.1.elapsed() < MINIMAP_TTL {
+            inject_lanes(&mut advice, &lanes.0);
+        }
+    }
+    let since = memo.client.zip(sh.patch()).and_then(|((w, h), patch)| sh.calib.lock().unwrap().unverified("lol", &sh.calib_key(w, h), &patch));
+    {
+        let mut h = sh.health.lock().unwrap();
+        h.enable(Reader::Offer, reading);
+        h.enable(Reader::Scoreboard, snap.mode == Mode::Mayhem);
+        h.enable(Reader::Minimap, watch);
+        if reading && snap.time >= OFFER_BY {
+            h.expect(Reader::Offer);
+        }
+        if advice.tab_hint.is_some() {
+            h.expect(Reader::Scoreboard);
+        }
+        h.calibrated(Reader::Offer, since.clone());
+        h.calibrated(Reader::Scoreboard, since);
+    }
     if let Some(s) = advice.gold.history.last() {
         memo.gold.push(s.clone());
     }
     memo.last_buy = advice.buy_next.as_ref().map(|p| p.item);
+    memo.situation_items = if advice.win.is_some() { coach::situation_items(&advice, snap, sd) } else { vec![] };
     if let Some(p) = &advice.buy_next
         && !memo.recommended.contains(&p.item) {
             memo.recommended.push(p.item);
         }
-    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &settings.goals);
+    let sights = sh.sights.lock().unwrap().clone();
+    memo.goal_progress = crate::selfcoach::on_tick(&mut memo.log, snap, &advice, sd, &settings.goals, watch.then_some(&sights));
+    game_plan(sd, snap, &advice, &memory, lane, &curves, memo);
     memo.last_champ = Some(me.champ);
     memo.last_lane = lane;
     advice
 }
 
+/// Win rate by game length for one champion (its build page), fetched in the background.
+fn length(sh: &Arc<Shared>, sd: &StaticData, champ: ChampKey, lane: Option<Lane>, mode: Mode) -> Option<Arc<coach::Curve>> {
+    let lane = if mode == Mode::Rift { lane } else { None };
+    let (c, patch) = (sd.champs.get(&champ)?, sh.patch()?);
+    ensure(sh, |s| &s.lengths, |s| &s.lola_ok, StatsKey { champ, lane, mode }, move || {
+        let (http, s, c) = (sh.http.clone(), sh.settings(), c.clone());
+        async move { data::lolalytics::length_stats(&http, &c, lane, mode, &s.tier, &s.region, &patch).await }
+    })
+}
+
+/// The curves of a roster (champion and the lane it plays), as far as fetched.
+fn lengths(sh: &Arc<Shared>, sd: &StaticData, roster: impl Iterator<Item = (ChampKey, Option<Lane>)>, mode: Mode) -> std::collections::HashMap<ChampKey, coach::Curve> {
+    roster.filter_map(|(c, l)| Some((c, (*length(sh, sd, c, l, mode)?).clone()))).collect()
+}
+
+/// Build the game-plan card into `memo` unless its inputs are unchanged. A card that can't be
+/// built yet (no curve fetched) leaves the last one standing.
+#[allow(clippy::too_many_arguments)]
+fn build_plan(
+    sd: &StaticData,
+    memo: &mut Memo,
+    allies: Vec<(ChampKey, Option<Lane>)>,
+    enemies: Vec<(ChampKey, Option<Lane>)>,
+    length: &std::collections::HashMap<ChampKey, coach::Curve>,
+    mode: Mode,
+    draft: Option<&DraftReport>,
+    matchup: Option<&MatchupPlan>,
+    memory: &[MatchupMemory],
+) {
+    let lane_wr = matchup.is_some_and(|m| m.cards.iter().any(|c| c.vs_wr.is_some()));
+    let key: PlanKey = (allies.iter().chain(&enemies).copied().collect(), length.len(), draft.is_some(), lane_wr, memory.len());
+    if memo.plan_key.as_ref() == Some(&key) {
+        return;
+    }
+    let plan = coach::game_plan(&coach::GamePlanInput {
+        allies: &allies,
+        enemies: &enemies,
+        length,
+        draft,
+        matchup,
+        memory,
+        notes: crate::draft::lane_notes(),
+        sd,
+        mode,
+    });
+    if plan.is_some() {
+        memo.plan = plan;
+    }
+    memo.plan_key = Some(key);
+}
+
+/// Champ select preview: Rift once all ten champions are shown, lanes as the draft placed them.
+fn select_plan(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &ChampSelectAdvice, memo: &mut Memo) {
+    let Some(d) = advice.draft.as_ref().filter(|d| cs.mode == Mode::Rift && d.allies.champs.len() == 5 && d.enemies.champs.len() == 5) else {
+        (memo.plan, memo.plan_key) = (None, None);
+        return;
+    };
+    let lineup = |s: &DraftSide, ally: bool| -> Vec<(ChampKey, Option<Lane>)> {
+        s.champs.iter().map(|&c| (c, d.lanes.iter().find(|l| (if ally { l.ally } else { l.enemy }) == Some(c)).map(|l| l.lane))).collect()
+    };
+    let (allies, enemies) = (lineup(&d.allies, true), lineup(&d.enemies, false));
+    let length = lengths(sh, sd, allies.iter().chain(&enemies).copied(), cs.mode);
+    build_plan(sd, memo, allies, enemies, &length, cs.mode, Some(d), advice.matchup.as_ref(), &advice.memory);
+}
+
+/// In game, from the Live API roster: lanes from `position`, the comps rebuilt from the
+/// champions, my lane from the laning panel's cards. `curves`: the ten champions' (`lengths`).
+fn game_plan(sd: &StaticData, snap: &GameSnapshot, advice: &GameAdvice, memory: &[MatchupMemory], lane: Option<Lane>, curves: &std::collections::HashMap<ChampKey, coach::Curve>, memo: &mut Memo) {
+    let Some(me) = snap.players.get(snap.me) else { return };
+    let rift = snap.mode == Mode::Rift;
+    let side = |ally: bool| -> Vec<(ChampKey, Option<Lane>)> {
+        snap.players.iter().filter(|p| (p.team == me.team) == ally).map(|p| (p.champ, p.position.filter(|_| rift))).collect()
+    };
+    let (allies, enemies) = (side(true), side(false));
+    let keys = |v: &[(ChampKey, Option<Lane>)]| v.iter().map(|x| x.0).collect::<Vec<_>>();
+    let draft = coach::roster_draft(sd, &keys(&allies), &keys(&enemies));
+    let matchup = lane.filter(|_| rift && !advice.matchup.is_empty()).map(|l| MatchupPlan {
+        lane: l,
+        allies: vec![me.champ],
+        partner: None,
+        cards: advice.matchup.clone(),
+        build: None,
+        runes: vec![],
+    });
+    build_plan(sd, memo, allies, enemies, curves, snap.mode, Some(&draft), matchup.as_ref(), memory);
+}
+
 /// Mayhem augment cards on screen right now (OCR, screen order); empty when none.
 pub fn cards_on_screen(sh: &Shared) -> Vec<AugmentId> {
+    offer_on_screen(sh).iter().map(|c| c.id).collect()
+}
+
+/// [`cards_on_screen`] with where each title was read.
+pub fn offer_on_screen(sh: &Shared) -> Vec<ocr::offer::Card> {
     let o = sh.offered.lock().unwrap();
     if o.1.elapsed() < OFFER_TTL { o.0.clone() } else { vec![] }
+}
+
+/// The game ended: a reader that should have found its element and never did is warned about once,
+/// with what it needs to be fixed.
+fn end_game_health(sh: &Shared, client: Option<(u32, u32)>) {
+    let missed = sh.health.lock().unwrap().end_game();
+    let size = client.map_or("unknown size".to_string(), |(w, h)| format!("{w}x{h}"));
+    let hud = sh.minimap_settings().hud_scale.map_or("unknown".to_string(), |s| format!("{s:.2}"));
+    for r in missed {
+        tracing::warn!("screen reading: {} not found in a whole game ({size}, HUD scale {hud})", r.name());
+    }
+    sh.calib.lock().unwrap().save(true);
 }
 
 /// My augments: the Tab scoreboard row when read (an icon shared by several
@@ -566,7 +811,7 @@ fn recap(sh: &Arc<Shared>, sd: &StaticData, eog: &EogStats, memo: &Memo) -> Reca
     let bench = stats(sh, sd, eog.champ, memo.last_lane, eog.mode).map(|s| s.benchmarks.clone()).unwrap_or_default();
     let r = coach::recap(eog, &bench, &memo.recommended, sd);
     let r = crate::selfcoach::finish(r, &memo.log, sd, &sh.settings().goals, unix_now());
-    let path = settings::local_dir("recaps").join(format!("{}.json", unix_now()));
+    let path = account::dir("recaps").join(format!("{}.json", unix_now()));
     if let Ok(json) = serde_json::to_string_pretty(&r) {
         let _ = std::fs::write(path, json);
     }
@@ -574,7 +819,7 @@ fn recap(sh: &Arc<Shared>, sd: &StaticData, eog: &EogStats, memo: &Memo) -> Reca
 }
 
 fn load_last_recap() -> Option<Recap> {
-    let dir = settings::local_dir("recaps");
+    let dir = account::dir("recaps");
     let newest = std::fs::read_dir(dir).ok()?.filter_map(|e| e.ok()).map(|e| e.path()).max()?;
     serde_json::from_str(&std::fs::read_to_string(newest).ok()?).ok()
 }
@@ -594,30 +839,197 @@ fn unix_now() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
-/// capture → OCR → match, like `ocr::scan`, with debug logging of new text and
-/// frames of (partial) offers, so real-game layouts can be checked afterwards.
-fn scan_offer(names: &std::collections::HashMap<AugmentId, String>, last_lines: &mut Vec<String>) -> anyhow::Result<Vec<AugmentId>> {
+/// capture → OCR → locate the card titles, on the calibrated strip or the `wide` band, with debug
+/// logging of new text and frames of (partial) offers, so real-game layouts can be checked afterwards.
+fn scan_offer(sh: &Shared, names: &std::collections::HashMap<AugmentId, String>, last_lines: &mut Vec<String>, wide: bool) -> anyhow::Result<Vec<ocr::offer::Card>> {
     let t = Instant::now();
-    let Some(f) = ocr::capture_league() else { return Ok(vec![]) };
+    let Some((w, h)) = ocr::league_client() else { return Ok(vec![]) };
+    let strip = match wide {
+        true => ocr::offer::WIDE,
+        false => sh.calib.lock().unwrap().get("lol", &sh.calib_key(w, h)).and_then(|e| e.offer_strip).unwrap_or(ocr::offer::STRIP),
+    };
+    let r = ocr::offer::rect(w, h, strip);
+    let Some(f) = ocr::capture_client(r) else { return Ok(vec![]) };
     let captured = t.elapsed();
-    let lines = ocr::recognize(&f)?;
-    let ids = ocr::match_augments(&lines, names);
+    let boxes = ocr::recognize_boxes(&f)?;
+    let cards = ocr::offer::locate(&boxes, names, r, (w, h));
     if debug::on() {
+        let lines: Vec<String> = boxes.iter().map(|b| b.text.clone()).collect();
         if lines != *last_lines {
-            tracing::debug!(
-                "ocr {}x{} capture {captured:?} total {:?}, {} lines, matched {ids:?}: {lines:?}",
-                f.width,
-                f.height,
-                t.elapsed(),
-                lines.len()
-            );
+            let at: Vec<(AugmentId, f32, f32)> = cards.iter().map(|c| (c.id, c.x, c.y)).collect();
+            tracing::debug!("ocr {}x{} at {r:?}{} capture {captured:?} total {:?}, {} lines, cards {at:?}: {lines:?}", f.width, f.height, if wide { " (wide)" } else { "" }, t.elapsed(), lines.len());
             *last_lines = lines;
         }
-        if !ids.is_empty() {
-            debug::frame(if ids.len() >= 2 { "ocr-offer" } else { "ocr-partial" }, Duration::from_secs(10), &f);
+        let kind = match (wide, cards.len()) {
+            (true, 0) => "ocr-wide-miss",
+            (true, _) => "ocr-wide",
+            (false, 0) => "",
+            (false, 1) => "ocr-partial",
+            _ => "ocr-offer",
+        };
+        if !kind.is_empty() {
+            debug::frame(kind, Duration::from_secs(if wide { 30 } else { 10 }), &f);
         }
     }
-    Ok(ids)
+    Ok(cards)
+}
+
+/// A read offer: on screen for the overlay and the coach, its title row into the calibration
+/// (taken as is when the wide band found it), the reader found.
+fn offer_read(sh: &Shared, cards: Vec<ocr::offer::Card>, wide: bool) {
+    let top = cards.iter().map(|c| c.y).fold(f32::MAX, f32::min);
+    let scale = cards[0].found.scale;
+    if let (Some((w, h)), Some(patch)) = (ocr::league_client(), sh.patch()) {
+        let key = sh.calib_key(w, h);
+        sh.calib.lock().unwrap().offer_strip("lol", &key, &patch, unix_now(), ocr::offer::strip_for(top, scale), wide);
+    }
+    let shift = crate::health::shift(scale, top - ocr::offer::TITLE_TOP).or_else(|| wide.then(|| "found by the wide scan".to_string()));
+    sh.health.lock().unwrap().found(Reader::Offer, Shared::now_ms(), shift);
+    *sh.offered.lock().unwrap() = (cards, Instant::now());
+}
+
+/// The enemy team for the minimap thread (names, jungler), fetching their portraits in the background.
+fn gank_enemies(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, mine: Team) -> coach::GankEnemies {
+    let foes: Vec<&Player> = snap.players.iter().filter(|p| p.team != mine).collect();
+    for p in &foes {
+        if let Some(c) = sd.champs.get(&p.champ) {
+            let (http, url, circles) = (sh.http.clone(), data::icons::champion_icon_url(&sd.version, &c.id), data::icons::champion_circle_urls(&c.id));
+            ensure(sh, |s| &s.portraits, |s| &s.ddragon_ok, p.champ, move || async move {
+                let png = |b: Vec<u8>| ocr::scoreboard::decode_png(&b);
+                let square = png(data::icons::get_bytes(&http, &url, PORTRAIT_TTL).await?).ok_or_else(|| anyhow::anyhow!("bad champion icon {url}"))?;
+                let mut circle = None;
+                for u in &circles {
+                    if let Ok(b) = data::icons::get_bytes(&http, u, PORTRAIT_TTL).await {
+                        circle = png(b);
+                        break;
+                    }
+                }
+                let mut art = vec![ocr::minimap::Art::Square(&square)];
+                art.extend(circle.as_ref().map(ocr::minimap::Art::Circle));
+                Ok(ocr::minimap::portrait(&art))
+            });
+        }
+    }
+    coach::GankEnemies {
+        names: foes.iter().filter_map(|p| Some((p.champ, sd.champs.get(&p.champ)?.name.clone()))).collect(),
+        jungler: foes.iter().find(|p| p.smite).or_else(|| foes.iter().find(|p| p.position == Some(Lane::Jungle))).map(|p| p.champ),
+        lanes: foes.iter().filter_map(|p| Some((p.champ, p.position?))).collect(),
+    }
+}
+
+/// Replace the gank warnings in `advice` with `calls`, ahead of the other calls (they're the
+/// most time-critical: first on the overlay strip and first to be spoken).
+fn inject_gank(advice: &mut GameAdvice, calls: &[Call]) {
+    advice.calls.retain(|c| !c.key.starts_with("gank-"));
+    advice.calls.splice(0..0, calls.iter().cloned());
+}
+
+fn inject_lanes(advice: &mut GameAdvice, lanes: &[LaneOpen]) {
+    if let Some(j) = advice.jungle.as_mut()
+        && !lanes.is_empty()
+    {
+        j.lanes = lanes.to_vec();
+        j.minimap = true;
+    }
+}
+
+/// Minimap vision thread: reads enemy blips off the minimap while the orchestrator asks for it
+/// (on the Rift, gank warnings on) and the game is in the foreground, tracks them and
+/// pushes gank warnings to the UI as soon as they change. Never sends input or takes focus.
+pub fn spawn_minimap(app: AppHandle, sh: Arc<Shared>) {
+    std::thread::Builder::new()
+        .name("minimap".into())
+        .spawn(move || {
+            let mut tracker = coach::GankTracker::default();
+            let mut sights = coach::SightLog::default();
+            let mut said: Vec<Call> = vec![];
+            let mut shown: Vec<LaneOpen> = vec![];
+            loop {
+                let ctx = sh.gank_ctx.lock().unwrap().clone();
+                let Some(ctx) = ctx else {
+                    tracker = coach::GankTracker::default();
+                    sights = coach::SightLog::default();
+                    *sh.sights.lock().unwrap() = coach::SightLog::default();
+                    said.clear();
+                    shown.clear();
+                    *sh.minimap_state.lock().unwrap() = SourceState::Off;
+                    std::thread::sleep(MINIMAP_IDLE);
+                    continue;
+                };
+                std::thread::sleep(MINIMAP_SCAN);
+                if !ocr::league_foreground() {
+                    continue;
+                }
+                let cfg = sh.minimap_settings();
+                let Some(frame) = ocr::league_client().and_then(|(cw, ch)| ocr::capture_client(ocr::minimap::rect(cw, ch, cfg.scale, cfg.flipped))) else {
+                    *sh.minimap_state.lock().unwrap() = SourceState::Error;
+                    continue;
+                };
+                let found = ocr::minimap::find_square(&frame);
+                {
+                    let mut h = sh.health.lock().unwrap();
+                    h.expect(Reader::Minimap);
+                    if found.is_some() {
+                        h.found(Reader::Minimap, Shared::now_ms(), None);
+                    }
+                }
+                let sq = found.unwrap_or_else(|| ocr::minimap::map_square(&frame, cfg.flipped));
+                let blips = ocr::enemy_blips(&frame, sq);
+                let portraits: Vec<(ChampKey, Arc<ocr::minimap::Portrait>)> = {
+                    let cache = sh.portraits.lock().unwrap();
+                    ctx.enemies
+                        .names
+                        .keys()
+                        .filter_map(|k| match cache.get(k) {
+                            Some(crate::state::Slot::Ready(p)) => Some((*k, p.clone())),
+                            _ => None,
+                        })
+                        .collect()
+                };
+                let refs: Vec<(ChampKey, &ocr::minimap::Portrait)> = portraits.iter().map(|(k, p)| (*k, &**p)).collect();
+                let names = ocr::minimap::name_blips(&frame, sq, &blips, &refs);
+                let time = ctx.time + ctx.at.elapsed().as_secs_f32().min(CLOCK_ON);
+                let world: Vec<(i32, i32, Option<ChampKey>)> = blips
+                    .iter()
+                    .zip(&names)
+                    .map(|(&(fx, fy), &champ)| {
+                        let (x, y) = MapZone::from_minimap(fx, fy);
+                        (x, y, champ)
+                    })
+                    .collect();
+                tracker.observe(&world, ctx.blue, time);
+                let calls = tracker.warnings(time, ctx.lane, &ctx.enemies);
+                let named: Vec<(i32, i32, Option<ChampKey>)> = world.iter().zip(tracker.last_names()).map(|(&(x, y, _), c)| (x, y, c)).collect();
+                sights.push(time, &named, ctx.blue, &calls);
+                *sh.sights.lock().unwrap() = sights.clone();
+                if debug::on() {
+                    debug::frame("minimap", Duration::from_secs(3), &frame);
+                    let keys: Vec<&str> = calls.iter().map(|c| c.key.as_str()).collect();
+                    let square = (sq.x, sq.y, sq.side);
+                    debug::dump("minimap-blips", Duration::from_secs(1), &(time, (frame.width, frame.height), cfg.scale, &blips, &world, keys, square));
+                }
+                *sh.minimap_state.lock().unwrap() = SourceState::Ok;
+                *sh.gank_calls.lock().unwrap() = (calls.clone(), Instant::now());
+                let lanes = ctx.board.as_ref().map_or(vec![], |b| coach::jungle::lanes(b, Some(&tracker.view(time, &ctx.enemies))));
+                *sh.jungle_lanes.lock().unwrap() = (lanes.clone(), Instant::now());
+                let new_calls = calls.iter().map(|c| &c.key).ne(said.iter().map(|c| &c.key));
+                if new_calls || lanes != shown {
+                    let json = {
+                        let mut st = sh.ui.lock().unwrap();
+                        let Some(g) = st.game.as_mut() else { continue };
+                        inject_gank(g, &calls);
+                        inject_lanes(g, &lanes);
+                        serde_json::to_string(&*st).unwrap_or_default()
+                    };
+                    if !json.is_empty() {
+                        let _ = app.emit_str("state", json);
+                    }
+                    said = calls;
+                    shown = lanes;
+                }
+            }
+        })
+        .expect("spawn minimap thread");
 }
 
 /// OCR thread: scans while the orchestrator provides an augment pool.
@@ -626,6 +1038,7 @@ pub fn spawn_ocr(sh: Arc<Shared>) {
         .name("ocr".into())
         .spawn(move || {
             let mut last_offer: Option<Instant> = None;
+            let mut last_wide: Option<Instant> = None;
             let mut last_lines = Vec::new();
             loop {
                 std::thread::sleep(crate::tab::poll(&sh).min(OFFER_SCAN));
@@ -637,16 +1050,23 @@ pub fn spawn_ocr(sh: Arc<Shared>) {
                     *sh.ocr_state.lock().unwrap() = SourceState::Off;
                     continue;
                 };
-                match scan_offer(&names, &mut last_lines) {
-                    Ok(ids) => {
+                let read = scan_offer(&sh, &names, &mut last_lines, false).and_then(|cards| {
+                    let due = last_wide.is_none_or(|t| t.elapsed() >= WIDE_EVERY);
+                    if cards.len() >= 2 || !due || !*sh.offer_expected.lock().unwrap() {
+                        return Ok((cards, false));
+                    }
+                    last_wide = Some(Instant::now());
+                    Ok((scan_offer(&sh, &names, &mut last_lines, true)?, true))
+                });
+                match read {
+                    Ok((cards, wide)) => {
                         *sh.ocr_state.lock().unwrap() = SourceState::Ok;
-                        if ids.len() >= 2 {
-                            let mut o = sh.offered.lock().unwrap();
-                            if o.0 != ids {
-                                let n: Vec<&str> = ids.iter().filter_map(|i| names.get(i).map(String::as_str)).collect();
-                                tracing::info!("augment offer: {n:?}");
+                        if cards.len() >= 2 {
+                            if cards.iter().map(|c| c.id).ne(cards_on_screen(&sh)) {
+                                let n: Vec<&str> = cards.iter().filter_map(|c| names.get(&c.id).map(String::as_str)).collect();
+                                tracing::info!("augment offer{}: {n:?}", if wide { " (wide scan)" } else { "" });
                             }
-                            *o = (ids, Instant::now());
+                            offer_read(&sh, cards, wide);
                         }
                     }
                     Err(e) => {

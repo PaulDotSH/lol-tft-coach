@@ -7,4 +7,4 @@ export type Anchor = { time: number; at: number };
 /** Game seconds at `nowMs`. Pass the real performance.now() of the read, never a sampled tick: a
  *  throttled interval (window behind the game) leaves a tick far older than the last push, which put
  *  the clock that far behind and every countdown that far too long. */
-export const gameTime = (a: Anchor, nowMs: number) => a.time + Math.max(0, nowMs - a.at) / 1000;
+export const gameTime = (a: Anchor, nowMs: number) => (a.time > 0 ? a.time + Math.max(0, nowMs - a.at) / 1000 : 0);

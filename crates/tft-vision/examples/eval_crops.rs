@@ -1,12 +1,11 @@
 //! The looks eval set: replays one game's captures through the reader and tracker (single reads,
 //! empty library) and writes every naming crop of all groups (`mine`, `combat`, `scout`, see
-//! `common/crops.rs`) into `<out>/<game dir name>/`, replacing what was there. One game per run
+//! `tft_vision::crops`) into `<out>/<game dir name>/`, replacing what was there. One game per run
 //! (the embedder's runtime loads once per process).
 //! `cargo run -p tft-vision --release --example eval_crops -- <out> <capture dir>`
 //! Env: `TFT_MODEL` (required), `TFT_ME` (my name).
 
-#[path = "common/crops.rs"]
-mod crops;
+use tft_vision::crops;
 
 use std::path::{Path, PathBuf};
 
@@ -36,8 +35,7 @@ fn main() -> anyhow::Result<()> {
         let frame = p.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
         scouting += (snap.viewing_other && snap.enemies == 0) as u32;
         fights += !snap.foes.is_empty() as u32;
-        crops.mine(&f, frame, &snap, &tracker)?;
-        crops.others(&f, frame, &snap, &tracker)?;
+        crops.observe(&f, frame, &snap, &tracker)?;
     }
     let lib = tracker.library();
     println!("{name}: {} frames, {scouting} viewing another board, {fights} with red bars; crops {:?}; library {} looks of {} units", files.len(), crops.counts, lib.len(), lib.units());

@@ -44,6 +44,12 @@ data! {
         pub items: Vec<ItemId>,
         pub dead: bool,
         pub respawn_in: f32,
+        /// Takes Smite (any upgrade): the jungler, also where positions aren't given.
+        #[serde(default)]
+        pub smite: bool,
+        /// Summoner spells by internal name ("SummonerFlash", "SummonerDot"); empty when the API omits them.
+        #[serde(default)]
+        pub spells: Vec<String>,
     }
 
     pub struct GameSnapshot {
@@ -58,6 +64,12 @@ data! {
         pub events: Vec<GameEvent>,
         /// My live stats (items, levels, augments applied); None if the API omits them.
         pub my_stats: Option<ChampionStats>,
+        /// My Q, W, E, R ranks; None if the API omits them.
+        #[serde(default)]
+        pub my_abilities: Option<[u32; 4]>,
+        /// Swiftplay (the Live API's `SWIFTPLAY` game mode): Rift rules with a faster early game.
+        #[serde(default)]
+        pub swiftplay: bool,
     }
 
     pub enum GameEvent {
@@ -68,6 +80,11 @@ data! {
         Herald { time: f32, team: Option<Team> },
         /// Any other objective the season adds (grubs, atakhan, …).
         Objective { time: f32, team: Option<Team>, name: String },
+        /// A turret fell. `team` lost it; `tier` 1 outer, 2 inner, 3 inhibitor turret, 4 nexus
+        /// (no lane), 0 when the name does not say.
+        Tower { time: f32, team: Team, lane: Option<Lane>, tier: u32 },
+        /// An inhibitor of `team` fell, or (`respawned`) came back.
+        Inhib { time: f32, team: Team, lane: Option<Lane>, respawned: bool },
         GameEnd { time: f32, win: bool },
     }
 
@@ -298,6 +315,13 @@ impl MapZone {
     /// would put red-side top-lane deaths in bot lane).
     pub fn from_blue(x: i32, y: i32, blue: bool) -> (i32, i32) {
         if blue { (x, y) } else { (MAP_END - y, MAP_END - x) }
+    }
+
+    /// A minimap-fraction point (fx from the left, fy from the top, both 0..1) to Summoner's
+    /// Rift world coordinates with the blue base at the origin. League's "flip minimap" option
+    /// only moves the minimap to the left corner; the map itself is drawn the same way.
+    pub fn from_minimap(fx: f32, fy: f32) -> (i32, i32) {
+        ((fx * MAP_END as f32) as i32, ((1.0 - fy) * MAP_END as f32) as i32)
     }
 
     pub fn at(x: i32, y: i32) -> MapZone {

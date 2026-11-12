@@ -1,0 +1,6 @@
+{
+ "status": {
+  "message": "rate limit exceeded",
+  "status_code": 429
+ }
+}

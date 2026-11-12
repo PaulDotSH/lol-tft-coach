@@ -2,7 +2,7 @@
 //! recap with the death review, summary and goal results, and keeps personal
 //! trends from saved recaps plus the match-history cache.
 
-use crate::settings;
+use crate::account;
 use model::*;
 use std::sync::Arc;
 
@@ -12,8 +12,8 @@ const KEEP: usize = 100;
 const RECAP_AFTER: u64 = 900;
 
 /// Live goal progress after logging this tick.
-pub fn on_tick(log: &mut coach::GameLog, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, goals: &[Goal]) -> Vec<GoalProgress> {
-    log.observe(snap, advice, sd);
+pub fn on_tick(log: &mut coach::GameLog, snap: &GameSnapshot, advice: &GameAdvice, sd: &StaticData, goals: &[Goal], sights: Option<&coach::SightLog>) -> Vec<GoalProgress> {
+    log.observe(snap, advice, sd, sights);
     let Some(me) = snap.players.get(snap.me) else { return vec![] };
     let now = coach::Now { mode: snap.mode, time: snap.time, cs: me.cs, deaths: me.deaths, vision: me.ward_score, done: false };
     coach::goal_progress(goals, log, &now)
@@ -29,6 +29,7 @@ pub fn finish(mut r: Recap, log: &coach::GameLog, sd: &StaticData, goals: &[Goal
     r.goals = coach::goal_progress(goals, log, &now);
     r.summary = Some(coach::summary(log, e, ended));
     r.review = Some(coach::death_review(log, sd));
+    r.win_curve = log.win_curve.clone();
     r
 }
 
@@ -75,7 +76,7 @@ impl SelfCoach {
 /// The app's own recap of a history game: same champion and length, saved just after it ended.
 pub fn recap_for(g: &PastGame) -> Option<Recap> {
     let end = g.created / 1000 + g.duration_s as u64;
-    std::fs::read_dir(settings::local_dir("recaps"))
+    std::fs::read_dir(account::dir("recaps"))
         .ok()?
         .filter_map(|e| {
             let p = e.ok()?.path();
@@ -87,7 +88,7 @@ pub fn recap_for(g: &PastGame) -> Option<Recap> {
 }
 
 fn load_summaries() -> Vec<GameSummary> {
-    let Ok(dir) = std::fs::read_dir(settings::local_dir("recaps")) else { return vec![] };
+    let Ok(dir) = std::fs::read_dir(account::dir("recaps")) else { return vec![] };
     let mut v: Vec<GameSummary> = dir
         .filter_map(|e| std::fs::read_to_string(e.ok()?.path()).ok())
         .filter_map(|s| serde_json::from_str::<Recap>(&s).ok()?.summary)

@@ -1,0 +1,21 @@
+[Unit]
+Description=LoL Coach service - player data, lookups, match crawl (lol.foarte.top)
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=caddy
+Group=caddy
+ExecStart=/opt/lol-coach/bin/lol-coach-server --config /etc/lol-coach/server.toml
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/lol-coach
+MemoryMax=12G
+TasksMax=256
+[Install]
+WantedBy=multi-user.target

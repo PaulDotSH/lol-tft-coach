@@ -32,6 +32,13 @@
   const team = $derived(line(points.map((p) => [p.time, p.team])));
   const area = $derived(points.length ? `${team}L${x(points.at(-1)!.time)},${MID}L${x(points[0].time)},${MID}Z` : '');
   const lane = $derived(points.some((p) => p.lane != null) ? line(points.map((p) => [p.time, p.lane ?? 0])) : '');
+  // Win chance on its own scale: 50 % on the zero line, 100 % at the top; a gap breaks the line.
+  const yWin = (w: number) => MID - ((w - 0.5) / 0.5) * (MID - Y0);
+  const win = $derived(
+    points.filter((p) => p.win != null).length > 1
+      ? points.reduce((d, p, i) => (p.win == null ? d : `${d}${points[i - 1]?.win != null ? 'L' : 'M'}${x(p.time).toFixed(1)},${yWin(p.win).toFixed(1)}`), '')
+      : '',
+  );
   const ticks = $derived(Array.from({ length: Math.floor(span / 300) + 1 }, (_, i) => i * 300));
 
   const LETTER: Record<string, string> = { Dragon: 'D', Baron: 'B', Herald: 'H', Grubs: 'G', Atakhan: 'A', Tower: 'T', Inhibitor: 'I' };
@@ -51,9 +58,12 @@
   <div class="legend small">
     <span><i class="sw team"></i>Team gold lead</span>
     {#if lane}<span><i class="sw lane"></i>Lane{opponent ? ` vs ${opponent}` : ''}</span>{/if}
+    {#if win}<span title="Your team's chance to win, deaths aside: 50% on the zero line, 100% at the top"><i class="sw win"></i>Win chance</span>{/if}
     <span class="read num">
       {#if hover}
-        {clockText(hover.time)} · team {signed(hover.team, gold)}{hover.lane != null ? ` · lane ${signed(hover.lane, gold)}` : ''}
+        {clockText(hover.time)} · team {signed(hover.team, gold)}{hover.lane != null ? ` · lane ${signed(hover.lane, gold)}` : ''}{hover.win != null
+          ? ` · win ${Math.round(hover.win * 100)}%`
+          : ''}
       {/if}
     </span>
   </div>
@@ -74,6 +84,7 @@
     <path class="fill bad" d={area} clip-path="url(#below)" />
     {#if lane}<path class="lane" d={lane} />{/if}
     <path class="team" d={team} />
+    {#if win}<path class="winline" d={win} />{/if}
 
     {#each marks as m, i (i)}
       <text class="mark" class:minor={minor(m)} class:ours={m.ours} x={x(m.time)} y={minor(m) ? 20 : 13} text-anchor="middle">
@@ -101,7 +112,7 @@
   <p class="key small muted">
     Top row: <b class="ours">D</b>ragon, <b class="ours">B</b>aron, <b class="ours">H</b>erald, <b class="ours">G</b>rubs,
     <b class="ours">T</b>ower, <b class="ours">I</b>nhibitor (green yours, red theirs). Dots: kills, large when you were in
-    them. Minutes along the bottom.
+    them. Minutes along the bottom.{#if win}{' '}Dotted: win chance, 50% on the zero line and 100% at the top.{/if}
   </p>
 </div>
 
@@ -139,6 +150,9 @@
   .sw.lane {
     border-top: 2px dashed var(--muted);
   }
+  .sw.win {
+    border-top: 2px dotted var(--text);
+  }
   .small {
     font-size: 13px;
   }
@@ -174,6 +188,15 @@
     stroke: var(--muted);
     stroke-width: 1.5;
     stroke-dasharray: 4 3;
+  }
+  .winline {
+    fill: none;
+    stroke: var(--text);
+    stroke-width: 2;
+    stroke-dasharray: 1 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.85;
   }
   .mark {
     font: 700 12px var(--cond);

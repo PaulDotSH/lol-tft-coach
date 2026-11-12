@@ -11,6 +11,7 @@
 //!
 //! Items on the bench and under my units' bars, with item icons loaded (`items`).
 
+pub mod crops;
 pub mod glyphs;
 pub mod items;
 pub mod team;
@@ -55,6 +56,8 @@ const HP_COLUMN: (u32, u32, u32, u32) = (2290, 150, 160, 960);
 /// Player list names (mine is the big HP row, drawn without a name).
 const LIST_X: (f32, f32) = (2100.0, 2450.0);
 const LIST_Y: (f32, f32) = (150.0, 1100.0);
+/// A player list name and an HP number on the same row: centres at most this far apart (base px).
+const ROW_DY: f32 = 30.0;
 /// Tacticians' name plates over the board.
 const PLATE_X: (f32, f32) = (450.0, 2100.0);
 const PLATE_Y: (f32, f32) = (100.0, 1150.0);
@@ -477,8 +480,8 @@ fn plate_name<'a>(text: &str, list: &[&'a str]) -> Option<&'a str> {
     (ok && d.get(1).is_none_or(|n| n.0 > best)).then_some(name)
 }
 
-/// Player list names (not mine; at least 3 characters, not one repeated like the "•••" under my HP).
-fn list_names<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>) -> Vec<&'a str> {
+/// Player list name boxes (not mine; at least 3 characters, not one repeated like the "•••" under my HP).
+fn list_boxes<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>) -> Vec<&'a TextBox> {
     let name = |t: &str| {
         let n = norm(t);
         n.chars().count() >= 3 && n.chars().any(|c| !n.starts_with(c)) && t.chars().any(char::is_alphabetic)
@@ -486,9 +489,31 @@ fn list_names<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>) -> Vec<&'a st
     boxes
         .iter()
         .filter(|b| g.within(b, LIST_X, LIST_Y) && name(&b.text))
-        .map(|b| b.text.trim())
-        .filter(|t| me.is_none_or(|m| !same_name(t, m)))
+        .filter(|b| me.is_none_or(|m| !same_name(b.text.trim(), m)))
         .collect()
+}
+
+fn list_names<'a>(boxes: &'a [TextBox], g: &Geo, me: Option<&str>) -> Vec<&'a str> {
+    list_boxes(boxes, g, me).into_iter().map(|b| b.text.trim()).collect()
+}
+
+/// The other players' rows: each name with the HP number nearest its row (within ROW_DY), top to bottom.
+fn lobby(boxes: &[TextBox], g: &Geo, me: Option<&str>) -> Vec<(String, u32)> {
+    let mid = |b: &TextBox| b.y + b.h / 2.0;
+    let hps: Vec<(&TextBox, u32)> = boxes
+        .iter()
+        .filter(|b| g.within(b, HP_X, LIST_Y) && !b.text.trim().is_empty() && b.text.trim().chars().all(|c| c.is_ascii_digit()))
+        .filter_map(|b| Some((b, digits(&b.text).filter(|h| *h <= 100)?)))
+        .collect();
+    let mut rows: Vec<(f32, String, u32)> = list_boxes(boxes, g, me)
+        .into_iter()
+        .filter_map(|n| {
+            let (b, hp) = hps.iter().filter(|(b, _)| (mid(b) - mid(n)).abs() <= g.v(ROW_DY)).min_by(|a, b| (mid(a.0) - mid(n)).abs().total_cmp(&(mid(b.0) - mid(n)).abs()))?;
+            (b.x >= n.x).then(|| (mid(n), n.text.trim().to_string(), *hp))
+        })
+        .collect();
+    rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+    rows.into_iter().map(|(_, n, h)| (n, h)).collect()
 }
 
 /// Player list entries (not mine) whose tactician's plate shows in rows `y` of the board area.
@@ -616,6 +641,7 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
     let enemies = foes.len() as u32;
     let viewing_other = viewing_other(&boxes, &g, me);
     let viewing = viewed(f, &boxes, &g, me, enemies > 0);
+    let lobby = lobby(&boxes, &g, me);
     Some(TftSnapshot {
         at,
         stage,
@@ -636,6 +662,7 @@ fn read_with(f: &Frame, names: &Names, me: Option<&str>, at: u64) -> Option<TftS
         enemies,
         viewing,
         foes,
+        lobby,
     })
 }
 
@@ -701,6 +728,11 @@ impl Reader {
 
     /// One read of the screen; None when the TFT window or its HUD isn't up.
     pub fn read(&mut self) -> Option<TftSnapshot> {
+        self.read_with_frame().map(|(snap, _)| snap)
+    }
+
+    /// `read`, with the captured frame.
+    pub fn read_with_frame(&mut self) -> Option<(TftSnapshot, Frame)> {
         let (w, h) = ocr::league_client()?;
         let f = ocr::capture_client(ocr::scoreboard::Rect { x: 0, y: 0, w: w as i32, h: h as i32 })?;
         let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
@@ -708,7 +740,7 @@ impl Reader {
         self.smooth(&mut snap);
         self.read_items(&f, &mut snap);
         self.embed(&f, &mut snap);
-        Some(snap)
+        Some((snap, f))
     }
 
     /// A trait missing from one read keeps its last count for a couple of reads.
@@ -809,6 +841,34 @@ mod tests {
         assert_eq!(plate_name("LeoDp", &list), Some("LeoDp"));
         assert_eq!(plate_name("@ 27", &list), None);
         assert_eq!(plate_name("Inferno", &list), None);
+    }
+
+    #[test]
+    fn lobby_pairs_each_name_with_its_rows_hp() {
+        let b = |text: &str, x: f32, y: f32, h: f32| TextBox { text: text.into(), x, y, w: 60.0, h };
+        let g = Geo(1.0);
+        let boxes = [
+            b("vandboabe", 2120.0, 200.0, 14.0),
+            b("74", 2300.0, 196.0, 22.0),
+            b("LeoDp", 2120.0, 310.0, 14.0),
+            b("58", 2320.0, 312.0, 14.0),
+            b("Kabéas", 2120.0, 420.0, 14.0),
+            b("LittleED92", 2120.0, 530.0, 14.0),
+            b("100", 2320.0, 528.0, 14.0),
+            b("Inferno", 900.0, 530.0, 14.0),
+        ];
+        assert_eq!(lobby(&boxes, &g, Some("vandboabe")), vec![("LeoDp".to_string(), 58), ("LittleED92".to_string(), 100)]);
+    }
+
+    #[test]
+    fn two_plates_in_one_read_link_nothing() {
+        let b = |text: &str, x: f32, y: f32| TextBox { text: text.into(), x, y, w: 60.0, h: 14.0 };
+        let f = Frame { width: 2560, height: 1440, bgra: vec![] };
+        let list = [b("LeoDp", 2120.0, 310.0), b("LittleED92", 2120.0, 530.0)];
+        let one = [&list[..], &[b("LeoDp", 1200.0, 300.0)]].concat();
+        let two = [&one[..], &[b("LittleED92", 900.0, 120.0)]].concat();
+        assert_eq!(viewed(&f, &one, &Geo(1.0), Some("vandboabe"), true).as_deref(), Some("LeoDp"));
+        assert_eq!(viewed(&f, &two, &Geo(1.0), Some("vandboabe"), true), None);
     }
 
     #[test]

@@ -2,15 +2,34 @@
 
 mod common;
 
-use coach::{GameInput, GameLog, Now, death_review, game_advice, goal_progress, summary, trends};
+use coach::{GameInput, GameLog, Now, SightLog, death_review, game_advice, goal_progress, summary, trends};
 use common::*;
 use model::*;
 
 /// One in-game tick through the real coach into the log.
 fn tick(log: &mut GameLog, sd: &StaticData, time: f32, gold: f32, players: &[Player], events: &[GameEvent]) {
+    tick_seen(log, sd, time, gold, players, events, None);
+}
+
+fn tick_seen(log: &mut GameLog, sd: &StaticData, time: f32, gold: f32, players: &[Player], events: &[GameEvent], sights: Option<&SightLog>) {
     let snap = GameSnapshot { time, my_gold: gold, players: players.to_vec(), events: events.to_vec(), ..snap(vec![], vec![]) };
-    let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
-    log.observe(&snap, &advice, sd);
+    let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() });
+    log.observe(&snap, &advice, sd, sights);
+}
+
+#[test]
+fn the_log_keeps_the_win_chance_every_twenty_seconds() {
+    let sd = sd();
+    let m = coach::winprob::Model::parse(include_str!("../../../fixtures/coach/winprob_handset.toml")).unwrap();
+    let mut log = GameLog::default();
+    for (time, model) in [(100.0, Some(&m)), (110.0, Some(&m)), (121.0, Some(&m)), (150.0, None), (160.0, Some(&m))] {
+        let snap = GameSnapshot { time, ..snap(lobby(STANDARD), vec![]) };
+        let advice = game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(model.unwrap_or(&coach::winprob::Model::default())), situations: &Default::default() });
+        log.observe(&snap, &advice, &sd, None);
+    }
+    let times: Vec<f32> = log.win_curve.iter().map(|w| w.0).collect();
+    assert_eq!(times, [100.0, 121.0, 160.0], "none without a fit (the built-in table at 150 s)");
+    assert!(log.win_curve.iter().all(|w| w.1 > 0.5 && w.1 < 0.53), "{:?}", log.win_curve);
 }
 
 fn with_assist(time: f32, killer: usize, assister: usize) -> GameEvent {
@@ -113,7 +132,7 @@ fn cs_at_10_early_deaths_and_buys() {
     tick(&mut log, &sd, 598.0, 3000.0, &p, &ev);
     let suggested = {
         let snap = GameSnapshot { time: 598.0, my_gold: 3000.0, players: p.clone(), ..snap(vec![], vec![]) };
-        game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None }).buy_next.unwrap().item
+        game_advice(&GameInput { snap: &snap, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() }).buy_next.unwrap().item
     };
     p[0] = p[0].clone().cs(66).items(&[RUBY, suggested, LONG_SWORD]);
     tick(&mut log, &sd, 600.5, 100.0, &p, &ev);
@@ -361,4 +380,108 @@ fn session_is_the_latest_run_of_games_with_their_repeated_mistakes() {
     with_remake.insert(0, PastGame { remake: true, created: 31 * H, ..game(9, 0, 0, false) });
     assert_eq!(coach::trends(&with_remake, &[], &[]).session.unwrap().game_ids, [1, 2]);
     assert!(coach::trends(&[], &[], &[]).session.is_none());
+}
+
+type Seen = (f32, (i32, i32, Option<ChampKey>));
+
+struct Minimap {
+    sd: StaticData,
+    players: Vec<Player>,
+    log: GameLog,
+    sights: SightLog,
+    events: Vec<GameEvent>,
+}
+
+impl Minimap {
+    fn new() -> Minimap {
+        let (sd, players) = (sd(), lobby(STANDARD));
+        let mut log = GameLog::default();
+        tick(&mut log, &sd, 100.0, 300.0, &players, &[]);
+        Minimap { sd, players, log, sights: SightLog::default(), events: vec![] }
+    }
+
+    fn die(&mut self, time: f32, killer: usize, assisters: &[usize], seen: &[Seen], call: Option<f32>) {
+        for i in 0..=16 {
+            let t = time - 15.0 + i as f32;
+            let mut blips = vec![(7400, 7400, Some(ZED))];
+            blips.extend(seen.iter().filter(|o| time - t <= o.0).map(|o| o.1));
+            let calls: Vec<Call> = call
+                .filter(|c| *c == time - t)
+                .map(|_| Call { key: format!("gank-mid-{time}"), text: "Lee Sin coming to your lane — watch for a gank".into(), say: String::new() })
+                .into_iter()
+                .collect();
+            self.sights.push(t, &blips, true, &calls);
+        }
+        self.dark(time, killer, assisters);
+    }
+
+    fn dark(&mut self, time: f32, killer: usize, assisters: &[usize]) {
+        self.events.push(GameEvent::Kill { time, killer: Some(killer), victim: 0, assisters: assisters.to_vec() });
+        tick_seen(&mut self.log, &self.sd, time + 1.0, 300.0, &self.players, &self.events, Some(&self.sights));
+    }
+
+    fn review(&self) -> DeathReview {
+        death_review(&self.log, &self.sd)
+    }
+}
+
+const RIVER: (i32, i32, Option<ChampKey>) = (8800, 6000, Some(LEE_SIN));
+
+#[test]
+fn deaths_say_what_the_minimap_showed() {
+    let mut m = Minimap::new();
+    m.die(300.0, 6, &[], &[(10.0, RIVER)], Some(6.0));
+    m.die(500.0, 6, &[7], &[(8.0, RIVER)], None);
+    m.die(700.0, 6, &[7], &[], None);
+    m.die(900.0, 7, &[], &[], Some(5.0));
+    m.die(1100.0, 6, &[], &[], None);
+    m.dark(1300.0, 6, &[]);
+    m.die(1500.0, 6, &[], &[(2.0, RIVER)], None);
+    let r = m.review();
+    let lines: Vec<(Option<SightKind>, Option<&str>)> =
+        r.deaths.iter().map(|d| d.sight.as_ref().map_or((None, None), |s| (s.verdict, s.line.as_deref()))).collect();
+    assert_eq!(
+        lines,
+        [
+            (Some(SightKind::Warned), Some("Warned 6 s before: Lee Sin coming to your lane — watch for a gank")),
+            (Some(SightKind::Visible), Some("Lee Sin was on the minimap for 8 s before")),
+            (Some(SightKind::Fog), Some("Lee Sin came out of fog")),
+            (Some(SightKind::Lane), None),
+            (Some(SightKind::Fog), Some("Lee Sin came out of fog")),
+            (None, None),
+            (Some(SightKind::Unclear), Some("Lee Sin showed 2 s before")),
+        ]
+    );
+    assert!(r.notes.contains(&"2 of 6 deaths: the killer was on the minimap 4 s or more before".to_string()), "{:?}", r.notes);
+    assert!(r.notes.contains(&"2 deaths came out of fog".to_string()), "{:?}", r.notes);
+    assert!(!r.notes.iter().any(|n| n.contains("warnings")), "one warning is no pattern: {:?}", r.notes);
+}
+
+#[test]
+fn warnings_followed_by_deaths() {
+    let mut m = Minimap::new();
+    m.die(300.0, 6, &[], &[], Some(6.0));
+    m.die(500.0, 6, &[], &[], Some(9.0));
+    m.die(700.0, 6, &[], &[], Some(12.0));
+    let r = m.review();
+    assert!(r.notes.contains(&"3 of 3 deaths: the killer was on the minimap 4 s or more before".to_string()), "{:?}", r.notes);
+    assert!(r.notes.contains(&"2 warnings were followed by a death within 10 s".to_string()), "{:?}", r.notes);
+    assert!(!r.notes.iter().any(|n| n.contains("fog")), "{:?}", r.notes);
+}
+
+#[test]
+fn one_seen_death_is_no_pattern() {
+    let mut m = Minimap::new();
+    m.die(300.0, 6, &[], &[(8.0, RIVER)], None);
+    m.die(500.0, 6, &[], &[], None);
+    assert!(!m.review().notes.iter().any(|n| n.contains("minimap") || n.contains("fog")), "{:?}", m.review().notes);
+}
+
+#[test]
+fn recaps_saved_before_the_minimap_review_still_load() {
+    let old = r#"{"time":300.0,"killer":64,"assisters":[],"gold_gap":null,"killer_top_threat":false,"unspent":0,"buy_next":null,"could_buy":false,"owned":[],"spikes":[],"traded":false,"place":null,"pos":null}"#;
+    let n: DeathNote = serde_json::from_str(old).unwrap();
+    assert!(n.sight.is_none());
+    let s = r#"{"covered":1.0,"seen":[],"warned":null}"#;
+    assert_eq!(serde_json::from_str::<DeathSight>(s).unwrap().verdict, None);
 }

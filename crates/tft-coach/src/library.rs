@@ -3,8 +3,11 @@
 //! unit, one held when the app started) is known by its looks; plus, built in, a seed of every
 //! unit's looks from 3D renders (`with_seed`). Seed looks name other players' units only (see
 //! `board::by_looks` and `scout`), are never learnt over and never saved. The app keeps the
-//! learnt looks on disk (`to_bytes` / `from_bytes`).
+//! learnt looks on disk (`to_bytes` / `from_bytes`). A classifier head (`with_head`, built in
+//! once one passes the gate) names other players' units from the same embeddings; without one
+//! (an empty file) that naming stays off.
 
+use crate::head::Head;
 use half::f16;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -35,6 +38,7 @@ pub struct Library {
     /// What `classify_centered` and `units` derive from the learnt looks, made on first use and
     /// dropped when a look is learnt.
     learnt: OnceLock<Learnt>,
+    head: Option<Head>,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +118,26 @@ impl Library {
             self.learnt = OnceLock::new();
         }
         self
+    }
+
+    /// The classifier head added (`head.bin`); empty or unreadable bytes leave it off.
+    pub fn with_head(mut self, bytes: &[u8]) -> Library {
+        self.head = Head::from_bytes(bytes);
+        self
+    }
+
+    pub fn has_head(&self) -> bool {
+        self.head.is_some()
+    }
+
+    /// The head's probability per unit for `emb`, best first (empty without a head).
+    pub fn classify_head(&self, emb: &[f32]) -> Vec<(Api, f32)> {
+        self.head.as_ref().map_or(vec![], |h| h.scores(emb))
+    }
+
+    /// The unit the head names for `emb` at the thresholds stored with it.
+    pub fn head_name(&self, emb: &[f32]) -> Option<Api> {
+        self.head.as_ref()?.name(emb)
     }
 
     /// Every known unit with its best similarity to `emb`, best first: (unit, similarity, seed).
@@ -212,7 +236,7 @@ impl Library {
             };
             looks.push(Look { api, star, seed, emb });
         }
-        Some(Library { looks, learnt: OnceLock::new() })
+        Some(Library { looks, learnt: OnceLock::new(), head: None })
     }
 }
 

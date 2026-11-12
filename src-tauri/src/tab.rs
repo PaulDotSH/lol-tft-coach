@@ -2,9 +2,10 @@
 //! thread's scoreboard polls (only while a Mayhem game runs) and per-game
 //! memory of what was read.
 
+use crate::health::Reader;
 use crate::state::{Cache, Shared, ensure};
 use model::*;
-use ocr::scoreboard::{self, AugIcons, BoardPlayer, Desc, Geometry};
+use ocr::scoreboard::{self, AugIcons, BoardPlayer, Desc, Geometry, Rect};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -18,6 +19,11 @@ const JOB_TTL: Duration = Duration::from_secs(6);
 const ICON_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 /// Game-data icon of ability augments; in game they show the champion's ability art.
 const GENERIC_ICON: &str = "genericabilityaugmenticon";
+/// An open board refines the calibrated fit at most this often.
+const REFIT_EVERY: Duration = Duration::from_secs(10);
+/// While enemy augments are unknown and the board hasn't been found under this window's
+/// calibration, the whole window is searched for it at most this often.
+const WIDE_EVERY: Duration = Duration::from_secs(5);
 
 #[derive(Default)]
 pub struct TabShared {
@@ -26,6 +32,15 @@ pub struct TabShared {
     ok: Mutex<Option<bool>>,
     job: Mutex<Option<Arc<Job>>>,
     read: Mutex<Option<Read>>,
+    fit: Mutex<FitState>,
+}
+
+#[derive(Default)]
+struct FitState {
+    refit: Option<Instant>,
+    wide: Option<Instant>,
+    /// Calibration key the board was found under this session.
+    found: Option<String>,
 }
 
 struct Icons {
@@ -185,7 +200,7 @@ pub fn poll(sh: &Shared) -> Duration {
         return IDLE;
     };
     let t = Instant::now();
-    if let Some(rows) = scan(&job) {
+    if let Some(rows) = scan(sh, &job) {
         tracing::debug!("scoreboard read in {:?}: {rows:?}", t.elapsed());
         let champs = job.players.iter().map(|p| p.0).collect();
         *sh.tab.read.lock().unwrap() = Some(Read { champs, rows });
@@ -193,10 +208,13 @@ pub fn poll(sh: &Shared) -> Duration {
     if job.urgent { URGENT } else { PASSIVE }
 }
 
-/// Up to two small column captures decide whether the scoreboard is open; only then is the board captured and read.
-fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
+/// Up to two small column captures decide whether the scoreboard is open (at the calibrated
+/// geometry); only then is the board captured and read.
+fn scan(sh: &Shared, job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
     let (w, h) = ocr::league_client()?;
-    let g = Geometry::new(w, h);
+    let key = sh.calib_key(w, h);
+    let stored = sh.calib.lock().unwrap().get("lol", &key).and_then(|e| e.scoreboard);
+    let g = stored.map_or_else(|| Geometry::new(w, h), |b| Geometry { s: b.s, cx: b.cx, cy: b.cy });
     let open = scoreboard::is_open_with(
         |h| {
             let c = g.column(h);
@@ -205,6 +223,9 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
         &g,
     )?;
     if !open {
+        if job.urgent {
+            wide_fit(sh, &key, (w, h), &g);
+        }
         return None;
     }
     let r = g.board();
@@ -215,6 +236,19 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
         tracing::debug!("scoreboard open ({w}x{h}) but rows unreadable");
         return None;
     };
+    let due = {
+        let mut st = sh.tab.fit.lock().unwrap();
+        let due = st.refit.is_none_or(|t| t.elapsed() >= REFIT_EVERY);
+        if due {
+            st.refit = Some(Instant::now());
+        }
+        st.found = Some(key.clone());
+        due
+    };
+    if due {
+        let fitted = Geometry::fit(&f, (r.x, r.y), (w, h), &g).map(|x| x.0);
+        board_found(sh, &key, (w, h), fitted.unwrap_or(g), false);
+    }
     let candidates = |s: &scoreboard::Seen| {
         let ids = s.group.map_or(&job.icons.unmatched[..], |g| job.icons.aug.ids(g));
         // Augments sharing an icon: keep those of the tinted rarity when any are.
@@ -230,6 +264,43 @@ fn scan(job: &Job) -> Option<Vec<(usize, Vec<SeenIcon>)>> {
             .map(|row| (row.player, row.augments.iter().map(|s| (candidates(s), s.rarity)).collect()))
             .collect(),
     )
+}
+
+/// The board isn't where the calibration expects it: look over the whole window, unless it was
+/// already found under this calibration this session or was looked for just now.
+fn wide_fit(sh: &Shared, key: &str, client: (u32, u32), g: &Geometry) {
+    {
+        let mut st = sh.tab.fit.lock().unwrap();
+        if st.found.as_deref() == Some(key) || st.wide.is_some_and(|t| t.elapsed() < WIDE_EVERY) {
+            return;
+        }
+        st.wide = Some(Instant::now());
+    }
+    let Some(f) = ocr::capture_client(Rect { x: 0, y: 0, w: client.0 as i32, h: client.1 as i32 }) else { return };
+    let t = Instant::now();
+    match Geometry::fit(&f, (0, 0), client, g) {
+        Some((fit, found)) => {
+            tracing::info!("scoreboard found at {:.2}× ({}x{}) in {:?}", found.scale, client.0, client.1, t.elapsed());
+            sh.tab.fit.lock().unwrap().found = Some(key.to_string());
+            board_found(sh, key, client, fit, true);
+        }
+        None => crate::debug::frame("tab-wide-miss", Duration::from_secs(60), &f),
+    }
+}
+
+/// A board read at `g`: into the calibration (taken as is when `set`) and the reader's health.
+fn board_found(sh: &Shared, key: &str, client: (u32, u32), g: Geometry, set: bool) {
+    if let Some(patch) = sh.patch() {
+        let b = crate::calib::Board { s: g.s, cx: g.cx, cy: g.cy };
+        sh.calib.lock().unwrap().scoreboard("lol", key, &patch, unix_secs(), b, set);
+    }
+    let base = Geometry::new(client.0, client.1);
+    let off = ((g.cx - base.cx) / client.0 as f32).abs().max(((g.cy - base.cy) / client.1 as f32).abs());
+    sh.health.lock().unwrap().found(Reader::Scoreboard, Shared::now_ms(), crate::health::shift(g.s / base.s, off));
+}
+
+fn unix_secs() -> u64 {
+    Shared::now_ms() / 1000
 }
 
 /// Every Mayhem augment id from the game data, once the icon set has loaded.

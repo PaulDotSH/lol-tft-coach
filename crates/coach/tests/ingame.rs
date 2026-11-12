@@ -107,7 +107,7 @@ fn shopping_list_carries_death_timer_through_game_advice() {
     let mut s = snap(p, vec![]);
     s.my_gold = 3300.0;
     let sd = sd();
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&ahri_stats()), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&ahri_stats()), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() });
     let l = &a.shopping;
     assert!(l.dead && l.respawn_in == 21.5, "{l:?}");
     let first = &l.buys[0];
@@ -195,7 +195,7 @@ fn affordable_item_has_zero_eta_and_no_back_plans() {
 
 fn extras(s: &GameSnapshot, t: &Tracker, ults: &HashMap<ChampKey, UltCooldowns>) -> GameAdvice {
     let sd = sd();
-    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None });
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker: t, ults, notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     a
 }

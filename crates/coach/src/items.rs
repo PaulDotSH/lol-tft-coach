@@ -7,7 +7,9 @@ use crate::{
     modes::{self, ANTI_BURST, ARMOR, ARMOR_PEN, MAGIC_PEN, MR, Rules},
     needs::{Needs, decay},
     resists::{PEN_GAIN_FULL, Pen, Targets},
+    situations,
     threat::Foe,
+    whatif::Sim,
 };
 use model::*;
 use std::collections::HashMap;
@@ -17,7 +19,7 @@ const CAP_PENALTY: f32 = 0.04;
 /// Crit amount of a typical crit item (full penalty weight).
 const CAP_REF_CRIT: f32 = 0.25;
 /// Base attack speed when Data Dragon stats are missing.
-const DEFAULT_BASE_AS: f32 = 0.65;
+pub(crate) const DEFAULT_BASE_AS: f32 = 0.65;
 /// Augment shift at which a reason names the augment.
 const AUG_REASON_MIN: f32 = 0.01;
 
@@ -66,6 +68,32 @@ fn build_dir(sd: &StaticData, stats: Option<&ChampStats>, c: &Champion) -> [f32;
     norm([0, 1, 2].map(|k| (1.0 - CHAMP_DIR_WEIGHT) * sd_[k] + CHAMP_DIR_WEIGHT * cd[k]))
 }
 
+/// Where the game stands for item choices, from the win probability's `base`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Standing {
+    Behind,
+    Even,
+    Ahead,
+}
+
+impl Standing {
+    pub fn of(win: Option<&WinProb>) -> Option<Standing> {
+        win.map(|w| match w.base {
+            b if b <= STANDING_BEHIND => Standing::Behind,
+            b if b >= STANDING_AHEAD => Standing::Ahead,
+            _ => Standing::Even,
+        })
+    }
+}
+
+/// Behind with a tracked income: items whose ETA is far off lose a little.
+pub struct Tempo<'a> {
+    /// Gold per second.
+    pub income: f32,
+    pub gold: f32,
+    pub owned: &'a [ItemId],
+}
+
 pub struct Ctx<'a> {
     pub sd: &'a StaticData,
     pub stats: Option<&'a ChampStats>,
@@ -80,6 +108,10 @@ pub struct Ctx<'a> {
     base: f32,
     /// Snowball items (Mejai's, Dark Seal) are only offered while ahead.
     pub ahead: bool,
+    pub tempo: Option<Tempo<'a>>,
+    /// Coachless WPA by situation per item, and the situation the game is in per group.
+    pub situations: Option<&'a HashMap<ItemId, ItemSituations>>,
+    pub now: [Option<Situation>; 5],
     /// Support: the quest item holds a slot, and lolalytics counts its upgrade as item 1.
     pub support: bool,
     pub rules: &'static Rules,
@@ -91,6 +123,7 @@ pub struct Ctx<'a> {
     pub pen: Option<Targets>,
     /// Last tick's Buy next, kept first while it is within KEEP_MARGIN of the best.
     pub keep: Option<ItemId>,
+    pub sim: Option<Sim<'a>>,
 }
 
 impl<'a> Ctx<'a> {
@@ -118,7 +151,26 @@ impl<'a> Ctx<'a> {
             Some(s) => wilson_p(frac(s.win_rate), s.games.min(u32::MAX as u64) as u32) - OFF_LIST_PENALTY,
             None => NO_STATS_WR,
         };
-        Ctx { sd, stats, champ, pool, pool_parts, agg, base, ahead: false, support: false, rules, live: None, aug: AugEffects::default(), pen: None, keep: None }
+        Ctx {
+            sd,
+            stats,
+            champ,
+            pool,
+            pool_parts,
+            agg,
+            base,
+            ahead: false,
+            tempo: None,
+            situations: None,
+            now: [None; 5],
+            support: false,
+            rules,
+            live: None,
+            aug: AugEffects::default(),
+            pen: None,
+            keep: None,
+            sim: None,
+        }
     }
 }
 
@@ -141,6 +193,9 @@ pub struct Scored {
     /// Augment shift and the `AugEffects::sources` index behind it.
     pub aug: f32,
     pub aug_src: Option<usize>,
+    /// Coachless situation term and its largest part.
+    pub cl: f32,
+    pub cl_top: Option<(Situation, f32)>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -249,6 +304,13 @@ fn answers(ctx: &Ctx, it: &Item) -> [f32; N] {
     ans
 }
 
+/// Behind: score lost by an item whose ETA at my income lies far off (gold on hand and held components counted).
+fn tempo(ctx: &Ctx, it: &Item) -> f32 {
+    let Some(t) = &ctx.tempo else { return 0.0 };
+    let missing = (remaining_cost(ctx.sd, it, &mut t.owned.to_vec()) as f32 - t.gold).max(0.0);
+    (TEMPO_W * (missing / (t.income * 60.0).max(1.0) - TEMPO_FREE_MIN)).clamp(0.0, TEMPO_MAX)
+}
+
 /// `burst_magic`: magic share of the burst need (`Needs::burst_magic`).
 pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; N], burst_magic: f32, load: Load, out: &mut Vec<Scored>) {
     out.clear();
@@ -268,6 +330,7 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         Decision::Boots => BOOTS_WEIGHT,
     };
     let held = held(ctx.sd, have);
+    let sim = ctx.sim.as_ref().filter(|s| s.owned == have);
     for (&(it, fit, defensive), parts) in ctx.pool.iter().zip(&ctx.pool_parts) {
         if it.boots != (dec == Decision::Boots)
             || have.contains(&it.id)
@@ -284,7 +347,9 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         let (mut dot, mut need_i, mut best) = (0.0, None, 0.0);
         for i in 0..N {
             let t = ans[i] * need[i];
-            dot += t;
+            if sim.is_none() || (i != ARMOR_PEN && i != MAGIC_PEN) {
+                dot += t;
+            }
             if t > best {
                 (best, need_i) = (t, Some(i));
             }
@@ -305,7 +370,10 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
         } else {
             continue;
         };
-        let sit = weight * dot;
+        let cl = ctx.situations.and_then(|m| m.get(&it.id)).and_then(|s| situations::term(s, &ctx.now));
+        // Coachless answers the same question as answers·needs with more evidence.
+        let answers_w = if cl.is_some() { SIT_ANSWERS } else { 1.0 };
+        let sit = weight * dot * answers_w + sim.map_or(0.0, |s| s.term(it, ctx.champ.traits.peel));
         let (aug, aug_src) = ctx.aug.item_bonus(it);
         // Nothing to amplify: Spirit Visage on a champion without self-healing.
         let no_heal = HEAL_AMP_ITEMS.contains(&it.id) && ctx.champ.traits.heals < SELF_HEAL_MIN;
@@ -314,9 +382,11 @@ pub(crate) fn score_all(ctx: &Ctx, dec: Decision, have: &[ItemId], need: &[f32; 
             + (ans[ARMOR] - ans[MR]).max(0.0) * (need[MR] - need[ARMOR]).max(0.0);
         // A held component (Bramble Vest) is gold already spent toward it.
         let held_part = if have.iter().any(|h| parts.contains(h)) { HELD_COMPONENT_BONUS } else { 0.0 };
-        let score = stats_score + sit + aug + held_part - cap_penalty(ctx, it, load) - if no_heal { SELF_HEAL_PENALTY } else { 0.0 }
-            - RESIST_MISMATCH * off_type;
-        out.push(Scored { id: it.id, score, stats_score, sit, src, need: need_i, aug, aug_src });
+        let cl_term = cl.map_or(0.0, |c| c.0);
+        let score = stats_score + sit + cl_term + aug + held_part - cap_penalty(ctx, it, load) - if no_heal { SELF_HEAL_PENALTY } else { 0.0 }
+            - RESIST_MISMATCH * off_type
+            - tempo(ctx, it);
+        out.push(Scored { id: it.id, score, stats_score, sit, src, need: need_i, aug, aug_src, cl: cl_term, cl_top: cl.map(|c| (c.1, c.2)) });
     }
     out.sort_unstable_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));
 }
@@ -452,7 +522,11 @@ pub fn component_now(sd: &StaticData, item: &Item, inventory: &[ItemId], gold: f
 }
 
 pub fn reason(ctx: &Ctx, s: &Scored, needs: &Needs, foes: &[Foe]) -> String {
-    let base = need_reason(ctx, s, needs, foes);
+    let mut base = need_reason(ctx, s, needs, foes);
+    if let Some((w, _)) = s.cl_top.filter(|t| t.1 >= SIT_REASON_MIN && s.cl > 0.0) {
+        let note = format!("better {} (Coachless)", situations::phrase(w));
+        base = if s.cl > s.sit.max(s.stats_score - ctx.base) { note } else { format!("{base} · {note}") };
+    }
     let Some(src) = s.aug_src.and_then(|i| ctx.aug.sources.get(i)).filter(|_| s.aug >= AUG_REASON_MIN) else {
         return base;
     };
@@ -592,8 +666,13 @@ mod tests {
             counters: vec![],
             benchmarks: Default::default(),
             runes: None,
+            coachless_runes: None,
             coachless: None,
             summoners: vec![],
+            skill_order: String::new(),
+            skill_order_games: 0,
+            skill_priority: String::new(),
+            by_length: vec![],
         };
         let mut ctx = Ctx::new(&sd, Some(&stats), &thresh, Mode::Rift);
         assert!(support_upgrade(&ctx, &[]).is_none(), "not a support");

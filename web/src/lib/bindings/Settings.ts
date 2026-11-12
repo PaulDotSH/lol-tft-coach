@@ -19,6 +19,36 @@ goals: Array<Goal>,
  */
 audio: boolean, 
 /**
- * Draw the click-through overlay over the game window (LoL and TFT).
+ * Draw the click-through overlay over the game window (LoL and TFT). Off by default: any
+ * window over League costs it FPS, and drawing inside the game would need Riot's approval.
  */
-overlay: boolean, };
+overlay: boolean, 
+/**
+ * Read the minimap and warn of ganks on your lane, the enemy jungler, roams and enemies in your jungle (Rift).
+ */
+gank_warn: boolean, 
+/**
+ * Write the coach's note in a game's review (rules only, after the game).
+ */
+game_note: boolean, 
+/**
+ * Save TFT unit crops of every fight and scouted board for training unit recognition
+ * (`%LOCALAPPDATA%\lol-coach\dev\crops`). Always on in debug mode.
+ */
+tft_crops: boolean, 
+/**
+ * Show the win probability and the posture read in game (needs a fitted model).
+ */
+win_prob: boolean, 
+/**
+ * Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
+ */
+posture_calls: boolean, 
+/**
+ * Address of the minipc service (`https://host`); empty keeps everything on this PC.
+ */
+server_url: string, 
+/**
+ * Bearer token of that service. A secret: never logged, never copied to the service.
+ */
+server_token: string, };

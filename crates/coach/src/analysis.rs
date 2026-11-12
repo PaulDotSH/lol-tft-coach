@@ -2,8 +2,11 @@
 //! with where they happened and whether the fight was won, objectives, and
 //! the few takeaways that stand out.
 
+use crate::brief::capital;
 use crate::common::champ;
-use crate::selfcoach::review_deaths;
+use crate::consts::{self, BARON_BUFF, ELDER_BUFF, INHIB_RESPAWN, INHIB_RESPAWN_ARAM};
+use crate::selfcoach::{review_deaths, seen_first, the};
+use crate::winprob::{Model, State, eval};
 use crate::{fights, items, needs, threat};
 use model::*;
 
@@ -36,7 +39,7 @@ const FIGHTS_GOOD: f32 = 0.7;
 /// Minute marks for the phase table.
 const PHASE_MINUTES: [u32; 4] = [5, 10, 15, 20];
 /// Gold held at a minute mark that counts as sitting on it.
-const RICH_GOLD: u32 = 1500;
+pub(crate) const RICH_GOLD: u32 = 1500;
 const RICH_MARKS: usize = 2;
 /// The closing push (s before the end) and the first minutes are left out: nobody backs then.
 const RICH_SKIP_END: f32 = 180.0;
@@ -50,10 +53,21 @@ const WARD_MIN_OPP: u32 = 10;
 const PAST_MIN: usize = 3;
 const PAST_TAKEAWAYS: usize = 2;
 const LANE_ORDER: [Lane; 5] = [Lane::Top, Lane::Jungle, Lane::Middle, Lane::Bottom, Lane::Support];
+/// A live win sample this close (s) to a frame is that frame's point.
+const LIVE_NEAR: f32 = 45.0;
+/// Swings listed, the least change (points) that is one, and the events named in each.
+const SWINGS: usize = 5;
+const SWING_MIN: f32 = 1.0;
+const SWING_PARTS: usize = 3;
+/// What a swing is put down to: the heaviest event in its span (a fight weighs its kill
+/// difference; a buff running out or an inhibitor coming back weighs 1).
+const CAUSE_WEIGHT: [(&str, f32); 8] =
+    [("Baron", 3.0), ("Elder", 3.0), ("Inhibitor", 2.0), ("Atakhan", 1.5), ("Dragon", 1.5), ("Tower", 1.0), ("Herald", 1.0), ("Grubs", 0.5)];
 
 /// `stats`: my champion's lolalytics data (benchmarks, the build into this comp).
 /// `recap`: the app's own recap when it watched this game live.
-pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats>, recap: Option<&Recap>) -> MatchAnalysis {
+/// `winprob`: the model for the win curve (`Model::shipped()`); no fit, no curve.
+pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats>, recap: Option<&Recap>, winprob: &Model) -> MatchAnalysis {
     let g = &d.game;
     let me = &d.players[d.me];
     let opp = me.lane.and_then(|l| {
@@ -64,7 +78,8 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
     let gold: Vec<GoldPoint> = d
         .frames
         .iter()
-        .map(|f| {
+        .zip(win_curve(d, recap, winprob))
+        .map(|(f, win)| {
             let side = |ally: bool| -> i32 {
                 d.players.iter().zip(&f.players).filter(|(p, _)| p.ally == ally).map(|(_, s)| s.total_gold as i32).sum()
             };
@@ -72,6 +87,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
                 time: f.time,
                 team: side(true) - side(false),
                 lane: opp.map(|o| f.players[d.me].total_gold as i32 - f.players[o].total_gold as i32),
+                win,
             }
         })
         .collect();
@@ -128,6 +144,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
     } else {
         vec![]
     };
+    let jungle = crate::jungle::review(d, &marks, benchmarks.as_ref().and_then(|b| b.cs_per_min));
     let mut a = MatchAnalysis {
         game: g.clone(),
         players,
@@ -149,15 +166,137 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         rich_marks,
         vs_past: None,
         focus: None,
-        laning: crate::laning::laning(d),
+        laning: if jungle.is_some() { None } else { crate::laning::laning(d) },
+        note: None,
+        jungle,
+        swings: vec![],
     };
+    a.swings = swings(&a, d);
     a.takeaways = takeaways(&a, d, sd, team_kills);
+    if let Some(i) = a.review.notes.iter().position(|n| n.contains(" came out of fog"))
+        && let Some(j) = a.takeaways.iter().position(|t| !t.good && t.text.starts_with("Vision "))
+    {
+        let t = a.takeaways.remove(j);
+        a.review.notes[i] = format!("{} ({})", a.review.notes[i], t.text);
+    }
     a.focus = focus(&a, d, sd);
     a
 }
 
+/// My team's chance to win at each frame, deaths aside: the live samples when the app watched
+/// the game, else the model on the frame. All None without a fit for the mode.
+fn win_curve(d: &MatchDetail, recap: Option<&Recap>, model: &Model) -> Vec<Option<f32>> {
+    let Some(table) = model.table(d.game.mode) else { return vec![None; d.frames.len()] };
+    match recap.map(|r| r.win_curve.as_slice()).filter(|w| !w.is_empty()) {
+        Some(live) => d
+            .frames
+            .iter()
+            .map(|f| live.iter().map(|s| ((s.0 - f.time).abs(), s.1)).filter(|s| s.0 <= LIVE_NEAR).min_by(|a, b| a.0.total_cmp(&b.0)).map(|s| s.1))
+            .collect(),
+        None => (0..d.frames.len())
+            .map(|i| {
+                let s = State { dead: [0.0; 2], ..State::from_frame(d, i) };
+                Some(eval(&model.knots, table, &s, s.minute))
+            })
+            .collect(),
+    }
+}
+
+/// Something in a swing's span that moved the curve one way (`good` for my team) or, a fight
+/// traded evenly, either way.
+struct Cause {
+    time: f32,
+    weight: f32,
+    good: Option<bool>,
+    kind: &'static str,
+    text: String,
+}
+
+/// The largest changes between consecutive points of the win curve, largest first.
+fn swings(a: &MatchAnalysis, d: &MatchDetail) -> Vec<Swing> {
+    let mut out: Vec<Swing> = a
+        .gold
+        .windows(2)
+        .filter_map(|w| {
+            let delta = 100.0 * (w[1].win? - w[0].win?);
+            (delta.abs() >= SWING_MIN).then(|| swing(a, d, w[0].time, w[1].time, delta))
+        })
+        .collect();
+    out.sort_by(|x, y| y.delta.abs().total_cmp(&x.delta.abs()));
+    out.truncate(SWINGS);
+    out
+}
+
+/// One swing over (`from`, `to`], named after the fights and objectives in it that went its way.
+fn swing(a: &MatchAnalysis, d: &MatchDetail, from: f32, to: f32, delta: f32) -> Swing {
+    let span = |t: f32| t > from && t <= to;
+    let weight = |kind: &str| CAUSE_WEIGHT.iter().find(|w| w.0 == kind).map_or(1.0, |w| w.1);
+    let mut causes: Vec<Cause> = Vec::new();
+    for f in a.fights.iter().filter(|f| f.end > from && f.start <= to) {
+        let died = d.kills.iter().any(|k| k.victim == d.me && k.time >= f.start && k.time <= f.end);
+        let at = f.place.as_deref().map_or(String::new(), |p| format!(" in {}", the(p)));
+        let (kind, text) = match (f.won, f.lost) {
+            (0, 1) => ("death", format!("you died{at}")),
+            (1, 0) => ("fight", format!("a pick{at}")),
+            (w, l) => {
+                let verb = if w > l { "won" } else if w < l { "lost" } else { "traded" };
+                ("fight", format!("fight {verb} {w} for {l}{at}{}", if died { ", you died" } else { "" }))
+            }
+        };
+        let good = (f.won != f.lost).then_some(f.won > f.lost);
+        causes.push(Cause { time: f.start, weight: f.won.abs_diff(f.lost) as f32, good, kind, text });
+    }
+    for k in d.kills.iter().filter(|k| span(k.time) && !a.fights.iter().any(|f| k.time >= f.start && k.time <= f.end)) {
+        let ours = !d.players[k.victim].ally;
+        let text = if ours { "a kill by your team" } else { "a teammate died" };
+        causes.push(Cause { time: k.time, weight: 1.0, good: Some(ours), kind: "fight", text: text.into() });
+    }
+    let inhib_back = if d.game.mode == Mode::Rift { INHIB_RESPAWN } else { INHIB_RESPAWN_ARAM };
+    for m in &a.marks {
+        let elder = m.kind == "Dragon" && m.detail.as_deref() == Some("Elder");
+        let structure = m.kind == "Tower" || m.kind == "Inhibitor";
+        let kind = if structure { "structure" } else { "objective" };
+        let whose = if m.ours { "your" } else { "their" };
+        if span(m.time) {
+            let text = match (structure, m.detail.as_deref()) {
+                (true, detail) => format!("{}{} {}", detail.map_or(String::new(), |x| format!("{x} ")), m.kind.to_lowercase(), if m.ours { "taken" } else { "lost" }),
+                (false, Some(x)) if m.kind == "Dragon" => format!("{x} Dragon {}", if m.ours { "taken" } else { "given" }),
+                (false, Some(x)) => format!("{} {x} {}", m.kind, if m.ours { "taken" } else { "given" }),
+                (false, None) => format!("{} {}", m.kind, if m.ours { "taken" } else { "given" }),
+            };
+            causes.push(Cause { time: m.time, weight: weight(if elder { "Elder" } else { &m.kind }), good: Some(m.ours), kind, text });
+        }
+        let buff = match m.kind.as_str() {
+            "Baron" => Some(("Baron", BARON_BUFF)),
+            "Dragon" if elder => Some(("Elder", ELDER_BUFF)),
+            _ => None,
+        };
+        if let Some((name, secs)) = buff
+            && span(m.time + secs)
+        {
+            causes.push(Cause { time: m.time + secs, weight: 1.0, good: Some(!m.ours), kind, text: format!("{whose} {name} buff ran out") });
+        }
+        if m.kind == "Inhibitor" && span(m.time + inhib_back) {
+            let whose = if m.ours { "their" } else { "your" };
+            let lane = m.detail.as_deref().map_or(String::new(), |x| format!("{x} "));
+            causes.push(Cause { time: m.time + inhib_back, weight: 1.0, good: Some(!m.ours), kind, text: format!("{whose} {lane}inhibitor back up") });
+        }
+    }
+    causes.retain(|c| c.good.is_none_or(|g| g == (delta > 0.0)));
+    if causes.iter().any(|c| c.good.is_some()) {
+        causes.retain(|c| c.good.is_some());
+    }
+    let top = causes.iter().max_by(|x, y| x.weight.total_cmp(&y.weight).then(y.time.total_cmp(&x.time)));
+    let (time, kind) = top.map_or((to, "other"), |c| (c.time, c.kind));
+    causes.sort_by(|x, y| y.weight.total_cmp(&x.weight).then(x.time.total_cmp(&y.time)));
+    causes.truncate(SWING_PARTS);
+    causes.sort_by(|x, y| x.time.total_cmp(&y.time));
+    let text = if causes.is_empty() { "buys and levels, no fight or objective".to_string() } else { causes.iter().map(|c| c.text.as_str()).collect::<Vec<_>>().join(", ") };
+    Swing { time, delta, kind: kind.into(), text: capital(&text) }
+}
+
 /// "12:00, 18:00 and 21:00".
-fn marks(minutes: &[u32]) -> String {
+pub(crate) fn marks(minutes: &[u32]) -> String {
     let v: Vec<String> = minutes.iter().map(|m| format!("{m}:00")).collect();
     match v.as_slice() {
         [] => String::new(),
@@ -190,6 +329,11 @@ fn focus(a: &MatchAnalysis, d: &MatchDetail, sd: &StaticData) -> Option<Focus> {
             format!("You died {early}× before 14:00 outside fights your team won."),
             goal(GoalKind::EarlyDeaths, 1.0),
         );
+    }
+    let deaths: Vec<&DeathNote> = a.review.deaths.iter().filter(|n| !n.traded).collect();
+    let (seen, of) = seen_first(&deaths);
+    if seen >= consts::SIGHT_NOTE_MIN && seen * 2 >= of {
+        return pick("Look at the minimap before stepping up".into(), format!("{seen} of {of} deaths were visible first."), None);
     }
     let held = a.review.deaths.iter().filter(|n| n.unspent >= 1000).count();
     if held >= PATTERN_MIN || a.rich_marks.len() >= RICH_MARKS {
@@ -328,6 +472,7 @@ fn review(d: &MatchDetail, sd: &StaticData, recap: Option<&Recap>) -> DeathRevie
                 traded: false,
                 place: k.pos.filter(|_| d.game.mode == Mode::Rift).map(|(x, y)| place(MapZone::at(x, y), blue).into()),
                 pos: k.pos.filter(|_| d.game.mode == Mode::Rift).map(|(x, y)| MapZone::from_blue(x, y, blue)),
+                sight: None,
             };
             match live.and_then(|r| r.deaths.iter().find(|n| (n.time - k.time).abs() <= SAME_DEATH)) {
                 Some(n) => DeathNote { place: note.place, pos: note.pos, traded: false, ..n.clone() },
@@ -336,7 +481,9 @@ fn review(d: &MatchDetail, sd: &StaticData, recap: Option<&Recap>) -> DeathRevie
         })
         .collect();
     let kills: Vec<(f32, bool)> = d.kills.iter().map(|k| (k.time, !d.players[k.victim].ally)).collect();
-    review_deaths(&deaths, &kills, d.game.mode != Mode::Rift, sd)
+    let lane = d.players[d.me].lane.filter(|_| d.game.mode == Mode::Rift);
+    let opps = crate::sight::lane_opponents(lane, d.players.iter().filter(|p| !p.ally).map(|p| (p.champ, p.lane)));
+    review_deaths(&deaths, &kills, d.game.mode != Mode::Rift, &opps, sd)
 }
 
 /// A map zone as seen from my side.
@@ -365,7 +512,7 @@ fn plan(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats>) -> Vec<Ite
     items::build(&ctx, &[], &needs).path.iter().map(|s| s.id).collect()
 }
 
-fn clock(t: f32) -> String {
+pub(crate) fn clock(t: f32) -> String {
     let s = t.max(0.0) as u32;
     format!("{}:{:02}", s / 60, s % 60)
 }

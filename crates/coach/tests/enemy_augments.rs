@@ -46,7 +46,7 @@ fn advise(s: &GameSnapshot, input: EnemyAugmentInput) -> GameAdvice {
         offered: &[],
         gold_history: &[],
         my_augments: &[],
-        enemy_augments: input, keep: None,
+        enemy_augments: input, keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default(),
     })
 }
 

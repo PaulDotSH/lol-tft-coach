@@ -34,6 +34,44 @@ pub const FLAG: f32 = 0.5;
 pub const ASSASSIN_FLAG_BURST: f32 = 0.75;
 pub const CRIT_FLAG: f32 = 0.4;
 
+// ---- skill order ----
+/// The matchup page's skill order is used from this many games, else the build page's.
+pub const SKILL_MATCHUP_MIN: u32 = 200;
+/// No row from this level on while Q, W and E have no rank (a champion without points to place).
+pub const SKILL_NONE_LEVEL: u32 = 3;
+
+// ---- game plan ----
+/// Game-length buckets with fewer games are merged into a neighbour.
+pub const PLAN_MIN_GAMES: u32 = 200;
+/// A bucket's win rate minus the champion's own is shrunk toward 0 by games / (games + this).
+pub const PLAN_SHRINK_K: f32 = 400.0;
+/// Under this many points between the teams a phase reads "even".
+pub const PLAN_EVEN: f32 = 0.7;
+/// A champion is named as a side's scaler (early or late) from this many points.
+pub const PLAN_SCALER_MIN: f32 = 1.5;
+/// Champions named per phase on the scaling line.
+pub const PLAN_NAMES: usize = 2;
+/// Phase boundaries in minutes: early before the first, late from the second.
+pub const PLAN_RIFT_PHASES: [u32; 2] = [25, 35];
+pub const PLAN_ARAM_PHASES: [u32; 2] = [15, 20];
+/// Full card for this long into the game (s), then the folded line.
+pub const PLAN_SHOW_S: f32 = 120.0;
+/// Enemies named on the record line.
+pub const PLAN_RECORD_MAX: usize = 3;
+
+// ---- posture (and fight readiness with a win probability) ----
+/// `WinProb::base` from here up is ahead, from the mirror down behind.
+pub const POSTURE_AHEAD: f32 = 0.60;
+pub const POSTURE_BEHIND: f32 = 0.40;
+/// A stance changes only this far past a threshold (0..1), and holds at least this long (s).
+pub const POSTURE_MARGIN: f32 = 0.03;
+pub const POSTURE_DWELL: f32 = 45.0;
+/// A stance change stays among the calls this long (s).
+pub const POSTURE_CALL_S: f32 = 45.0;
+/// Factors named in `why`, and options at most.
+pub const POSTURE_WHY: usize = 3;
+pub const POSTURE_OPTIONS: usize = 3;
+
 // ---- needs ----
 /// Bounds on the armor/MR need multiplier from my current resists.
 pub const RESIST_TILT_MIN: f32 = 0.5;
@@ -84,8 +122,19 @@ pub const SHRINK_GAMES: f32 = 1500.0;
 pub const REASON_SIT_MIN: f32 = 0.01;
 /// Mejai's Soulstealer, Dark Seal: their win rates come from games already won.
 pub const SNOWBALL: [model::ItemId; 2] = [3041, 1082];
-/// "Ahead" for snowball items: (kills + assists/2) ≥ this × (deaths + 1).
+/// "Ahead" for snowball items without a win probability: (kills + assists/2) ≥ this × (deaths + 1).
 pub const AHEAD_KDA: f32 = 2.5;
+/// `WinProb::base` at or below this is behind, at or above `STANDING_AHEAD` ahead (items).
+pub const STANDING_BEHIND: f32 = 0.42;
+pub const STANDING_AHEAD: f32 = 0.58;
+/// Defensive needs (armor, MR, HP, tenacity, cleanse, anti-burst, anti-crit, anti attack speed)
+/// × this when behind, × `AHEAD_DEFENSE` when ahead.
+pub const BEHIND_DEFENSE: f32 = 1.15;
+pub const AHEAD_DEFENSE: f32 = 0.9;
+/// Behind: score lost per minute an item's ETA at my income lies past `TEMPO_FREE_MIN`, at most `TEMPO_MAX`.
+pub const TEMPO_W: f32 = 0.002;
+pub const TEMPO_FREE_MIN: f32 = 3.0;
+pub const TEMPO_MAX: f32 = 0.015;
 /// Starting gold: the start set is the opening purchases that fit in it.
 pub const START_GOLD: u32 = 500;
 /// Item my champ builds, but in another slot.
@@ -137,6 +186,24 @@ pub const MPEN_PCT_UNIT: f32 = 0.6;
 pub const RESIST_UNIT: f32 = 80.0;
 pub const HP_UNIT: f32 = 450.0;
 
+// ---- Coachless situations (`situations.rs`) ----
+/// Cut-offs (below the first: low, above the second: high) of the enemy team's threat-weighted
+/// magic share, mean base attack range, mean tankiness (`Foe` armor and MR tank, items counted)
+/// and mean CC trait. Ours, not Coachless': Coachless does not publish how it cuts its situations,
+/// and its shares sit near a third each, so these are terciles of 238 enemy teams in the recorded
+/// Rift games (both sides, one sample per 5 minutes from 10:00; 2026-11-11).
+pub const SIT_MAGIC: [f32; 2] = [0.35, 0.47];
+pub const SIT_RANGE: [f32; 2] = [305.0, 360.0];
+pub const SIT_TANK: [f32; 2] = [0.34, 0.465];
+pub const SIT_CC: [f32; 2] = [0.445, 0.515];
+/// A situation counts from this many games; its WPA over the item's is shrunk by games / (games + `SIT_SHRINK_K`).
+pub const SIT_MIN_GAMES: f64 = 300.0;
+pub const SIT_SHRINK_K: f32 = 1000.0;
+/// Share of the answers·needs term an item with situation data keeps.
+pub const SIT_ANSWERS: f32 = 0.5;
+/// A situation's part (win-rate units) from which the reason names it.
+pub const SIT_REASON_MIN: f32 = 0.004;
+
 // ---- matchups ----
 pub const FAVOURED: f32 = 52.5;
 pub const UNFAVOURED: f32 = 47.5;
@@ -160,6 +227,12 @@ pub const HERALD_FIRST: f32 = 900.0;
 /// Void grubs spawn once (one wave) and leave when herald spawns.
 pub const GRUBS_FIRST: f32 = 480.0;
 pub const GRUBS_COUNT: u32 = 3;
+/// Hand of Baron and the Elder's Aspect of the Dragon last this long (wiki, checked for 26.22).
+pub const BARON_BUFF: f32 = 180.0;
+pub const ELDER_BUFF: f32 = 150.0;
+/// An inhibitor is back this long after it fell (recorded games, 2026-11: `InhibRespawned`).
+pub const INHIB_RESPAWN: f32 = 300.0;
+pub const INHIB_RESPAWN_ARAM: f32 = 250.0;
 
 // ---- champ select ----
 pub const TIER_MIN_GAMES: u32 = 500;
@@ -171,6 +244,8 @@ pub const OTHER_ENEMY_W: f32 = 0.3;
 /// Share of the pick score from matchups (rest: tier-list win rate).
 pub const MATCHUP_BLEND: f32 = 0.6;
 pub const PICKS: usize = 5;
+/// Rows in each tier board column.
+pub const TIER_ROWS: usize = 8;
 pub const BANS: usize = 5;
 pub const BAN_COUNTER_W: f32 = 1.0;
 pub const BAN_META_W: f32 = 0.6;
@@ -185,8 +260,12 @@ pub const RUNE_THREATS: usize = 2;
 /// Enemies with CC trait ≥ RUNE_HARD_CC needed for the tenacity shard.
 pub const RUNE_CC_FOES: usize = 3;
 pub const RUNE_HARD_CC: f32 = 0.8;
-/// The highest win rate page is shown when its keystone differs and has this many games.
+/// Enemies with magic share ≥ RUNE_MAGIC (and burst) count towards Nullifying Orb.
+pub const RUNE_MAGIC: f32 = 0.6;
+/// The highest win rate page is offered when it has this many games (and differs).
 pub const RUNE_ALT_MIN_GAMES: u32 = 1000;
+/// A page against my lane opponent needs this many games in the matchup.
+pub const RUNE_VS_MIN_GAMES: u32 = 300;
 
 // ---- draft ----
 /// Lane share (percent) below which a champion is not placed in that lane.
@@ -272,3 +351,136 @@ pub const INCOME_WINDOW: f32 = 120.0;
 /// No income estimate before this much non-spending time was observed.
 pub const INCOME_MIN_SPAN: f32 = 20.0;
 pub const BACK_PLANS: usize = 2;
+
+// ---- minimap gank warnings (early game). First guesses, tune against a real game. ----
+/// The laning phase: roam calls, and gank calls for supports and junglers, stop after this much game time.
+pub const GANK_EARLY_S: f32 = 14.0 * 60.0;
+/// A warning is re-announced only after its threat has been absent this long.
+pub const GANK_GAP_S: f32 = 25.0;
+/// Mid-gank movement is measured against the newest read at least this old (seconds).
+pub const GANK_MOVE_DT: f32 = 1.5;
+/// Reads older than this are dropped from the history (seconds).
+pub const GANK_MAX_DT: f32 = 6.0;
+/// A blip is tied to one from the previous read within this distance (world units).
+pub const GANK_MAX_STEP: i32 = 1500;
+/// A lane warning needs the blip to have closed on your lane by at least this much (world units).
+pub const GANK_APPROACH: i32 = 250;
+/// Only blips within this distance outside your lane count toward a gank on it (world units).
+pub const GANK_REACH: i32 = 2500;
+/// A blip off the lanes within this distance of a side lane (top or bot) warns even standing still.
+pub const GANK_LURK: i32 = 1300;
+/// Mid: a blip off the lanes this far outside the lane (from `GANK_MID_HUG`, nearer is the laner hugging the edge,
+/// up to `GANK_LURK_MID`) warns even standing still.
+pub const GANK_MID_HUG: i32 = 400;
+pub const GANK_LURK_MID: i32 = 1600;
+/// The enemy jungler counts as mid within this |x - y| of the mid lane, else top or bot side.
+pub const JUNGLER_MID_BAND: i32 = 2500;
+/// The jungler's side is announced again after they were out of sight this long (seconds), and shown this long after
+/// a sighting.
+pub const JUNGLER_STALE_S: f32 = 30.0;
+pub const JUNGLER_SHOW_S: f32 = 5.0;
+/// A recognised champion can't have moved further than `NAME_JUMP + NAME_SPEED × seconds` (world units; Flash and
+/// dashes included) since last seen within `NAME_TRUST_S`: a farther name is a misread and dropped.
+pub const NAME_JUMP: f32 = 1500.0;
+pub const NAME_SPEED: f32 = 1000.0;
+pub const NAME_TRUST_S: f32 = 10.0;
+/// An enemy laner counts as roaming once more than this far off their lane (world units) outside their lane, the
+/// river beside it and their base, seen so on reads this many seconds apart; a roam ends after this long back home
+/// or unseen.
+pub const ROAM_SLACK: i32 = 1800;
+pub const ROAM_DWELL_S: f32 = 1.0;
+pub const ROAM_GAP_S: f32 = 20.0;
+/// A side lane is laned within this distance of its map corner (world units); blips there are the laners.
+pub const GANK_LANE_CORNER: i32 = 4400;
+pub const SIGHT_KEEP_S: f32 = 30.0;
+pub const SIGHT_WINDOW_S: f32 = 15.0;
+pub const SIGHT_READ_S: f32 = 1.5;
+pub const SIGHT_MIN_COVER: f32 = 0.5;
+pub const SEEN_EARLY_S: f32 = 4.0;
+pub const SEEN_NEAR: f32 = 4500.0;
+pub const WARN_EARLY_S: f32 = 2.0;
+pub const WARN_DEATH_S: f32 = 10.0;
+pub const SIGHT_NOTE_MIN: usize = 2;
+
+// ---- game note ----
+/// Bumped when the rules change what a note says.
+pub const NOTE_RULES_V: u32 = 1;
+/// Takeaways in a note: at most NOTE_TAKEAWAYS, and no note under NOTE_MIN.
+pub const NOTE_TAKEAWAYS: usize = 3;
+pub const NOTE_MIN: usize = 2;
+/// A line is shorter than this (characters).
+pub const NOTE_MAX_CHARS: usize = 300;
+/// Deaths, fights or objectives named in one line.
+pub const NOTE_INSTANCES: usize = 3;
+/// Team gold lead that was thrown in a loss, or the deficit come back from in a win.
+pub const NOTE_TEAM_LEAD: i32 = 2500;
+/// Deaths before this (s) are early; fights from it on are after the lane.
+pub const NOTE_LANE_END_S: f32 = 840.0;
+/// Lines connecting facts rank above single ones: a habit this game repeated, a lead lost in fights,
+/// a pattern over several deaths or fights, then the review's own takeaways.
+pub const NOTE_SCORE_HABIT: f32 = 7.0;
+pub const NOTE_SCORE_LEAD: f32 = 6.0;
+pub const NOTE_SCORE_PATTERN: f32 = 4.0;
+pub const NOTE_SCORE_AWAY: f32 = 3.0;
+pub const NOTE_SCORE_GOOD: f32 = 2.0;
+pub const NOTE_SCORE_PLAIN: f32 = 1.0;
+
+// ---- item what-if (`whatif.rs`). First guesses, check against lolalytics slot win rates. ----
+pub const BURST_AUTOS: f32 = 2.0;
+pub const SUSTAIN_S: f32 = 10.0;
+pub const WHATIF_BURST_STACKS: f32 = 0.5;
+pub const CRIT_BASE: f32 = 1.75;
+pub const CURRENT_HP_SHARE: f32 = 0.7;
+pub const AMP_VS_HP_FULL: f32 = 1500.0;
+pub const KIT_ON_HIT_FLAT: f32 = 30.0;
+pub const KIT_ON_HIT_AP: f32 = 0.3;
+pub const WHATIF_BURST_TRAIT: f32 = 0.5;
+pub const WHATIF_LANE_W: f32 = 1.5;
+pub const WHATIF_DMG_W: f32 = 0.1;
+pub const WHATIF_EHP_W: f32 = 0.06;
+pub const WHATIF_ROUGH_W: f32 = 0.5;
+
+// ---- jungler (`jungle/`). First guesses, like the objective timers. ----
+/// Clear pace before 4:00: level 3 by 2:35, level 4 by 3:30 (the scuttle crabs).
+pub const JG_L3_BY: f32 = 155.0;
+pub const JG_L4_BY: f32 = 210.0;
+pub const JG_LEVELS_UNTIL: f32 = 240.0;
+pub const JG_CS_UNTIL: f32 = 840.0;
+/// CS behind the benchmark that the pace line calls behind.
+pub const JG_CS_BEHIND: f32 = 10.0;
+/// A laner past the middle of their lane: within this of the lane line, beyond our fountain, and this far past the
+/// map's centre line toward our side (world units).
+pub const PUSH_BAND: i32 = 2200;
+pub const PUSH_BASE: i32 = 2500;
+pub const PUSH_PAST: i32 = 1000;
+/// Lane board weights; rows under the floor say "nothing special".
+pub const JG_W_PUSHED: f32 = 3.0;
+pub const JG_W_UNSEEN: f32 = -1.5;
+pub const JG_W_CC: f32 = 1.0;
+pub const JG_W_NO_DASH: f32 = 1.0;
+pub const JG_W_NO_FLASH: f32 = 1.5;
+pub const JG_W_GOLD: f32 = 1.0;
+pub const JG_W_BEHIND: f32 = -1.5;
+pub const JG_W_LEVEL: f32 = 0.75;
+pub const JG_W_JUNGLER_HERE: f32 = -3.0;
+pub const JG_W_JUNGLER_AWAY: f32 = 1.0;
+pub const JG_LANE_FLOOR: f32 = 1.0;
+pub const JG_REASONS: usize = 2;
+/// Allied laner CC (traits) that sets up a gank.
+pub const JG_CC: f32 = 0.6;
+/// Item-gold gap between the laners that makes a lane uneven.
+pub const JG_GOLD_EDGE: i32 = 500;
+/// An enemy laner unseen this long (s) may be roaming; seen within this long (s), still pushed.
+pub const JG_UNSEEN_S: f32 = 15.0;
+pub const JG_PUSHED_S: f32 = 3.0;
+pub const JG_SEEN_FRESH_S: f32 = 20.0;
+/// Champions without a dash, blink, leap or untargetable step (Data Dragon ids); unknown champions never count.
+pub const NO_DASH: &[&str] = &[
+    "Annie", "Anivia", "Ashe", "Blitzcrank", "Brand", "Cassiopeia", "Chogath", "Darius", "Draven", "DrMundo", "Garen", "Gangplank", "Heimerdinger",
+    "Hwei", "Illaoi", "Janna", "Jhin", "Jinx", "Karma", "Karthus", "Kayle", "Kennen", "KogMaw", "Lillia", "Lulu", "Lux", "Malzahar", "Mel",
+    "Milio", "MissFortune", "Mordekaiser", "Morgana", "Nami", "Nasus", "Neeko", "Olaf", "Orianna", "Rammus", "Renata", "Rumble", "Ryze", "Senna",
+    "Seraphine", "Sett", "Shyvana", "Singed", "Sivir", "Sona", "Soraka", "Swain", "Syndra", "Taric", "Teemo", "Trundle", "TwistedFate", "Twitch",
+    "Udyr", "Varus", "Veigar", "Velkoz", "Viktor", "Vladimir", "Volibear", "Xayah", "Xerath", "Yorick", "Zilean", "Zyra",
+];
+/// The objective back tip shows this long (s) before Dragon spawns.
+pub const JG_OBJECTIVE_TIP_S: f32 = 90.0;

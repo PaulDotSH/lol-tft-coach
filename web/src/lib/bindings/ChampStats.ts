@@ -3,6 +3,7 @@ import type { Benchmarks } from "./Benchmarks";
 import type { EarlySet } from "./EarlySet";
 import type { ItemStat } from "./ItemStat";
 import type { Lane } from "./Lane";
+import type { LengthWin } from "./LengthWin";
 import type { Matchup } from "./Matchup";
 import type { Mode } from "./Mode";
 import type { RuneData } from "./RuneData";
@@ -21,15 +22,31 @@ lanes: { [key in Lane]?: number },
  */
 slots: Array<Array<ItemStat>>, boots: Array<ItemStat>, early: Array<EarlySet>, counters: Array<Matchup>, benchmarks: Benchmarks, 
 /**
- * Build page rune pages and per-rune stats; None when the page had none.
+ * lolalytics build page rune pages and per-rune stats; None when the page had none.
  */
 runes: RuneData | null, 
 /**
- * Coachless patch ("16.20") when the item slots, boots, runes and summoners came
+ * Coachless rune page (best WPA) and per-rune stats (Rift, signed in).
+ */
+coachless_runes: RuneData | null, 
+/**
+ * Coachless patch ("16.20") when the item slots, boots and summoners came
  * from Coachless (Rift, signed in); None = lolalytics.
  */
 coachless: string | null, 
 /**
  * Summoner spell ids to take (Coachless); empty without Coachless.
  */
-summoners: Array<number>, };
+summoners: Array<number>, 
+/**
+ * lolalytics most played skill order, one ability per level ("QEWQQRQEQEREEWW"); empty when unknown.
+ */
+skill_order: string, skill_order_games: number, 
+/**
+ * lolalytics most played max order ("QEW"); empty when unknown.
+ */
+skill_priority: string, 
+/**
+ * lolalytics build page games and wins by game length, shortest first; empty when unknown.
+ */
+by_length: Array<LengthWin>, };
