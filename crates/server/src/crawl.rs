@@ -558,7 +558,8 @@ async fn fit(sh: &Shared, patch: &str, games: u64) -> Result<FitMemo, String> {
     let config = &sh.env.config;
     let text = |path: &Path| path.to_string_lossy().into_owned();
     let (rows, table, cases) = (dir.join("rows.npz"), dir.join("fit").join("winprob.toml"), dir.join("fit").join("winprob_cases.json"));
-    let features = vec![config.python.clone(), "-I".to_owned(), text(&config.tools_dir.join("features.py")), "--raw".to_owned(), text(&dir.join("raw")), "--out".to_owned(), text(&rows), "--patch".to_owned(), patch.to_owned(), "--items".to_owned(), text(&items)];
+    let exe = std::env::current_exe().map_err(|err| format!("cannot find this executable: {err}"))?;
+    let features = vec![text(&exe), "features".to_owned(), "--raw".to_owned(), text(&dir.join("raw")), "--out".to_owned(), text(&rows), "--patch".to_owned(), patch.to_owned(), "--items".to_owned(), text(&items), "--bands".to_owned(), text(&dir)];
     let fitting = vec![config.python.clone(), "-I".to_owned(), text(&config.tools_dir.join("fit.py")), "--rows".to_owned(), text(&rows), "--out".to_owned(), text(&table), "--cases".to_owned(), text(&cases)];
     let passed = (sh.env.runner)(features).await == 0 && (sh.env.runner)(fitting).await == 0;
     let memo = FitMemo { fit_games: games, passed, at: now_secs() };

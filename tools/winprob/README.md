@@ -18,7 +18,7 @@ timeline JSON, about 73 KB a game), `crawl_state.json`, `item-<version>.json` (D
 |---|---|
 | `riot_format.py` | every endpoint, field name, event type and enum value the tools assume, in one place |
 | `crawl.py` | ladder players (Emerald+, the highest first) → match ids → match + timeline, resumable, rate limited |
-| `features.py` | rows (one per minute frame, blue's side) with the Rust features; `--check` runs the T0b checks |
+| `features.py` | rows (one per minute frame, blue's side) with the Rust features; `--check` runs the T0b checks; the reference for `lol-coach-server features` |
 | `fit.py` | the fit, the report, the gates; writes the TOML and the parity cases only when the gates pass |
 | `nightly.py` | one scheduled run: crawl the newest patch for a while, refit when enough games are in, drop old raw games |
 | `test_winprob.py` | offline tests (below) |
@@ -156,6 +156,15 @@ On the minipc the crawl is to move into the Rust service
 (`docs/superpowers/specs/2026-11-12-minipc-service-design.md`); this stays the way to run it on
 a PC.
 
+The service makes its rows with `lol-coach-server features --raw DIR --out rows.npz --patch P
+--items item.json [--bands PATCH_DIR]` (`crates/server/src/features.rs`), the same rows as
+`features.py` bit for bit (checked on the 15,695 games of 16.22: same games kept and left out,
+same arrays), in a fraction of the memory and time; `features.py` stays the reference. Both
+take `--bands`: each crawl state file `<platform>.json` in that directory may name the band a
+game was crawled from (`"bands": {"<match id>": "DIAMOND" | "EMERALD"}`); the rows file then
+has `band` (one per game, `APEX` for a game in none), and `fit.py` prints the held-out scores
+for each band (report only).
+
 ### The app downloads the table
 
 At its start and every 6 hours the app (`src-tauri/src/winprob.rs`) reads `winprob.toml` from the
@@ -217,7 +226,8 @@ copy `DIR/<patch>/fit/winprob.toml` to `crates/coach/winprob.toml` and `winprob_
   it gave that side, how often that side won), blue's share of wins in the training and the
   held-out games, and the 5th to 95th percentile of ECE, log loss and the gain over gold-only
   when whole held-out games are drawn again 1,000 times. A game's rows share one result, so the
-  games are the sample: a gate value inside that span is not settled by this many games.
+  games are the sample: a gate value inside that span is not settled by this many games. When
+  the rows have `band`, the held-out scores for each band that has games.
 - Gates: held-out ECE ≤ 2 points overall, ≤ 3 in every 5-minute bucket from 5:00 that has at
   least 1,500 held-out games (smaller buckets are reported, not gated), log loss below gold-only.
 

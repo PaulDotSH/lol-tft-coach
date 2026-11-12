@@ -77,6 +77,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> ExitCode {
+    if std::env::args().nth(1).as_deref() == Some("features") {
+        return lol_coach_server::features::run(std::env::args().skip(2));
+    }
     tracing_subscriber::fmt().with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "lol_coach_server=info,tower_http=info".into())).init();
     match run().await {
         Ok(()) => ExitCode::SUCCESS,
