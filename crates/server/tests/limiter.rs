@@ -7,6 +7,10 @@ fn secs(s: f64) -> Duration {
     Duration::from_secs_f64(s)
 }
 
+fn assert_close(got: Duration, want: Duration) {
+    assert!(got.abs_diff(want) < Duration::from_millis(5), "{got:?} is not {want:?}");
+}
+
 #[test]
 fn limits_header_is_parsed() {
     assert_eq!(parse_limits("100:120,20:1"), vec![(100, 120), (20, 1)]);
@@ -124,12 +128,12 @@ async fn a_crawl_waits_while_a_lookup_waits() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn crawl_requests_are_spaced_evenly_over_the_longest_window() {
+async fn crawl_requests_are_spaced_evenly_over_the_longest_window_with_five_percent_headroom() {
     let limiter = Limiter::new();
     let start = Instant::now();
     for i in 0..4 {
         limiter.acquire(Priority::Crawl).await;
-        assert_eq!(start.elapsed(), secs(1.2 * f64::from(i)));
+        assert_close(start.elapsed(), secs(1.2 / 0.95 * f64::from(i)));
     }
 }
 
@@ -140,7 +144,7 @@ async fn crawl_spacing_follows_the_limits_from_the_header() {
     let start = Instant::now();
     for i in 0..3 {
         limiter.acquire(Priority::Crawl).await;
-        assert_eq!(start.elapsed(), secs(2.0 * f64::from(i)));
+        assert_close(start.elapsed(), secs(2.0 / 0.95 * f64::from(i)));
     }
 }
 

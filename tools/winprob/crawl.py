@@ -104,7 +104,11 @@ class Api:
         for attempt in range(RETRIES):
             self.limiter.wait()
             self.requests += 1
-            r = self.s.get(host + path, params=params, timeout=30)
+            try:
+                r = self.s.get(host + path, params=params, timeout=30)
+            except requests.RequestException:
+                time.sleep(min(60, 2 ** attempt))
+                continue
             if r.status_code == 429:
                 time.sleep(int(r.headers.get("Retry-After", RETRY_AFTER)))
                 continue

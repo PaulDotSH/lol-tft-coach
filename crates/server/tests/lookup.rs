@@ -267,3 +267,13 @@ async fn the_lookup_file_is_not_in_the_players_file_list() {
     assert_eq!(app.get("/v1/players/Some%20Player%23EUW/files").await.json(), json!([]));
     assert_eq!(app.get("/v1/status").await.json()["players"], 1);
 }
+
+#[tokio::test]
+async fn riots_reply_body_does_not_reach_the_client() {
+    let (fake, app) = setup().await;
+    fake.route("/riot/account/v1/accounts/by-riot-id/*", 418, "secret-detail-from-riot");
+    let res = app.get(URI).await;
+    assert_eq!(res.status, StatusCode::BAD_GATEWAY);
+    assert_eq!(res.json(), json!({ "error": "riot answered 418" }));
+    assert!(!res.text().contains("secret-detail"));
+}

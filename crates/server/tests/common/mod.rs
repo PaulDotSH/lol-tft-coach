@@ -7,8 +7,10 @@ use axum::http::{HeaderMap, Method, Request, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use http_body_util::BodyExt;
 use lol_coach_server::config::Config;
+use lol_coach_server::players::{RiotId, sha256_hex};
 use lol_coach_server::riot::Riot;
 use lol_coach_server::{AppState, app};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -17,6 +19,7 @@ use tower::ServiceExt;
 
 pub const TOKEN: &str = "test-token-0123456789abcdef0123456789";
 pub const RIOT_KEY: &str = "RGAPI-test-key-not-a-real-one";
+pub const ACCOUNT_KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 pub const FIXTURE_PUUID: &str = "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP";
 
 pub struct TestApp {
@@ -55,10 +58,19 @@ impl TestApp {
             riot_key_file: None,
             lookup_ttl_hours: 12,
             max_file_mb: 1,
+            claim_max_age_hours: 24,
             crawl: None,
         };
         tweak(&mut config);
-        let state = AppState { config: Arc::new(config), riot };
+        let state = AppState::new(config, riot);
+        Self { router: app(state.clone()), state, dir }
+    }
+
+    pub fn with_crawl(status: Arc<lol_coach_server::crawl::Status>) -> Self {
+        let dir = TempDir::new().unwrap();
+        let config = Config { listen: "127.0.0.1:0".parse().unwrap(), data_dir: dir.path().to_owned(), tokens: vec![TOKEN.to_owned()], riot_key_file: None, lookup_ttl_hours: 12, max_file_mb: 1, claim_max_age_hours: 24, crawl: None };
+        let mut state = AppState::new(config, None);
+        state.crawl = Some(status);
         Self { router: app(state.clone()), state, dir }
     }
 
@@ -66,10 +78,39 @@ impl TestApp {
         self.dir.path()
     }
 
+    pub fn at(&mut self, now_ms: u64) {
+        self.state.fixed_now_ms = Some(now_ms);
+        self.router = app(self.state.clone());
+    }
+
+    pub fn register(&self, player: &str, key: &str) {
+        let id = RiotId::from_path(player).unwrap();
+        let dir = self.path().join("players").join(&id.key);
+        std::fs::create_dir_all(&dir).unwrap();
+        let account = serde_json::json!({ "keys": [sha256_hex(key.as_bytes())], "matches": [] });
+        std::fs::write(dir.join("account.json"), account.to_string()).unwrap();
+    }
+
+    fn register_files_player(&self, uri: &str) {
+        let Some(rest) = uri.strip_prefix("/v1/players/").filter(|r| r.contains("/files")) else { return };
+        let Ok(id) = RiotId::from_path(rest.split('/').next().unwrap_or_default()) else { return };
+        if !self.path().join("players").join(&id.key).join("account.json").exists() {
+            self.register(rest.split('/').next().unwrap(), ACCOUNT_KEY);
+        }
+    }
+
     pub async fn send(&self, method: Method, uri: &str, token: Option<&str>, body: Vec<u8>) -> Reply {
+        self.register_files_player(uri);
+        self.send_as(method, uri, token, uri.starts_with("/v1/players/").then_some(ACCOUNT_KEY), body).await
+    }
+
+    pub async fn send_as(&self, method: Method, uri: &str, token: Option<&str>, key: Option<&str>, body: Vec<u8>) -> Reply {
         let mut req = Request::builder().method(method).uri(uri);
         if let Some(token) = token {
             req = req.header(header::AUTHORIZATION, format!("Bearer {token}"));
+        }
+        if let Some(key) = key {
+            req = req.header("X-Account-Key", key);
         }
         let res = self.router.clone().oneshot(req.body(Body::from(body)).unwrap()).await.unwrap();
         let (status, headers) = (res.status(), res.headers().clone());
@@ -98,7 +139,7 @@ pub fn all_files(dir: &Path) -> Vec<PathBuf> {
             let entry = entry.unwrap();
             if entry.file_type().unwrap().is_dir() {
                 stack.push(entry.path());
-            } else {
+            } else if entry.file_name() != "account.json" {
                 out.push(entry.path());
             }
         }
@@ -126,6 +167,7 @@ pub struct FakeState {
     pub mode: Mutex<Mode>,
     pub rejected: Mutex<u32>,
     pub tokens: Mutex<Vec<String>>,
+    pub routes: Mutex<HashMap<String, (u16, Vec<u8>)>>,
 }
 
 pub struct FakeRiot {
@@ -138,12 +180,30 @@ impl FakeRiot {
         self.state.hits.lock().unwrap().iter().filter(|h| h.starts_with(prefix)).count()
     }
 
+    pub fn hits_exact(&self, path: &str) -> usize {
+        self.state.hits.lock().unwrap().iter().filter(|h| h.as_str() == path).count()
+    }
+
+    pub fn hit_list(&self) -> Vec<String> {
+        self.state.hits.lock().unwrap().clone()
+    }
+
+    pub fn route(&self, path: &str, status: u16, body: impl Into<Vec<u8>>) {
+        self.state.routes.lock().unwrap().insert(path.to_owned(), (status, body.into()));
+    }
+
     pub fn total(&self) -> usize {
         self.state.hits.lock().unwrap().len()
     }
 
     pub fn set(&self, f: impl FnOnce(&mut Mode)) {
         f(&mut self.state.mode.lock().unwrap());
+    }
+
+    pub fn hosted_riot(&self) -> Riot {
+        let mut riot = Riot::with_base(RIOT_KEY, &format!("{}/{{host}}", self.base)).unwrap();
+        riot.retry_base = Duration::from_millis(1);
+        riot
     }
 
     pub fn riot(&self) -> Riot {
@@ -159,6 +219,14 @@ fn reply(status: u16, extra: Option<&str>, body: String) -> Response {
         res.headers_mut().insert("x-app-rate-limit", limit.parse().unwrap());
     }
     res
+}
+
+fn find_route(state: &FakeState, path: &str) -> Option<(u16, Vec<u8>)> {
+    let routes = state.routes.lock().unwrap();
+    if let Some(found) = routes.get(path) {
+        return Some(found.clone());
+    }
+    routes.iter().filter(|(key, _)| key.strip_suffix('*').is_some_and(|prefix| path.starts_with(prefix))).max_by_key(|(key, _)| key.len()).map(|(_, found)| found.clone())
 }
 
 async fn fake_handler(State(state): State<Arc<FakeState>>, uri: Uri, headers: HeaderMap) -> Response {
@@ -185,6 +253,13 @@ async fn fake_handler(State(state): State<Arc<FakeState>>, uri: Uri, headers: He
     if let Some(code) = mode.fail.or(first_failure.then_some(500)) {
         return reply(code, limit, "{}".to_owned());
     }
+    if let Some((code, body)) = find_route(&state, &path) {
+        let mut res = (StatusCode::from_u16(code).unwrap(), [(header::CONTENT_TYPE, "application/json")], body).into_response();
+        if let Some(limit) = limit {
+            res.headers_mut().insert("x-app-rate-limit", limit.parse().unwrap());
+        }
+        return res;
+    }
     let with_puuid = |name: &str| fixture(name).replace(FIXTURE_PUUID, &mode.puuid);
     let decrypt = || reply(400, limit, r#"{"status":{"message":"Exception decrypting PPPP","status_code":400}}"#.to_owned());
     let path_only = uri.path();
@@ -207,10 +282,52 @@ async fn fake_handler(State(state): State<Arc<FakeState>>, uri: Uri, headers: He
 
 pub async fn fake_riot() -> FakeRiot {
     let mode = Mode { puuid: FIXTURE_PUUID.to_owned(), fail: None, fail_first: 0, limited_once: false, rate_limit: None, delay: Duration::ZERO };
-    let state = Arc::new(FakeState { hits: Mutex::default(), mode: Mutex::new(mode), rejected: Mutex::new(0), tokens: Mutex::default() });
+    let state = Arc::new(FakeState { hits: Mutex::default(), mode: Mutex::new(mode), rejected: Mutex::new(0), tokens: Mutex::default(), routes: Mutex::default() });
     let router = Router::new().fallback(fake_handler).with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     FakeRiot { base, state }
+}
+
+pub struct FakeDdragon {
+    pub base: String,
+    pub versions: Arc<Mutex<Vec<String>>>,
+    pub hits: Arc<Mutex<Vec<String>>>,
+    pub fail: Arc<Mutex<bool>>,
+}
+
+impl FakeDdragon {
+    pub fn hits_with(&self, needle: &str) -> usize {
+        self.hits.lock().unwrap().iter().filter(|h| h.contains(needle)).count()
+    }
+
+    pub fn set_versions(&self, versions: &[&str]) {
+        *self.versions.lock().unwrap() = versions.iter().map(|v| (*v).to_owned()).collect();
+    }
+}
+
+pub const ITEM_JSON: &str = r#"{"type":"item","version":"x","data":{"1001":{"name":"Boots"}}}"#;
+
+pub async fn fake_ddragon(versions: &[&str]) -> FakeDdragon {
+    type Shared = (Arc<Mutex<Vec<String>>>, Arc<Mutex<Vec<String>>>, Arc<Mutex<bool>>);
+    let shared: Shared = (Arc::new(Mutex::new(versions.iter().map(|v| (*v).to_owned()).collect())), Arc::default(), Arc::default());
+    async fn handler(State((versions, hits, fail)): State<Shared>, uri: Uri) -> Response {
+        hits.lock().unwrap().push(uri.path().to_owned());
+        if *fail.lock().unwrap() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        if uri.path() == "/api/versions.json" {
+            return ([(header::CONTENT_TYPE, "application/json")], serde_json::to_string(&*versions.lock().unwrap()).unwrap()).into_response();
+        }
+        if uri.path().starts_with("/cdn/") && uri.path().ends_with("/data/en_US/item.json") {
+            return ([(header::CONTENT_TYPE, "application/json")], ITEM_JSON).into_response();
+        }
+        StatusCode::NOT_FOUND.into_response()
+    }
+    let router = Router::new().fallback(handler).with_state(shared.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    FakeDdragon { base, versions: shared.0, hits: shared.1, fail: shared.2 }
 }

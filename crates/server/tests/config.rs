@@ -93,3 +93,11 @@ fn load_reports_a_missing_file() {
     let err = err.to_string();
     assert!(err.contains("here.toml"), "{err}");
 }
+
+#[test]
+fn claim_age_defaults_to_a_day_and_must_be_above_zero() {
+    assert_eq!(Config::parse(&base()).unwrap().claim_max_age_hours, 24);
+    assert_eq!(Config::parse(&format!("{}claim_max_age_hours = 6\n", base())).unwrap().claim_max_age_hours, 6);
+    let err = error_of(&format!("{}claim_max_age_hours = 0\n", base()));
+    assert!(err.contains("claim_max_age_hours"), "{err}");
+}

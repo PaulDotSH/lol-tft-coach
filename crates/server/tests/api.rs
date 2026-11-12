@@ -7,7 +7,7 @@ use tower::ServiceExt;
 
 const ROUTES: [(&str, &str); 8] = [
     ("GET", "/v1/status"),
-    ("GET", "/v1/winprob.toml"),
+    ("POST", "/v1/players/a%23b/claim"),
     ("GET", "/v1/players/a%23b/files"),
     ("GET", "/v1/players/a%23b/files/k/n"),
     ("PUT", "/v1/players/a%23b/files/k/n"),
@@ -25,7 +25,7 @@ async fn health_needs_no_token() {
 }
 
 #[tokio::test]
-async fn every_other_route_wants_a_token() {
+async fn every_other_route_but_the_table_wants_a_token() {
     let app = TestApp::new();
     for (method, uri) in &ROUTES[..7] {
         let method = Method::from_bytes(method.as_bytes()).unwrap();
@@ -36,6 +36,20 @@ async fn every_other_route_wants_a_token() {
         let res = app.send(method.clone(), uri, Some("wrong-token-0123456789abcdef0123456789"), b"x".to_vec()).await;
         assert_eq!(res.status, StatusCode::UNAUTHORIZED, "{method} {uri}");
     }
+}
+
+#[tokio::test]
+async fn the_table_needs_no_token() {
+    let app = TestApp::new();
+    let none = app.send(Method::GET, "/v1/winprob.toml", None, Vec::new()).await;
+    assert_eq!(none.status, StatusCode::NOT_FOUND);
+    write_table(&app, "16.9", "patch = \"16.9\"
+");
+    let res = app.send(Method::GET, "/v1/winprob.toml", None, Vec::new()).await;
+    assert_eq!((res.status, res.text()), (StatusCode::OK, "patch = \"16.9\"
+".to_owned()));
+    let wrong = app.send(Method::GET, "/v1/winprob.toml", Some("wrong-token-0123456789abcdef0123456789"), Vec::new()).await;
+    assert_eq!(wrong.status, StatusCode::OK);
 }
 
 #[tokio::test]

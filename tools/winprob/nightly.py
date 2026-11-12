@@ -1,7 +1,7 @@
 """One scheduled run: crawl the newest patch for a while, refit when enough games are in, drop the
 raw games of old patches. With --forever, one run after another.
 
-python3 -I tools/winprob/nightly.py [--forever] [--servers euw1/europe na1/americas kr/asia] [--hours 2] [--games 20000] [--fit-at 10000] [--refit-every 2500] [--keep 2] [--dir DIR] [--key-file FILE] [--publish DIR]
+python3 -I tools/winprob/nightly.py [--forever] [--servers euw1/europe kr/asia] [--hours 2] [--games 20000] [--fit-at 10000] [--refit-every 2500] [--keep 2] [--dir DIR] [--key-file FILE] [--publish DIR]
 
 Each patch has its own directory DIR/<patch> (raw/, rows.npz, fit/winprob.toml,
 fit/winprob_cases.json, nightly.json, and <platform>/crawl_state.json for each server); a crawl

@@ -1,13 +1,16 @@
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::UNIX_EPOCH;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const LOOKUP_KIND: &str = "lookup";
+pub const ACCOUNT_FILE: &str = "account.json";
 const MAX_RIOT_ID_CHARS: usize = 64;
 const MAX_KEY_BYTES: usize = 255;
 
@@ -32,6 +35,34 @@ pub struct Stored {
     pub size: u64,
     pub modified: u64,
     pub sha256: String,
+}
+
+#[derive(Default)]
+pub struct HashCache {
+    entries: Mutex<HashMap<PathBuf, (u64, SystemTime, String)>>,
+    listing_hashes: AtomicUsize,
+}
+
+impl HashCache {
+    pub fn listing_hashes(&self) -> usize {
+        self.listing_hashes.load(Ordering::Relaxed)
+    }
+
+    fn get(&self, path: &Path, meta: &fs::Metadata) -> Option<String> {
+        let entries = self.entries.lock().unwrap();
+        let (size, modified, sha) = entries.get(path)?;
+        (*size == meta.len() && meta.modified().ok() == Some(*modified)).then(|| sha.clone())
+    }
+
+    fn put(&self, path: &Path, meta: &fs::Metadata, sha: &str) {
+        if let Ok(modified) = meta.modified() {
+            self.entries.lock().unwrap().insert(path.to_owned(), (meta.len(), modified, sha.to_owned()));
+        }
+    }
+
+    fn drop_entry(&self, path: &Path) {
+        self.entries.lock().unwrap().remove(path);
+    }
 }
 
 fn refuse() -> AppError {
@@ -96,7 +127,7 @@ pub fn valid_name(s: &str) -> bool {
 }
 
 pub fn check_kind(kind: &str) -> AppResult<()> {
-    if !valid_name(kind) || kind.eq_ignore_ascii_case(LOOKUP_KIND) {
+    if !valid_name(kind) || kind.eq_ignore_ascii_case(LOOKUP_KIND) || kind.eq_ignore_ascii_case(ACCOUNT_FILE) {
         return Err(AppError::bad_request("invalid kind"));
     }
     Ok(())
@@ -161,10 +192,10 @@ fn subdirs(dir: &Path) -> io::Result<Vec<(String, PathBuf)>> {
     Ok(out)
 }
 
-fn list_blocking(root: &Path, key: &str, only: Option<&str>) -> io::Result<Vec<FileInfo>> {
+fn list_blocking(root: &Path, key: &str, only: Option<&str>, cache: &HashCache) -> io::Result<Vec<FileInfo>> {
     let mut out = Vec::new();
     for (kind, dir) in subdirs(&player_dir(root, key))? {
-        if !valid_name(&kind) || kind.eq_ignore_ascii_case(LOOKUP_KIND) || only.is_some_and(|k| k != kind) {
+        if !valid_name(&kind) || kind.eq_ignore_ascii_case(LOOKUP_KIND) || kind.eq_ignore_ascii_case(ACCOUNT_FILE) || only.is_some_and(|k| k != kind) {
             continue;
         }
         for entry in fs::read_dir(&dir)? {
@@ -174,7 +205,15 @@ fn list_blocking(root: &Path, key: &str, only: Option<&str>) -> io::Result<Vec<F
             if !meta.is_file() || !valid_name(&name) {
                 continue;
             }
-            let sha256 = sha256_hex(&fs::read(entry.path())?);
+            let sha256 = match cache.get(&entry.path(), &meta) {
+                Some(sha256) => sha256,
+                None => {
+                    let sha256 = sha256_hex(&fs::read(entry.path())?);
+                    cache.listing_hashes.fetch_add(1, Ordering::Relaxed);
+                    cache.put(&entry.path(), &meta, &sha256);
+                    sha256
+                }
+            };
             out.push(FileInfo { kind: kind.clone(), name, size: meta.len(), modified: unix_secs(&meta), sha256 });
         }
     }
@@ -182,12 +221,12 @@ fn list_blocking(root: &Path, key: &str, only: Option<&str>) -> io::Result<Vec<F
     Ok(out)
 }
 
-pub async fn list(root: &Path, key: &str, kind: Option<&str>) -> AppResult<Vec<FileInfo>> {
+pub async fn list(root: &Path, key: &str, kind: Option<&str>, cache: &Arc<HashCache>) -> AppResult<Vec<FileInfo>> {
     if let Some(kind) = kind {
         check_kind(kind)?;
     }
-    let (root, key, kind) = (root.to_owned(), key.to_owned(), kind.map(str::to_owned));
-    Ok(tokio::task::spawn_blocking(move || list_blocking(&root, &key, kind.as_deref())).await??)
+    let (root, key, kind, cache) = (root.to_owned(), key.to_owned(), kind.map(str::to_owned), cache.clone());
+    Ok(tokio::task::spawn_blocking(move || list_blocking(&root, &key, kind.as_deref(), &cache)).await??)
 }
 
 pub async fn read(root: &Path, key: &str, kind: &str, name: &str) -> AppResult<(Vec<u8>, String)> {
@@ -200,17 +239,21 @@ pub async fn read(root: &Path, key: &str, kind: &str, name: &str) -> AppResult<(
     .await??)
 }
 
-pub async fn write(root: &Path, key: &str, kind: &str, name: &str, body: Vec<u8>) -> AppResult<Stored> {
+pub async fn write(root: &Path, key: &str, kind: &str, name: &str, body: Vec<u8>, cache: &Arc<HashCache>) -> AppResult<Stored> {
     let path = file_path(root, key, kind, name)?;
+    let cache = cache.clone();
     Ok(tokio::task::spawn_blocking(move || {
         write_atomic(&path, &body)?;
-        io::Result::Ok(Stored { size: body.len() as u64, modified: unix_secs(&fs::metadata(&path)?), sha256: sha256_hex(&body) })
+        let (meta, sha256) = (fs::metadata(&path)?, sha256_hex(&body));
+        cache.put(&path, &meta, &sha256);
+        io::Result::Ok(Stored { size: body.len() as u64, modified: unix_secs(&meta), sha256 })
     })
     .await??)
 }
 
-pub async fn delete(root: &Path, key: &str, kind: &str, name: &str) -> AppResult<()> {
+pub async fn delete(root: &Path, key: &str, kind: &str, name: &str, cache: &Arc<HashCache>) -> AppResult<()> {
     let path = file_path(root, key, kind, name)?;
+    cache.drop_entry(&path);
     Ok(tokio::fs::remove_file(path).await?)
 }
 

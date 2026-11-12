@@ -1,7 +1,7 @@
 use crate::error::AppResult;
 use std::path::Path;
 
-fn patch_number(name: &str) -> Option<Vec<u64>> {
+pub fn patch_number(name: &str) -> Option<Vec<u64>> {
     name.split('.').map(|part| part.parse().ok()).collect()
 }
 

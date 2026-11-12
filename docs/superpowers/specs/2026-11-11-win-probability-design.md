@@ -1,6 +1,6 @@
 # Live win probability, state-aware items and posture
 
-Date: 2026-11-11. Status: approved 2026-11-11; everything but the fit is built (T0b done 2026-11-12, the crawl for the T3 fit is running), nothing shown yet (see Implementation status). Plan: `docs/superpowers/plans/2026-11-11-win-probability-plan.md`.
+Date: 2026-11-11. Status: approved 2026-11-11; built, and fitted for the Rift on 2026-11-12 (11,860 training games of 16.22, gates passed, also on games the first fit never saw: see "The first fit" and "The refit at 15,000 games"), so the number shows in a build made from here on; not yet tried in a real game, no ARAM fit, and not yet scored on Emerald and Diamond games (see Implementation status). Plan: `docs/superpowers/plans/2026-11-11-win-probability-plan.md`.
 
 ## Goal
 
@@ -562,6 +562,46 @@ With a key, in order (details in `tools/winprob/README.md`): crawl 20 games, run
 differs), crawl the full set, `features.py`, `fit.py`, then `cargo test -p coach --test winprob`
 and the replay. Then a real Rift game: the card, the posture, the stance call, the trend after
 two minutes, and a past game in the review.
+
+### The first fit (2026-11-12, 09:30)
+
+10,035 crawled games (EUW, 16.22, Challenger down into Master), 9,864 used (148 remakes or early
+surrenders and 23 under 5 minutes left out), 7,915 training, 1,949 held out. The item rebuild
+check on 500 games passed (teams off 0.11 % on average, 4.2 % at worst).
+
+- With the penalty at 1 the gates failed by a little: ECE 2.11 overall (2.0) and 3.03 at 5 to 10
+  minutes (3.0); 1.40 to 3.19 when whole games are drawn again. `side` was dropped (positive in
+  one fifth), and the error was the side shift of the trial fits: favouring blue the model said
+  72.5 % and blue won 69.7 %, favouring red it said 73.2 % and red won 73.2 %.
+- The plan's fallback, other penalties: 0.3 and 3 fail the same way (2.11 and 2.04). At 10
+  `side` has one sign in all five fifths, the drop rule keeps it by itself, and the gates pass:
+  ECE 1.39 overall (1.12 to 2.48 on resampling), 1.48 at 5 to 10 minutes, log loss 0.5325
+  against 0.5886 for gold alone, accuracy 0.71 / 0.76 / 0.79 / 0.81 at 10 / 15 / 20 / 25 minutes.
+  Keeping `side` by hand at penalty 1 (`--keep side`, to scratch) gives 1.63: the same cure, so
+  the pass is the side term and not a lucky penalty. 10 is now the default (`fit.py`), which is
+  also what the minipc service and `nightly.py` run.
+- `crates/coach/winprob.toml` is that fit (`games = 7915`; grubs dropped) and
+  `fixtures/coach/winprob_cases.json` its 200 parity cases. `side` is about -0.11 at 0 minutes,
+  -0.06 at 10 and nothing from 15 on: blue starts a little behind at this rank on this patch.
+- Tests that meant "no fit" by passing no table now pass an unfitted one (`Model::default()`);
+  a new one checks the built-in table is a usable fit. Workspace 953 passed, 16 ignored.
+- Not known yet: how the table does at Emerald and Diamond (the rank test of the fourth pass,
+  after the crawl), and on the next patch. The four penalties were compared on the same
+  held-out games, so the 1.39 is a little flattered; the resampled span is the honest size.
+
+### The refit at 15,000 games (2026-11-12, 13:00)
+
+14,762 games used, 11,860 training, 2,902 held out; five 5-minute buckets now have the 1,500
+held-out games to be gated.
+
+- The first fit's table on the 4,898 games it never saw: ECE 1.60 (1.16 to 2.28 on resampling),
+  every bucket from 5 to 30 minutes under 3.0 (the worst 2.82 at 10 to 15), log loss 0.540. The
+  gates pass on games that had no part in choosing the penalty.
+- Refit at penalty 10: passes, ECE 1.48 (1.18 to 2.47), buckets 1.95 / 2.12 / 1.96 / 1.77 / 2.07
+  from 5-10 to 25-30 minutes, log loss 0.5314 against 0.5896 for gold alone, `side` negative in
+  all five fifths. At the old penalty of 1 it fails again (2.25 overall, 3.34 at 5 to 10
+  minutes; `side` positive in one fifth and dropped).
+- `crates/coach/winprob.toml` is now this fit (`games = 11860`), the cases with it.
 
 ### Fourth pass (2026-11-12): what the report shows beyond the gates
 

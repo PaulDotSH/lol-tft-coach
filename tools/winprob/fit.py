@@ -1,13 +1,14 @@
 """Fits the win-probability table from features.py's rows and writes it only when the gates pass.
 
-py -3.12 -I tools/winprob/fit.py [--rows rows.npz] [--out crates/coach/winprob.toml] [--cases fixtures/coach/winprob_cases.json] [--l2 1.0]
+py -3.12 -I tools/winprob/fit.py [--rows rows.npz] [--out crates/coach/winprob.toml] [--cases fixtures/coach/winprob_cases.json] [--l2 10] [--keep KEY ...]
 py -3.12 -I tools/winprob/fit.py --score winprob.toml --rows other_rows.npz
 
 Logistic regression on a hat-function basis (feature × knot, the coefficient runs straight
 between knots as `winprob::beta` reads it), L2 penalty, Newton steps, every game weighted the
 same. Held out: the 20 % of games features.py marked by match id. Each feature's sign is
 checked on five disjoint fifths of the training games; a feature whose sign is not the same in
-all five is dropped and the rest refitted. Gates (spec "Testing"): ECE at most 2 points overall
+all five is dropped and the rest refitted (--keep names features that stay whatever their signs:
+a decision for a person, the report marks them). Gates (spec "Testing"): ECE at most 2 points overall
 and 3 in every 5-minute bucket from 5:00 that has enough held-out games, log loss below the
 gold-only model. Exit status 1 and nothing written when a gate fails.
 
@@ -40,7 +41,7 @@ BUCKET_GATE_GAMES = 1500
 ACCURACY_AT = (10, 15, 20, 25)
 BINS = 10
 N_CASES = 200
-L2 = 1.0
+L2 = 10.0
 CHUNK = 65536
 NEWTON_ITERS = 60
 NEWTON_TOL = 1e-9
@@ -220,13 +221,13 @@ def evaluate(minute, y, p, base, game, gold):
     return out
 
 
-def print_fit(keys, V, dropped, fold_signs):
+def print_fit(keys, V, dropped, fold_signs, forced=()):
     print("\ncoefficients (per knot " + ", ".join(str(k) for k in F.KNOTS) + " min):")
     for k, row in zip(keys, V):
         print(f"  {k:<8} " + " ".join(f"{x:8.4f}" for x in row))
     print("fold signs (|x|-weighted mean coefficient on five disjoint fifths):")
     for k, s in fold_signs.items():
-        print(f"  {k:<8} " + " ".join(f"{x:+.4f}" for x in s) + ("   DROPPED" if k in dropped else ""))
+        print(f"  {k:<8} " + " ".join(f"{x:+.4f}" for x in s) + ("   DROPPED" if k in dropped else "   KEPT (--keep)" if k in forced else ""))
 
 
 def print_scores(ev, what="held out"):
@@ -339,6 +340,7 @@ def main(argv=None):
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--cases", default=str(CASES))
     ap.add_argument("--l2", type=float, default=L2)
+    ap.add_argument("--keep", nargs="*", default=[], metavar="KEY", help="features that stay even when their sign is not the same in all five folds")
     a = ap.parse_args(argv)
     with np.load(a.rows, allow_pickle=False) as z:
         d = {k: z[k] for k in z.files}
@@ -371,7 +373,10 @@ def main(argv=None):
         mb = mean_beta(X[m][:, col], H[m], newton(X[m][:, col], H[m], y[m], w[m], a.l2))
         for k, b in zip(keys, mb):
             fold_signs[k].append(float(b))
-    dropped = [k for k, s in fold_signs.items() if not (all(x > 0 for x in s) or all(x < 0 for x in s))]
+    if unknown := [k for k in a.keep if k not in keys]:
+        sys.exit(f"--keep {' '.join(unknown)}: not a feature of {mode} ({', '.join(keys)})")
+    unstable = [k for k, s in fold_signs.items() if not (all(x > 0 for x in s) or all(x < 0 for x in s))]
+    dropped, forced = [k for k in unstable if k not in a.keep], [k for k in unstable if k in a.keep]
     kept = [k for k in keys if k not in dropped]
     if "gold" not in kept:
         sys.exit("gold has no stable sign: the rows are wrong, not the model")
@@ -383,7 +388,7 @@ def main(argv=None):
     base = predict(X[test][:, gc], H[test], Vg)
     ev = evaluate(minute[test], y[test], p, base, game[test], X[test][:, gc[0]])
     won = lambda m: float(np.mean(y[m][np.unique(game[m], return_index=True)[1]]))
-    print_fit(kept, V, dropped, fold_signs)
+    print_fit(kept, V, dropped, fold_signs, forced)
     print_scores(ev)
     print(f"blue won {100 * won(tr):.1f} % of the training games and {100 * won(test):.1f} % of the held-out games")
     if ev["fails"]:

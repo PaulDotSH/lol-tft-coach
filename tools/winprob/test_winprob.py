@@ -492,6 +492,28 @@ class Crawl(unittest.TestCase):
         with self.assertRaises(crawl.requests.HTTPError):
             api.get(api.region, "/x")
 
+    def test_a_dropped_connection_is_tried_again(self):
+        api = crawl.Api("k", "euw1", "europe")
+        ok = types.SimpleNamespace(status_code=200, text="{}", headers={}, raise_for_status=lambda: None, json=lambda: {"a": 1})
+        replies = iter([crawl.requests.ConnectionError("Connection aborted."), crawl.requests.Timeout("read timed out"), ok])
+
+        def get(url, params=None, timeout=None):
+            r = next(replies)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        api.s, slept = types.SimpleNamespace(get=get), []
+        real, crawl.time.sleep = crawl.time.sleep, slept.append
+        try:
+            self.assertEqual(api.get(api.region, "/x"), {"a": 1})
+            self.assertEqual(len(slept), 2, "a wait before each new try")
+            api.s = types.SimpleNamespace(get=lambda url, params=None, timeout=None: (_ for _ in ()).throw(crawl.requests.ConnectionError("down")))
+            with self.assertRaises(RuntimeError, msg="not for ever"):
+                api.get(api.region, "/x")
+        finally:
+            crawl.time.sleep = real
+
     def test_key_from_a_file_or_the_environment(self):
         d = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, d)
@@ -893,6 +915,20 @@ class SyntheticFit(unittest.TestCase):
         for line in ("by blue's item gold lead", "red +20 % or more", "blue +5 to +10 %", "by favoured side", "favours blue", "favours red",
                      "blue won", "whole held-out games drawn again", "log loss under gold-only"):
             self.assertIn(line, self.report)
+
+    def test_a_feature_can_be_kept_whatever_its_fold_signs(self):
+        self.assertNotIn("grubs", tomllib.loads(self.toml.read_text(encoding="utf-8"))["rift"], "dropped by the sign rule in the plain fit")
+        out, cases = self.dir / "kept.toml", self.dir / "kept.json"
+        with redirect_stdout(io.StringIO()) as said:
+            status = fit.main(["--rows", str(self.rows), "--out", str(out), "--cases", str(cases), "--keep", "grubs"])
+        self.assertEqual(status, 0, said.getvalue())
+        self.assertIn("grubs", tomllib.loads(out.read_text(encoding="utf-8"))["rift"])
+        self.assertIn("KEPT (--keep)", said.getvalue())
+        self.assertNotIn("DROPPED", "".join(line for line in said.getvalue().splitlines() if line.strip().startswith("grubs")))
+        out.unlink()
+        cases.unlink()
+        with self.assertRaises(SystemExit), redirect_stdout(io.StringIO()):
+            fit.main(["--rows", str(self.rows), "--out", str(out), "--cases", str(cases), "--keep", "nonsense"])
 
     def test_scores_a_table_on_games_it_was_not_fitted_on(self):
         other = self.dir / "other.npz"

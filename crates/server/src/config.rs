@@ -26,6 +26,8 @@ pub struct Config {
     pub lookup_ttl_hours: u64,
     #[serde(default = "default_max_file_mb")]
     pub max_file_mb: u64,
+    #[serde(default = "default_claim_max_age_hours")]
+    pub claim_max_age_hours: u64,
     pub crawl: Option<CrawlConfig>,
 }
 
@@ -56,8 +58,12 @@ fn default_max_file_mb() -> u64 {
     32
 }
 
+fn default_claim_max_age_hours() -> u64 {
+    24
+}
+
 fn default_max_games() -> u64 {
-    50_000
+    100_000
 }
 
 fn default_fit_at() -> u64 {
@@ -113,6 +119,9 @@ impl Config {
         }
         if !(1..=1024).contains(&self.max_file_mb) {
             return Err(invalid("max_file_mb", "must be between 1 and 1024"));
+        }
+        if self.claim_max_age_hours == 0 {
+            return Err(invalid("claim_max_age_hours", "must be above 0"));
         }
         if let Some(crawl) = &self.crawl {
             crawl.validate()?;

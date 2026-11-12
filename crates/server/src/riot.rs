@@ -9,6 +9,7 @@ use tokio::time::{Instant, sleep};
 pub const DEFAULT_BASE: &str = "https://{host}.api.riotgames.com";
 pub const DEFAULT_WINDOWS: [(u32, u64); 2] = [(20, 1), (100, 120)];
 const MAX_RETRIES: u32 = 3;
+const CRAWL_HEADROOM: f64 = 0.95;
 const LOOKUP_POLL: Duration = Duration::from_millis(20);
 
 pub fn region_of(platform: &str) -> Option<&'static str> {
@@ -86,7 +87,7 @@ impl Windows {
         }
         if let (true, Some(last)) = (crawl, self.last_crawl) {
             let (limit, secs) = self.longest();
-            wait = wait.max((last + Duration::from_secs_f64(secs as f64 / limit as f64)).saturating_duration_since(now));
+            wait = wait.max((last + Duration::from_secs_f64(secs as f64 / (limit as f64 * CRAWL_HEADROOM))).saturating_duration_since(now));
         }
         wait
     }
@@ -206,6 +207,11 @@ impl Riot {
     }
 
     pub async fn get<T: DeserializeOwned>(&self, host: &str, path: &str, priority: Priority) -> Result<T, RiotError> {
+        let bytes = self.get_bytes(host, path, priority).await?;
+        serde_json::from_slice(&bytes).map_err(|err| RiotError::Unavailable(format!("unreadable reply: {err}")))
+    }
+
+    pub async fn get_bytes(&self, host: &str, path: &str, priority: Priority) -> Result<Vec<u8>, RiotError> {
         let limiter = self.limiter(host);
         let url = self.url(host, path);
         let (mut failures, mut limited) = (0u32, 0u32);
@@ -229,7 +235,7 @@ impl Riot {
             match status {
                 200..=299 => {
                     let bytes = resp.bytes().await.map_err(|err| RiotError::Unavailable(err.without_url().to_string()))?;
-                    return serde_json::from_slice(&bytes).map_err(|err| RiotError::Unavailable(format!("unreadable reply: {err}")));
+                    return Ok(bytes.into());
                 }
                 404 => return Err(RiotError::NotFound),
                 401 | 403 => return Err(RiotError::KeyRejected),

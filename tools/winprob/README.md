@@ -65,9 +65,10 @@ Windows; not yet run on Linux):
 1. crawls the newest patch (Data Dragon) for `--hours 2`, up to `--games 20000`, into
    `DIR/<patch>/raw/`; each patch has its own directory, and each server its crawl state in
    `DIR/<patch>/<platform>/`. A crawl started by hand in `DIR` itself, or in `DIR/<patch>`, goes
-   on there while its patch is the newest. `--servers euw1/europe na1/americas kr/asia` crawls
+   on there while its patch is the newest. `--servers euw1/europe kr/asia` crawls
    several servers side by side, each to its share of `--games`: a key's rate limit is counted
-   for each region, so three regions are three times the games an hour. Two servers of one
+   for each region, so two regions are twice the games an hour (the owner crawls EUW and Korea,
+   not NA). Two servers of one
    region (EUW and EUNE are both `europe`) are refused, they would share one limit;
 2. once `--fit-at 10000` games are stored, and again every `--refit-every 2500` more, runs
    `features.py` and `fit.py` into `DIR/<patch>/fit/` (`winprob.toml`, `winprob_cases.json`).
@@ -139,7 +140,7 @@ at boot:
 # ~/.config/systemd/user/winprob.service        (systemctl --user enable --now winprob.service)
 [Service]
 WorkingDirectory=%h/lol-coach
-ExecStart=/usr/bin/python3 -I tools/winprob/nightly.py --forever --servers euw1/europe na1/americas kr/asia
+ExecStart=/usr/bin/python3 -I tools/winprob/nightly.py --forever --servers euw1/europe kr/asia
 Restart=always
 RestartSec=60
 
@@ -198,9 +199,16 @@ copy `DIR/<patch>/fit/winprob.toml` to `crates/coach/winprob.toml` and `winprob_
 - Split: 20 % of games held out by a hash of the match id; five disjoint fifths of the training
   games for the sign check (`features.fold`).
 - Fit: hat basis over the knots `0, 10, 15, 20, 25, 30, 40`, L2 on each feature's RMS scale
-  (`--l2`, default 1), Newton steps with step halving, each game weighing 1 in total. A feature
+  (`--l2`, default 10), Newton steps with step halving, each game weighing 1 in total. A feature
   whose |x|-weighted mean coefficient does not have the same sign in all five fifths is dropped
-  and the rest refitted on the whole training split; `gold` dropping stops the run.
+  and the rest refitted on the whole training split; `gold` dropping stops the run. `--keep KEY`
+  keeps a feature whatever its signs (the report marks it): a person's decision, not the tool's.
+  The penalty was 1 until the first real fit (2026-11-12, 9,864 games): at 0.3, 1 and 3 `side`
+  came out positive in one fifth and was dropped, and the model then said 2.8 points too much
+  for blue whenever it favoured blue (blue won 47.5 % of those games); at 10 the thin late knots
+  are pulled in, `side` is negative in all five fifths and stays, and the held-out ECE falls
+  from 2.11 to 1.39. On simulated games the stronger penalty pulls the rare features (Elder,
+  Baron, soul, inhibitors) about 15 % towards 0, inside the test's tolerance.
 - Report: coefficients, fold signs, per 5-minute bucket (games, rows, log loss, Brier, ECE,
   accuracy, beside the gold-only model), a 10-bin reliability table, accuracy at 10 / 15 / 20 / 25.
   Not gated, to read the model by: the held-out rows by blue's item gold lead (nine bands from

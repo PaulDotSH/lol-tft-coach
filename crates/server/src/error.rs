@@ -10,8 +10,12 @@ pub enum AppError {
     BadRequest(String),
     #[error("missing or wrong token")]
     Unauthorized,
+    #[error("{0}")]
+    Forbidden(String),
     #[error("not found")]
     NotFound,
+    #[error("{0}")]
+    Conflict(String),
     #[error("{0}")]
     TooLarge(String),
     #[error("{0}")]
@@ -35,7 +39,9 @@ impl AppError {
         match self {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Conflict(_) => StatusCode::CONFLICT,
             Self::TooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             Self::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::BadGateway(_) => StatusCode::BAD_GATEWAY,

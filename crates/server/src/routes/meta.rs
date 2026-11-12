@@ -9,16 +9,20 @@ use axum::routing::get;
 use serde_json::{Value, json};
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/v1/winprob.toml", get(table)).route("/v1/status", get(status))
+    Router::new().route("/v1/status", get(status))
 }
 
-pub async fn health() -> Json<Value> {
+pub fn public() -> Router<AppState> {
+    Router::new().route("/v1/health", get(health)).route("/v1/winprob.toml", get(table))
+}
+
+async fn health() -> Json<Value> {
     Json(json!({ "ok": true }))
 }
 
 async fn status(State(state): State<AppState>) -> AppResult<Json<Value>> {
     let players = players::count(&state.config.data_dir).await?;
-    Ok(Json(json!({ "version": env!("CARGO_PKG_VERSION"), "players": players, "riot_key": state.riot.is_some(), "crawl": null })))
+    Ok(Json(json!({ "version": env!("CARGO_PKG_VERSION"), "players": players, "riot_key": state.riot.is_some(), "crawl": state.crawl.as_ref().map(|crawl| crawl.snapshot()) })))
 }
 
 async fn table(State(state): State<AppState>) -> AppResult<impl IntoResponse> {

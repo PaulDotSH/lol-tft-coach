@@ -141,6 +141,22 @@ async fn read_stored(path: &PathBuf) -> Option<Stored> {
     serde_json::from_slice(&bytes).inspect_err(|err| tracing::warn!(path = %path.display(), %err, "unreadable lookup file")).ok()
 }
 
+pub fn riot_failure(err: RiotError) -> AppError {
+    match err {
+        RiotError::KeyRejected => AppError::Unavailable("the Riot key was rejected".to_owned()),
+        RiotError::Status(code, body) => {
+            tracing::warn!(code, %body, "lookup failed");
+            AppError::BadGateway(format!("riot answered {code}"))
+        }
+        other => AppError::BadGateway(other.to_string()),
+    }
+}
+
+pub async fn puuid_of(riot: &Riot, region: &str, id: &RiotId) -> Result<String, RiotError> {
+    let path = format!("/riot/account/v1/accounts/by-riot-id/{}/{}", path_segment(&id.name), path_segment(&id.tag));
+    Ok(riot.get::<Account>(region, &path, Priority::Lookup).await?.puuid)
+}
+
 pub async fn lookup(state: &AppState, platform: &str, id: &RiotId, fresh: bool) -> AppResult<Lookup> {
     let platform = platform.to_ascii_lowercase();
     let region = region_of(&platform).ok_or_else(|| AppError::bad_request("unknown platform"))?;
@@ -166,10 +182,7 @@ pub async fn lookup(state: &AppState, platform: &str, id: &RiotId, fresh: bool) 
                 tracing::warn!(%err, "lookup failed, serving the older one");
                 Ok(Lookup { stale: true, ..old.lookup })
             }
-            None => Err(match err {
-                RiotError::KeyRejected => AppError::Unavailable("the Riot key was rejected".to_owned()),
-                other => AppError::BadGateway(other.to_string()),
-            }),
+            None => Err(riot_failure(err)),
         },
     }
 }

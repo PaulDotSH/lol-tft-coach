@@ -233,3 +233,48 @@ async fn files_with_foreign_names_on_disk_are_not_listed() {
     let names: Vec<_> = app.get(&files_uri(PLAYER, "")).await.json().as_array().unwrap().iter().map(|f| f["name"].as_str().unwrap().to_owned()).collect();
     assert_eq!(names, ["good.json"]);
 }
+
+fn player_files(app: &TestApp) -> std::path::PathBuf {
+    app.path().join("players").join("some%20player%23euw").join("history")
+}
+
+#[tokio::test]
+async fn a_listing_hashes_only_files_it_has_not_seen_or_that_changed() {
+    let app = TestApp::new();
+    let dir = player_files(&app);
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, body) in [("a.json", "aaa"), ("b.json", "bbbb"), ("c.json", "c")] {
+        std::fs::write(dir.join(name), body).unwrap();
+    }
+    let uri = files_uri(PLAYER, "");
+    let first = app.get(&uri).await.json();
+    assert_eq!(app.state.hashes.listing_hashes(), 3);
+    assert_eq!(first[0]["sha256"], common_sha("aaa"));
+    assert_eq!(app.get(&uri).await.json(), first);
+    assert_eq!(app.state.hashes.listing_hashes(), 3, "a second listing hashes nothing");
+    std::fs::write(dir.join("b.json"), "bbbbbb").unwrap();
+    let changed = app.get(&uri).await.json();
+    assert_eq!(app.state.hashes.listing_hashes(), 4, "only the changed file is hashed again");
+    assert_eq!(changed[1]["sha256"], common_sha("bbbbbb"));
+}
+
+fn common_sha(text: &str) -> String {
+    lol_coach_server::players::sha256_hex(text.as_bytes())
+}
+
+#[tokio::test]
+async fn put_and_delete_keep_the_hash_cache_right() {
+    let app = TestApp::new();
+    let uri = files_uri(PLAYER, "");
+    assert_eq!(app.put(&files_uri(PLAYER, "/history/a.json"), "hello").await.status, StatusCode::OK);
+    assert_eq!(app.get(&uri).await.json()[0]["sha256"], HELLO_SHA);
+    assert_eq!(app.state.hashes.listing_hashes(), 0, "the sha256 the PUT computed is kept");
+    assert_eq!(app.put(&files_uri(PLAYER, "/history/a.json"), "hello world").await.status, StatusCode::OK);
+    assert_eq!(app.get(&uri).await.json()[0]["sha256"], common_sha("hello world"));
+    assert_eq!(app.state.hashes.listing_hashes(), 0);
+    assert_eq!(app.delete(&files_uri(PLAYER, "/history/a.json")).await.status, StatusCode::NO_CONTENT);
+    assert_eq!(app.get(&uri).await.json(), serde_json::json!([]));
+    std::fs::write(player_files(&app).join("a.json"), "hello world").unwrap();
+    assert_eq!(app.get(&uri).await.json()[0]["sha256"], common_sha("hello world"));
+    assert_eq!(app.state.hashes.listing_hashes(), 1, "a file that came back is hashed again");
+}
