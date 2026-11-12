@@ -85,6 +85,7 @@ E_KILLER_TEAM = "killerTeamId"
 # Seen 2026-11-12: a killer team of 300 on a Rift Herald (88 of 1,122) and a Void Grub (8 of
 # 3,609) that no side killed.
 NEUTRAL = 300
+OTHER_KEY = "Exception decrypting"
 E_SOUL_TEAM = "teamId"
 E_WINNER = "winningTeam"
 E_TOWER_TYPE = "towerType"

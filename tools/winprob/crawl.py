@@ -1,15 +1,17 @@
 """Crawls ranked games (match + timeline) from Riot match-v5 for the win-probability fit.
 
-py -3.12 -I tools/winprob/crawl.py --games 10000 [--hours 2] [--platform euw1 --region europe] [--queue 420] [--patch 16.22] [--days 14] [--out DIR] [--key-file FILE] [--no-apex]
+py -3.12 -I tools/winprob/crawl.py --games 10000 [--hours 2] [--platform euw1 --region europe] [--queue 420] [--patch 16.22] [--days 14] [--out DIR] [--raw DIR] [--key-file FILE] [--no-apex]
 
 Key: --key-file, else env RIOT_API_KEY, else riot-api-key.txt at the repo root (docs/riot-api-key.md);
 never printed. Ladder players, Emerald and above, the highest first (Challenger, Grandmaster and
 Master, which alone fill a crawl of 20,000 games, then Diamond and Emerald divisions page by page,
 round robin; --no-apex starts at Diamond), their recent match ids, newest first, each match and
 its timeline when the match is on the patch; a match of an older patch ends that player's list.
-Raw JSON is gzipped in DIR/raw (default `features.DEV`). Resumable: the queue of players, the ladder
-pages read and every match id seen are kept in DIR/crawl_state.json. Stops at --games on disk or
-after --hours. One limiter for 20 requests / s and 100 / 2 min; a 429 waits for its Retry-After.
+Raw JSON is gzipped in DIR/raw (default `features.DEV`; --raw names another directory, which
+crawls of other servers can share: a match id starts with its server). Resumable: the queue of players, the ladder
+pages read and every match id seen are kept in DIR/crawl_state.json; player ids only work with the
+key that read them, so after a change of key the ladder is read again. Stops at --games on disk or
+after --hours. One crawl at a time in DIR (DIR/crawl.lock). One limiter for 20 requests / s and 100 / 2 min; a 429 waits for its Retry-After.
 """
 import argparse, collections, gzip, json, os, sys, time
 from pathlib import Path
@@ -31,6 +33,39 @@ KEY_FILE = Path(__file__).resolve().parents[2] / "riot-api-key.txt"
 
 class KeyRejected(Exception):
     pass
+
+
+class Busy(Exception):
+    pass
+
+
+class Lock:
+    """One process at a time: an OS lock on the file, which goes with the process that holds it."""
+
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def __enter__(self):
+        self.f = open(self.path, "a+")
+        try:
+            if os.name == "nt":
+                import msvcrt
+                self.f.seek(0)
+                msvcrt.locking(self.f.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            self.f.close()
+            raise Busy(f"{self.path} is held: another run is going on") from None
+        return self
+
+    def __exit__(self, *exc):
+        self.f.close()
+
+
+class OtherKey(Exception):
+    """A player id that was read with another key: Riot encrypts puuids for each key."""
 
 
 class Limiter:
@@ -80,6 +115,8 @@ class Api:
                 return None
             if r.status_code in (401, 403):
                 raise KeyRejected(f"{r.status_code} on {path}: the key is missing, mistyped or expired (dev keys last 24 h)")
+            if r.status_code == 400 and R.OTHER_KEY in r.text:
+                raise OtherKey(f"400 on {path}: a player id that was read with another key")
             r.raise_for_status()
             return r.json()
         raise RuntimeError(f"gave up on {path} after {RETRIES} tries")
@@ -107,8 +144,11 @@ def load_state(path, a):
             if s[k] != getattr(a, k):
                 sys.exit(f"{path} was started with {k} {s[k]!r}, not {getattr(a, k)!r}: use another --out")
         return s
-    return dict(platform=a.platform, region=a.region, queue=a.queue, patch=a.patch, apex_done=[], pages={d: 1 for d in ladder_order()},
-                exhausted=[], turn=0, puuids=[], next_puuid=0, seen=[], stored=[])
+    return dict(platform=a.platform, region=a.region, queue=a.queue, patch=a.patch, **no_players(), seen=[], stored=[])
+
+
+def no_players():
+    return dict(apex_done=[], pages={d: 1 for d in ladder_order()}, exhausted=[], turn=0, puuids=[], next_puuid=0)
 
 
 def save_state(path, s):
@@ -150,9 +190,9 @@ def save_gz(path, obj):
 
 def crawl(api, s, save, raw, games, patch, queue, since, until=None, clock=time.monotonic, apex=True):
     """Stores games until `games` are on disk, `clock()` reaches `until` or the ladder is used up;
-    `save()` keeps `s`."""
+    `save()` keeps `s`. Players read with another key are dropped once and the ladder read again."""
     seen = set(s["seen"])
-    started = clock()
+    started, reread = clock(), False
     over = lambda: until is not None and clock() >= until
 
     def done(mid):
@@ -167,7 +207,16 @@ def crawl(api, s, save, raw, games, patch, queue, since, until=None, clock=time.
             save()
             continue
         puuid = s["puuids"][s["next_puuid"]]
-        ids = api.get(api.region, R.MATCH_IDS.format(puuid=puuid), {"queue": queue, "startTime": since, "start": 0, "count": R.MATCH_IDS_PAGE}) or []
+        try:
+            ids = api.get(api.region, R.MATCH_IDS.format(puuid=puuid), {"queue": queue, "startTime": since, "start": 0, "count": R.MATCH_IDS_PAGE}) or []
+        except OtherKey:
+            if reread:
+                raise
+            reread = True
+            print(f"the {len(s['puuids'])} players were read with another key: reading the ladder again", flush=True)
+            s.update(no_players())
+            save()
+            continue
         stop = False
         for mid in ids:
             if mid in seen:
@@ -190,7 +239,7 @@ def crawl(api, s, save, raw, games, patch, queue, since, until=None, clock=time.
             save()
             if timeline is not None and len(s["stored"]) % PROGRESS == 0:
                 h = (clock() - started) / 3600
-                print(f"{len(s['stored'])} games, {api.requests} requests, player {s['next_puuid']} of {len(s['puuids'])}, {h:.2f} h", flush=True)
+                print(f"{s['platform']}: {len(s['stored'])} games, {api.requests} requests, player {s['next_puuid']} of {len(s['puuids'])}, {h:.2f} h", flush=True)
         if not stop:
             s["next_puuid"] += 1
         save()
@@ -206,29 +255,35 @@ def main():
     ap.add_argument("--patch", help="major.minor (default: the newest on Data Dragon)")
     ap.add_argument("--days", type=int, default=14, help="match ids from this many days back")
     ap.add_argument("--out", default=str(F.DEV))
+    ap.add_argument("--raw", help="where the games go (default: OUT/raw)")
     ap.add_argument("--key-file")
     ap.add_argument("--no-apex", dest="apex", action="store_false", help="leave out Challenger, Grandmaster and Master players")
     a = ap.parse_args()
     key = read_key(a.key_file)
     a.patch = a.patch or newest_patch()
     out = Path(a.out)
-    raw = out / "raw"
+    raw = Path(a.raw) if a.raw else out / "raw"
     raw.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     state_path = out / "crawl_state.json"
-    s = load_state(state_path, a)
-    save = lambda: save_state(state_path, s)
-    print(f"patch {a.patch}, queue {a.queue}, {a.platform}/{a.region}: {len(s['stored'])} games stored, target {a.games}", flush=True)
     try:
-        crawl(Api(key, a.platform, a.region), s, save, raw, a.games, a.patch, a.queue, int(time.time()) - a.days * 86400,
-              time.monotonic() + a.hours * 3600 if a.hours else None, apex=a.apex)
-    except KeyRejected as e:
-        save()
+        with Lock(out / "crawl.lock"):
+            s = load_state(state_path, a)
+            save = lambda: save_state(state_path, s)
+            print(f"patch {a.patch}, queue {a.queue}, {a.platform}/{a.region}: {len(s['stored'])} games stored, target {a.games}", flush=True)
+            try:
+                crawl(Api(key, a.platform, a.region), s, save, raw, a.games, a.patch, a.queue, int(time.time()) - a.days * 86400,
+                      time.monotonic() + a.hours * 3600 if a.hours else None, apex=a.apex)
+            except (KeyRejected, OtherKey) as e:
+                save()
+                sys.exit(str(e))
+            except KeyboardInterrupt:
+                save()
+                sys.exit("stopped; run again to resume")
+            save()
+            print(f"stopped: {a.platform} has {len(s['stored'])} games in {raw}")
+    except Busy as e:
         sys.exit(str(e))
-    except KeyboardInterrupt:
-        save()
-        sys.exit("stopped; run again to resume")
-    save()
-    print(f"stopped: {len(s['stored'])} games in {raw}")
 
 
 if __name__ == "__main__":

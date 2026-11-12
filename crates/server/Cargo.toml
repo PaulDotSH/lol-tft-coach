@@ -1,0 +1,32 @@
+[package]
+name = "lol-coach-server"
+edition.workspace = true
+version.workspace = true
+
+[lib]
+name = "lol_coach_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lol-coach-server"
+path = "src/main.rs"
+
+[dependencies]
+axum = "0.8.9"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11.1"
+subtle = "2.6.1"
+thiserror = "2.0.21"
+tokio = { workspace = true, features = ["net", "signal"] }
+toml.workspace = true
+tower-http = { version = "0.7.1", features = ["trace", "limit", "timeout", "set-header"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+http-body-util = "0.1.5"
+tempfile = "3.27.0"
+tower = { version = "0.5.3", features = ["util"] }
+tokio = { workspace = true, features = ["test-util"] }

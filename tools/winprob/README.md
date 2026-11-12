@@ -63,8 +63,12 @@ refused for any path inside the repo.
 Windows; not yet run on Linux):
 
 1. crawls the newest patch (Data Dragon) for `--hours 2`, up to `--games 20000`, into
-   `DIR/<patch>/`; each patch has its own directory and crawl state. A crawl started by hand in
-   `DIR` itself goes on there while its patch is the newest;
+   `DIR/<patch>/raw/`; each patch has its own directory, and each server its crawl state in
+   `DIR/<patch>/<platform>/`. A crawl started by hand in `DIR` itself, or in `DIR/<patch>`, goes
+   on there while its patch is the newest. `--servers euw1/europe na1/americas kr/asia` crawls
+   several servers side by side, each to its share of `--games`: a key's rate limit is counted
+   for each region, so three regions are three times the games an hour. Two servers of one
+   region (EUW and EUNE are both `europe`) are refused, they would share one limit;
 2. once `--fit-at 10000` games are stored, and again every `--refit-every 2500` more, runs
    `features.py` and `fit.py` into `DIR/<patch>/fit/` (`winprob.toml`, `winprob_cases.json`).
    The gates decide whether anything is written; it never writes into the repo. Not while League
@@ -75,8 +79,10 @@ Windows; not yet run on Linux):
 4. removes `raw/` and `rows.npz` of patches older than the newest `--keep 2` (0 keeps all); the
    fitted tables stay.
 
-Everything goes to `DIR/nightly.log`. `DIR/nightly.lock` keeps two runs apart. Exit status 1 when
-the crawl, the features, the fit or the push failed. A new patch can bring an event shape the tools do not
+Everything goes to `DIR/nightly.log`. `DIR/nightly.lock` keeps two runs apart, and
+`crawl.lock` two crawls of one server; both are locks of the operating system, gone with their
+process, so a run that was killed holds nobody up. Exit status 1 when
+a crawl, the features, the fit or the push failed. A new patch can bring an event shape the tools do not
 know: then the fit fails, the log names the match and the field, and the crawl goes on.
 
 It needs a key that lasts, a personal key (`docs/riot-api-key.md`, section 2). With a dev key the
@@ -122,6 +128,32 @@ Windows, Task Scheduler:
 ```
 schtasks /Create /TN "lol-coach winprob" /SC DAILY /ST 03:30 /TR "py -3.12 -I C:\path\to\lol-coach\tools\winprob\nightly.py"
 ```
+
+### Without a break
+
+`nightly.py --forever` starts the next run when one ends (ten minutes after the last start at
+the earliest, so a run with nothing left to do does not spin) and never exits. Start it once,
+at boot:
+
+```
+# ~/.config/systemd/user/winprob.service        (systemctl --user enable --now winprob.service)
+[Service]
+WorkingDirectory=%h/lol-coach
+ExecStart=/usr/bin/python3 -I tools/winprob/nightly.py --forever --servers euw1/europe na1/americas kr/asia
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=default.target
+```
+
+```
+schtasks /Create /TN "lol-coach winprob" /SC ONSTART /TR "py -3.12 -I C:\path\to\lol-coach\tools\winprob\nightly.py --forever"
+```
+
+On the minipc the crawl is to move into the Rust service
+(`docs/superpowers/specs/2026-11-12-minipc-service-design.md`); this stays the way to run it on
+a PC.
 
 ### The app downloads the table
 
@@ -171,6 +203,13 @@ copy `DIR/<patch>/fit/winprob.toml` to `crates/coach/winprob.toml` and `winprob_
   and the rest refitted on the whole training split; `gold` dropping stops the run.
 - Report: coefficients, fold signs, per 5-minute bucket (games, rows, log loss, Brier, ECE,
   accuracy, beside the gold-only model), a 10-bin reliability table, accuracy at 10 / 15 / 20 / 25.
+  Not gated, to read the model by: the held-out rows by blue's item gold lead (nine bands from
+  "red +20 % or more" to "blue +20 % or more": what the model said, how often blue won; a slope
+  across the bands means it reacts too much or too little to gold), by the side it favours (what
+  it gave that side, how often that side won), blue's share of wins in the training and the
+  held-out games, and the 5th to 95th percentile of ECE, log loss and the gain over gold-only
+  when whole held-out games are drawn again 1,000 times. A game's rows share one result, so the
+  games are the sample: a gate value inside that span is not settled by this many games.
 - Gates: held-out ECE ≤ 2 points overall, ≤ 3 in every 5-minute bucket from 5:00 that has at
   least 1,500 held-out games (smaller buckets are reported, not gated), log loss below gold-only.
 
@@ -180,6 +219,26 @@ probabilities are exactly right, the true coefficients score an overall ECE of 2
 with 1,000 games in it, 1.8 with 2,000 (hence the 1,500-game floor for a bucket's gate). 10k
 crawled games give 2,000 held out: a sound model passes, with little margin. Crawl 20k if the
 first fit misses a gate by a small amount.
+
+### A table on other games
+
+`fit.py --score TABLE --rows ROWS` fits and writes nothing: it gives the report (without the
+gold-only columns) for a fitted table on every row of a file it was not fitted on, and exits 1
+when the ECE gates fail there. Two uses:
+
+```
+# another rank: Diamond and Emerald games, as a test set only (the fit is on Master and above)
+py -3.12 -I tools/winprob/crawl.py --games 2000 --no-apex --out DIR/16.22-lower
+py -3.12 -I tools/winprob/features.py --raw DIR/16.22-lower/raw --out DIR/16.22-lower/rows.npz --patch 16.22
+py -3.12 -I tools/winprob/fit.py --score DIR/16.22/fit/winprob.toml --rows DIR/16.22-lower/rows.npz
+
+# the next patch: how well the old table holds until the new patch has its own
+py -3.12 -I tools/winprob/fit.py --score DIR/16.22/fit/winprob.toml --rows DIR/16.23/rows.npz
+```
+
+The outlook of such rows comes from the champion-by-length tables of that file's own games, so
+on a small set it is closer to 0 than in the app. One crawl at a time for a region: the test
+set waits until the main crawl is done.
 
 ## Tests
 
@@ -222,6 +281,13 @@ and `features.py` follow the replies now; the differences:
    when he bought something at that timestamp (its components).
 9. A Tear item bought with the Tear already full is purchased and destroyed at one timestamp
    and is its upgrade from then on (`Values.at_once`).
+10. Player ids (puuids) are encrypted for each key: with another key, match ids by puuid answer
+    400 "Exception decrypting". Match ids are the same for every key. After a change of key
+    `crawl.py` drops its queue of players, reads the ladder again and keeps the games it has.
+11. The rate limit (20 / 1 s, 100 / 120 s on a personal key) is counted for each host: `euw1`,
+    `eun1`, `na1`, `kr` each have their own, and so do `europe`, `americas`, `asia`. Matches are
+    read from the regional host, which takes 2 of the 2.3 requests a game, so EUW and EUNE
+    together are no faster than one of them; EUW, NA and KR together are three times as fast.
 
 So the item rebuild is close, not exact, and `--check` passes on a tolerance: a team's rebuilt
 item gold within 2 % of its final items' on average and 10 % at worst. On 500 games (489

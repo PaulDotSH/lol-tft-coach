@@ -3,7 +3,7 @@
 WINPROB_SKIP_CARGO=1 leaves out the one test that builds and runs the Rust replay example.
 The synthetic fit and cargo are skipped while League of Legends runs.
 """
-import argparse, collections, gzip, io, json, math, os, re, shutil, subprocess, sys, tempfile, time, tomllib, unittest
+import argparse, collections, gzip, io, json, math, os, re, shutil, subprocess, sys, tempfile, threading, time, tomllib, types, unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -440,6 +440,58 @@ class Crawl(unittest.TestCase):
         self.assertEqual(sorted(k.split("/entries/")[1] for k in api.calls if "/entries/" in k and k.endswith("page=1")),
                          sorted(f"{R.LEAGUE_QUEUE}/{t}/{d}?page=1" for t in R.LADDER_TIERS for d in R.LADDER_DIVISIONS), "every division in turn")
 
+    def test_players_read_with_another_key_are_read_again(self):
+        q = R.LEAGUE_QUEUE
+        replies = {
+            R.LEAGUE_ENTRIES.format(queue=q, tier="DIAMOND", division="I") + "?page=1": [{"puuid": "new"}],
+            R.MATCH_IDS.format(puuid="new"): ["M1", "M2"],
+            R.MATCH.format(match_id="M2"): {"metadata": {"matchId": "M2"}, "info": {"gameVersion": "16.21.1.2"}},
+            R.TIMELINE.format(match_id="M2"): {"metadata": {"matchId": "M2"}},
+        }
+
+        class Rekeyed(FakeApi):
+            old = ("old",)
+
+            def get(self, host, path, params=None):
+                if path in [R.MATCH_IDS.format(puuid=p) for p in self.old]:
+                    raise crawl.OtherKey(path)
+                return super().get(host, path, params)
+
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d)
+
+        def state():
+            s = crawl.load_state(d / "crawl_state.json", argparse.Namespace(platform="euw1", region="europe", queue=420, patch="16.21"))
+            s.update(puuids=["gone", "old"], next_puuid=1, apex_done=["CHALLENGER"], turn=3, exhausted=["DIAMOND I"], stored=["M1"], seen=["M1"])
+            s["pages"]["DIAMOND I"] = 9
+            return s
+
+        s, api, out = state(), Rekeyed(replies), io.StringIO()
+        with redirect_stdout(out):
+            crawl.crawl(api, s, lambda: None, d, 10, "16.21", 420, 0, apex=False)
+        self.assertEqual((s["puuids"], s["stored"]), (["new"], ["M1", "M2"]), "the ladder is read again, the games on disk are kept")
+        self.assertEqual(api.calls[R.MATCH.format(match_id="M1")], 0, "a game already seen is not fetched again")
+        self.assertIn("another key", out.getvalue())
+        s, api = state(), Rekeyed(replies)
+        api.old = ("old", "new")
+        with redirect_stdout(io.StringIO()), self.assertRaises(crawl.OtherKey, msg="not twice in one run"):
+            crawl.crawl(api, s, lambda: None, d, 10, "16.21", 420, 0, apex=False)
+
+    def test_a_player_id_of_another_key_is_not_any_bad_request(self):
+        api = crawl.Api("k", "euw1", "europe")
+
+        def reply(text):
+            def fail():
+                raise crawl.requests.HTTPError("400")
+            return types.SimpleNamespace(status_code=400, text=text, headers={}, raise_for_status=fail)
+
+        said = iter(['{"status":{"message":"Bad Request - Exception decrypting abc","status_code":400}}', '{"status":{"message":"Bad Request","status_code":400}}'])
+        api.s = types.SimpleNamespace(get=lambda url, params=None, timeout=None: reply(next(said)))
+        with self.assertRaises(crawl.OtherKey):
+            api.get(api.region, "/x")
+        with self.assertRaises(crawl.requests.HTTPError):
+            api.get(api.region, "/x")
+
     def test_key_from_a_file_or_the_environment(self):
         d = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, d)
@@ -460,17 +512,18 @@ class Nightly(unittest.TestCase):
         self.calls, self.said, self.n, self.status = [], [], 0, {}
 
     def args(self, **kw):
-        return argparse.Namespace(**{**dict(dir=self.d, hours=2.0, games=20000, fit_at=10, refit_every=5, keep=2, key_file=None, publish=None, platform="euw1", region="europe"), **kw})
+        return argparse.Namespace(**{**dict(dir=self.d, hours=2.0, games=20000, fit_at=10, refit_every=5, keep=2, key_file=None, publish=None, servers=["euw1/europe"]), **kw})
 
-    def state(self, d, patch, n):
+    def state(self, d, patch, n, platform="euw1"):
         d.mkdir(parents=True, exist_ok=True)
-        (d / "crawl_state.json").write_text(json.dumps({"patch": patch, "stored": [f"M{i}" for i in range(n)]}), encoding="utf-8")
+        (d / "crawl_state.json").write_text(json.dumps({"patch": patch, "platform": platform, "stored": [f"M{i}" for i in range(n)]}), encoding="utf-8")
 
     def sh(self, cmd):
         script = f"git {cmd[3]}" if cmd[0] == "git" else Path(cmd[2]).name
         self.calls.append(cmd)
         if script == "crawl.py":
-            self.state(Path(cmd[cmd.index("--out") + 1]), "16.23", self.n)
+            platform = cmd[cmd.index("--platform") + 1]
+            self.state(Path(cmd[cmd.index("--out") + 1]), "16.23", self.n[platform] if isinstance(self.n, dict) else self.n, platform)
         return self.status.get(script, 0)
 
     def run_once(self, n, playing=False, **kw):
@@ -488,6 +541,47 @@ class Nightly(unittest.TestCase):
         self.assertEqual(nightly.patch_dir(self.d, "16.22"), self.d, "a crawl started by hand in the root goes on there")
         self.assertEqual(nightly.patch_dir(self.d, "16.23"), self.d / "16.23")
         self.assertEqual((nightly.stored(self.d), nightly.stored(self.d / "16.23")), (3, 0))
+        self.assertEqual((nightly.server_dir(self.d, "euw1"), nightly.server_dir(self.d, "kr")), (self.d, self.d / "kr"), "and so does its server")
+
+    def test_one_server_for_each_rate_limit(self):
+        self.assertEqual(nightly.servers(["euw1/europe", "na1/americas"]), [("euw1", "europe"), ("na1", "americas")])
+        for bad in (["euw1/europe", "eun1/europe"], ["euw1"], []):
+            with self.assertRaises(SystemExit, msg=bad):
+                nightly.servers(bad)
+
+    def test_servers_are_crawled_side_by_side_for_one_fit(self):
+        names = ["euw1/europe", "na1/americas", "kr/asia"]
+        together = threading.Barrier(3, timeout=20)
+
+        def sh(cmd):
+            if Path(cmd[2]).name == "crawl.py":
+                together.wait()
+            return self.sh(cmd)
+
+        self.n = {"euw1": 4, "na1": 3, "kr": 2}
+        self.assertEqual(nightly.run(self.args(servers=names), "16.23", sh, self.said.append, lambda: False), 0)
+        d = self.d / "16.23"
+        arg = lambda c, name: c[c.index(name) + 1]
+        self.assertEqual(sorted((arg(c, "--platform"), arg(c, "--region"), arg(c, "--out"), arg(c, "--raw"), arg(c, "--games")) for c in self.calls),
+                         sorted((p, r, str(d / p), str(d / "raw"), "6667") for p, r in (n.split("/") for n in names)), "one raw directory, a third of the games each")
+        self.assertIsNone(self.memo(), "9 games in all: a fit takes 10")
+        self.assertEqual(self.run_once({"euw1": 4, "na1": 4, "kr": 2}, servers=names), (0, ["crawl.py"] * 3 + ["features.py", "fit.py"]))
+        self.assertEqual(self.memo()["fit_games"], 10)
+        self.status = {"crawl.py": 1}
+        self.assertEqual(self.run_once({"euw1": 4, "na1": 4, "kr": 2}, servers=names)[0], 1)
+
+    def test_goes_on_without_a_break(self):
+        now, slept, runs = [0.0], [], iter([100.0, 7200.0, None])
+
+        def once():
+            took = next(runs)
+            if took is None:
+                raise KeyboardInterrupt
+            now[0] += took
+
+        with self.assertRaises(KeyboardInterrupt):
+            nightly.forever(once, pause=600.0, clock=lambda: now[0], sleep=slept.append)
+        self.assertEqual(slept, [500.0, 0.0], "a run with nothing to do is not started again at once")
 
     def test_when_a_fit_is_due(self):
         due = lambda games, last: nightly.due(games, last, 10000, 2500)
@@ -500,7 +594,7 @@ class Nightly(unittest.TestCase):
         crawl_cmd, feat, fit_cmd = self.calls
         d = self.d / "16.23"
         self.assertEqual(crawl_cmd[:2] + crawl_cmd[3:], [sys.executable, "-I", "--games", "20000", "--hours", "2.0", "--patch", "16.23",
-                                                         "--platform", "euw1", "--region", "europe", "--out", str(d)])
+                                                         "--platform", "euw1", "--region", "europe", "--out", str(d / "euw1"), "--raw", str(d / "raw")])
         self.assertEqual(feat[3:], ["--raw", str(d / "raw"), "--out", str(d / "rows.npz"), "--patch", "16.23"])
         self.assertEqual(fit_cmd[3:], ["--rows", str(d / "rows.npz"), "--out", str(d / "fit" / "winprob.toml"), "--cases", str(d / "fit" / "winprob_cases.json")])
         self.assertEqual((self.memo()["fit_games"], self.memo()["passed"]), (10, True))
@@ -560,16 +654,24 @@ class Nightly(unittest.TestCase):
 
     def test_one_run_at_a_time(self):
         path = self.d / "nightly.lock"
-        with nightly.Lock(path):
-            with self.assertRaises(nightly.Busy):
-                nightly.Lock(path).__enter__()
-        self.assertFalse(path.exists())
-        path.write_text("", encoding="utf-8")
-        old = time.time() - (nightly.STALE_LOCK_H + 1) * 3600
-        os.utime(path, (old, old))
-        with nightly.Lock(path):
+        with crawl.Lock(path):
+            with self.assertRaises(crawl.Busy):
+                crawl.Lock(path).__enter__()
+        self.assertTrue(path.exists(), "the file a killed run leaves behind holds nobody up")
+        with crawl.Lock(path):
             pass
-        self.assertFalse(path.exists(), "a crashed run's lock is taken over")
+        holder = "import sys, time; sys.path.insert(0, sys.argv[1]); import crawl; lock = crawl.Lock(sys.argv[2]); lock.__enter__(); print('held', flush=True); time.sleep(60)"
+        held = subprocess.Popen([sys.executable, "-I", "-c", holder, str(Path(crawl.__file__).parent), str(path)], stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(held.stdout.readline().strip(), "held")
+            with self.assertRaises(crawl.Busy, msg="another process has it"):
+                crawl.Lock(path).__enter__()
+        finally:
+            held.kill()
+            held.wait()
+            held.stdout.close()
+        with crawl.Lock(path):
+            pass
 
 
 TRUE = {
@@ -649,6 +751,39 @@ def simulate(n_games, seed=1):
     folds = np.array([F.fold(ids[g]) for g in game], np.int8)
     return dict(game=np.array(game, np.int64), minute=np.array(minute, float), y=np.array(y), X=np.concatenate(X), test=test, fold=folds,
                 match_ids=np.array(ids), keys=np.array(F.KEYS), train_games=np.int64(sum(not F.is_test(m) for m in ids)))
+
+
+class Report(unittest.TestCase):
+    def test_rows_by_gold_lead(self):
+        lead = np.array([-0.30, -0.15, 0.0, 0.01, 0.07, 0.07, 0.50])
+        y = np.array([0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+        p = np.array([0.1, 0.3, 0.5, 0.5, 0.6, 0.8, 0.9])
+        got = fit.gold_slices(np.log1p(np.abs(lead)) * np.sign(lead), y, p)
+        self.assertEqual([(s[0], s[1], s[2]) for s in got], [(-math.inf, -0.20, 1), (-0.20, -0.10, 1), (-0.02, 0.02, 2), (0.05, 0.10, 2), (0.20, math.inf, 1)])
+        self.assertEqual([(round(s[3], 3), s[4]) for s in got][2:4], [(0.5, 0.5), (0.7, 0.5)])
+        self.assertEqual([fit.lead_label(lo, hi) for lo, hi in ((-math.inf, -0.20), (-0.10, -0.05), (-0.02, 0.02), (0.05, 0.10), (0.20, math.inf))],
+                         ["red +20 % or more", "red +5 to +10 %", "even (under 2 %)", "blue +5 to +10 %", "blue +20 % or more"])
+
+    def test_what_the_model_says_of_its_favourite(self):
+        got = fit.sides(np.array([1.0, 0.0, 0.0, 0.0]), np.array([0.7, 0.7, 0.3, 0.2]))
+        self.assertEqual([(s, n, round(said, 3), won) for s, n, said, won in got], [("blue", 2, 0.7, 0.5), ("red", 2, 0.75, 1.0)])
+
+    def test_whole_games_are_drawn_again(self):
+        rng = np.random.default_rng(5)
+        games, rows = 200, 30
+        game = np.repeat(np.arange(games), rows)
+        y = np.repeat((rng.random(games) < 0.6).astype(float), rows)
+        p, base = np.full(games * rows, 0.6), np.full(games * rows, 0.5)
+        spans = fit.bootstrap(game, y, p, base)
+        self.assertEqual(spans, fit.bootstrap(game, y, p, base), "the same draws every time")
+        lo, hi = spans["ece"]
+        self.assertGreater(hi - lo, 2.0, "200 games are 200 results, however many rows each has")
+        self.assertLessEqual(lo, fit.ece(y, p))
+        self.assertLess(spans["log_loss"][0], spans["log_loss"][1])
+        self.assertEqual(set(spans), {"ece", "log_loss", "gain"})
+        self.assertEqual(set(fit.bootstrap(game, y, p)), {"ece", "log_loss"})
+        one = fit.bootstrap(np.zeros(rows, int), np.ones(rows), np.full(rows, 0.6))
+        self.assertAlmostEqual(one["ece"][0], one["ece"][1])
 
 
 SKIP_HEAVY = league_running()
@@ -753,6 +888,39 @@ class SyntheticFit(unittest.TestCase):
         merged = tomllib.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(merged["aram"], {"gold": [1.0] * 7})
         self.assertEqual(merged["rift"], tomllib.loads(self.toml.read_text(encoding="utf-8"))["rift"])
+
+    def test_the_report_has_slices_sides_and_resampled_spans(self):
+        for line in ("by blue's item gold lead", "red +20 % or more", "blue +5 to +10 %", "by favoured side", "favours blue", "favours red",
+                     "blue won", "whole held-out games drawn again", "log loss under gold-only"):
+            self.assertIn(line, self.report)
+
+    def test_scores_a_table_on_games_it_was_not_fitted_on(self):
+        other = self.dir / "other.npz"
+        F.save_rows(other, simulate(3000, seed=2), "rift", "16.22", "synthetic")
+        before = sorted(p.name for p in self.dir.iterdir())
+        with redirect_stdout(io.StringIO()) as out:
+            status = fit.main(["--score", str(self.toml), "--rows", str(other)])
+        self.assertEqual(status, 0, out.getvalue())
+        self.assertIn("3000 rift games of patch 16.22", out.getvalue())
+        self.assertNotIn("gold-only", out.getvalue(), "no fit, so no gold-only model to compare with")
+        self.assertEqual(sorted(p.name for p in self.dir.iterdir()), before, "scoring writes nothing")
+        with np.load(other) as z:
+            d = {k: z[k] for k in z.files}
+        model = tomllib.loads(self.toml.read_text(encoding="utf-8"))
+        good = fit.score(model, d)
+        self.assertLess(good["overall"]["ece"], fit.ECE_MAX)
+        self.assertEqual(good["fails"], [])
+        sure = dict(model, rift={k: [2 * x for x in v] if k != "metrics" else v for k, v in model["rift"].items()})
+        bad = fit.score(sure, d)
+        self.assertGreater(bad["overall"]["ece"], 2 * good["overall"]["ece"])
+        self.assertTrue(bad["fails"])
+        ahead = [s for s in bad["gold"] if s[0] > 0][-1]
+        self.assertGreater(ahead[3], ahead[4] + 0.02, "a table twice as sure says more for the gold leader than the leader wins")
+        unfitted = self.dir / "unfitted.toml"
+        unfitted.write_text(fit.toml_text("16.22", 0, F.KNOTS, {}), encoding="utf-8")
+        with self.assertRaises(SystemExit), redirect_stdout(io.StringIO()):
+            fit.main(["--score", str(unfitted), "--rows", str(other)])
+        unfitted.unlink()
 
     @unittest.skipIf(os.environ.get("WINPROB_SKIP_CARGO") or not shutil.which("cargo"), "cargo not run")
     def test_rust_replay_reads_the_toml(self):

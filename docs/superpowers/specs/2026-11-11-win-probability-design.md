@@ -563,6 +563,20 @@ differs), crawl the full set, `features.py`, `fit.py`, then `cargo test -p coach
 and the replay. Then a real Rift game: the card, the posture, the stance call, the trend after
 two minutes, and a past game in the review.
 
+### Fourth pass (2026-11-12): what the report shows beyond the gates
+
+After three videos by thewondercow on Valve's Dota win probability (its pro model reacts too
+little to net worth, favours one side and reads drafts worse than a coin; he tests by slicing
+on the net worth lead and by resampling whole games), the fit report gained, ungated: rows by
+blue's item gold lead, by favoured side, blue's share of wins, and spans from 1,000 draws of
+whole held-out games. `fit.py --score TABLE --rows ROWS` scores a fitted table on games it was
+not fitted on: a Diamond and Emerald test set (the open question for a user at that rank) and
+the next patch. On the 4,931-game trial: the model says 2 to 4 points too much for blue in every
+gold band, with no slope, so it reads gold correctly and the error is one shift between the
+sides; the ECE span is 1.67 to 5.02, so 2.88 against a gate of 2.0 is not decided by 1,020
+held-out games. Open, for the user: whether `side` should be kept when its sign is not stable
+(the sign rule drops it; blue won 47.4 % of these games).
+
 ### Third pass (2026-11-12): T0b, the crawl, a nightly job
 
 - T0b is done on real replies (Facts, "Riot match-v5"); `tools/winprob` follows them: support

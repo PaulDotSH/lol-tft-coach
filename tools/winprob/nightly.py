@@ -1,20 +1,25 @@
 """One scheduled run: crawl the newest patch for a while, refit when enough games are in, drop the
-raw games of old patches.
+raw games of old patches. With --forever, one run after another.
 
-python3 -I tools/winprob/nightly.py [--hours 2] [--games 20000] [--fit-at 10000] [--refit-every 2500] [--keep 2] [--dir DIR] [--key-file FILE] [--publish DIR]
+python3 -I tools/winprob/nightly.py [--forever] [--servers euw1/europe na1/americas kr/asia] [--hours 2] [--games 20000] [--fit-at 10000] [--refit-every 2500] [--keep 2] [--dir DIR] [--key-file FILE] [--publish DIR]
 
-Each patch has its own directory DIR/<patch> (raw/, crawl_state.json, rows.npz, fit/winprob.toml,
-fit/winprob_cases.json, nightly.json); a crawl started by hand in DIR itself goes on there. The
-fit runs once --fit-at games are stored and again every --refit-every more; fit.py writes its
+Each patch has its own directory DIR/<patch> (raw/, rows.npz, fit/winprob.toml,
+fit/winprob_cases.json, nightly.json, and <platform>/crawl_state.json for each server); a crawl
+started by hand in DIR itself, or in DIR/<patch>, goes on there. The servers (platform/region
+of the Riot API) are crawled side by side, each to its share of --games, into the one raw/:
+a key has one rate limit for each region, so two servers of one region are refused. The
+fit runs once --fit-at games are stored in all and again every --refit-every more; fit.py writes its
 files only when its gates pass, and nothing is ever written into the repo. --publish copies the
 newest patch's fitted table to a directory and, when that is a git checkout, commits and pushes
 it there (the app downloads it: src-tauri/src/winprob.rs). Patches older than the newest --keep
 lose raw/ and rows.npz (0 keeps everything). No fit while League of Legends runs.
 Everything is appended to DIR/nightly.log. One run at a time (DIR/nightly.lock). Exit status 1
-when the crawl, the features, the fit or the push failed. README.md, "Every night", has the cron, systemd
-and Task Scheduler lines.
+when a crawl, the features, the fit or the push failed. --forever starts the next run when one
+ends, `PAUSE_S` after the last start at the earliest, and never exits. README.md, "Every night"
+and "Without a break", has the cron, systemd and Task Scheduler lines.
 """
 import argparse, json, os, re, shutil, subprocess, sys, time, tomllib
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -23,31 +28,8 @@ import features as F  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PATCH_DIR = re.compile(r"\d+\.\d+")
-STALE_LOCK_H = 26
+PAUSE_S = 600.0
 GAME = "League of Legends.exe"
-
-
-class Busy(Exception):
-    pass
-
-
-class Lock:
-    """One run at a time in a data directory; a lock older than `STALE_LOCK_H` is a crashed run's."""
-
-    def __init__(self, path):
-        self.path = Path(path)
-
-    def __enter__(self):
-        if self.path.exists() and time.time() - self.path.stat().st_mtime > STALE_LOCK_H * 3600:
-            self.path.unlink()
-        try:
-            os.close(os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-        except FileExistsError:
-            raise Busy(f"{self.path} exists: another run is going on") from None
-        return self
-
-    def __exit__(self, *exc):
-        self.path.unlink(missing_ok=True)
 
 
 def state_of(d):
@@ -61,6 +43,21 @@ def stored(d):
 
 def patch_dir(root, patch):
     return Path(root) if state_of(root).get("patch") == patch else Path(root) / patch
+
+
+def server_dir(d, platform):
+    return Path(d) if state_of(d).get("platform") == platform else Path(d) / platform
+
+
+def servers(names):
+    """[(platform, region)] from platform/region names; a region's rate limit takes one server."""
+    pairs = [tuple(n.split("/")) for n in names]
+    if not pairs or any(len(p) != 2 for p in pairs):
+        sys.exit(f"servers are named platform/region, as in euw1/europe: {' '.join(names)!r}")
+    regions = [r for _, r in pairs]
+    if len(set(regions)) < len(regions):
+        sys.exit(f"one server for each region, whose rate limit they would share: {' '.join(names)}")
+    return pairs
 
 
 def due(games, last, fit_at, every):
@@ -110,14 +107,21 @@ def playing():
 
 
 def run(a, patch, sh, say, playing=playing):
-    """The crawl, the fit when one is due and the pruning; `sh(command)` gives an exit status."""
+    """The crawls, side by side, the fit when one is due and the pruning; `sh(command)` gives an
+    exit status."""
     d = patch_dir(a.dir, patch)
     d.mkdir(parents=True, exist_ok=True)
     py = lambda script, *args: [sys.executable, "-I", str(HERE / script), *map(str, args)]
     key = ["--key-file", a.key_file] if a.key_file else []
-    failed = sh(py("crawl.py", "--games", a.games, "--hours", a.hours, "--patch", patch, "--platform", a.platform, "--region", a.region, "--out", d, *key)) != 0
-    games = stored(d)
-    say(f"patch {patch}: {games} games stored" + ("; the crawl failed (see above)" if failed else ""))
+    where = [(platform, region, server_dir(d, platform)) for platform, region in servers(a.servers)]
+    share = -(-a.games // len(where))
+    crawls = [py("crawl.py", "--games", share, "--hours", a.hours, "--patch", patch, "--platform", platform, "--region", region, "--out", out, "--raw", d / "raw", *key)
+              for platform, region, out in where]
+    with ThreadPoolExecutor(len(crawls)) as pool:
+        failed = any(list(pool.map(sh, crawls)))
+    games = sum(stored(out) for _, _, out in where)
+    say(f"patch {patch}: {games} games stored" + (f" ({', '.join(f'{p} {stored(out)}' for p, _, out in where)})" if len(where) > 1 else "")
+        + ("; a crawl failed (see above)" if failed else ""))
     memo_path = d / "nightly.json"
     memo = json.loads(memo_path.read_text(encoding="utf-8")) if memo_path.exists() else {}
     if due(games, memo.get("fit_games"), a.fit_at, a.refit_every):
@@ -139,21 +143,30 @@ def run(a, patch, sh, say, playing=playing):
     return int(failed)
 
 
+def forever(once, pause=PAUSE_S, clock=time.monotonic, sleep=time.sleep):
+    """`once()` again and again, a start at least `pause` seconds after the one before."""
+    while True:
+        started = clock()
+        once()
+        sleep(max(0.0, pause - (clock() - started)))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--hours", type=float, default=2.0, help="how long to crawl")
-    ap.add_argument("--games", type=int, default=20000, help="stop crawling a patch at this many games")
+    ap.add_argument("--forever", action="store_true", help="one run after another, for a service")
+    ap.add_argument("--servers", nargs="+", default=["euw1/europe"], metavar="PLATFORM/REGION")
+    ap.add_argument("--hours", type=float, default=2.0, help="how long to crawl in one run")
+    ap.add_argument("--games", type=int, default=20000, help="stop crawling a patch at this many games, all servers together")
     ap.add_argument("--fit-at", type=int, default=10000)
     ap.add_argument("--refit-every", type=int, default=2500)
     ap.add_argument("--keep", type=int, default=2, help="patches that keep their raw games (0: all)")
-    ap.add_argument("--platform", default="euw1")
-    ap.add_argument("--region", default="europe")
     ap.add_argument("--dir", default=str(F.DEV))
     ap.add_argument("--key-file")
     ap.add_argument("--publish", help="directory (or git checkout) that gets the fitted winprob.toml")
     a = ap.parse_args()
     a.dir = Path(a.dir)
     a.dir.mkdir(parents=True, exist_ok=True)
+    servers(a.servers)
     with open(a.dir / "nightly.log", "a", encoding="utf-8") as log:
         def say(text):
             line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {text}"
@@ -164,15 +177,19 @@ def main():
         def sh(cmd):
             return subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT).returncode
 
-        try:
-            with Lock(a.dir / "nightly.lock"):
-                status = run(a, crawl.newest_patch(), sh, say)
-        except Busy as e:
-            say(str(e))
-            status = 1
-        except Exception as e:
-            say(f"stopped: {type(e).__name__}: {e}")
-            status = 1
+        def once():
+            try:
+                with crawl.Lock(a.dir / "nightly.lock"):
+                    return run(a, crawl.newest_patch(), sh, say)
+            except crawl.Busy as e:
+                say(str(e))
+            except Exception as e:
+                say(f"stopped: {type(e).__name__}: {e}")
+            return 1
+
+        if a.forever:
+            forever(once)
+        status = once()
     sys.exit(status)
 
 

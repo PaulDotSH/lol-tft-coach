@@ -10,7 +10,6 @@ each player's final items, event types seen, frame spacing) and writes nothing.
 import argparse, collections, gzip, json, math, os, sys, zlib
 from pathlib import Path
 
-import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import riot_format as R  # noqa: E402
@@ -506,6 +505,7 @@ def rows_of(games):
             X.append(s.features())
             test.append(held_out)
             folds.append(fold(g.match_id))
+    import numpy as np
     return dict(game=np.array(game, np.int64), minute=np.array(minute), y=np.array(y), X=np.array(X).reshape(-1, len(KEYS)),
                 test=np.array(test, bool), fold=np.array(folds, np.int8), match_ids=np.array([g.match_id for g in games]),
                 keys=np.array(KEYS), train_games=np.int64(len(train)))
@@ -514,6 +514,7 @@ def rows_of(games):
 def save_rows(path, arrays, mode, patch, source):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    import numpy as np
     np.savez_compressed(path, mode=np.array(mode), patch=np.array(patch), source=np.array(source), **arrays)
 
 

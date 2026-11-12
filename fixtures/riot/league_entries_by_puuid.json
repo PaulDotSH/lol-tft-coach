@@ -1,0 +1,28 @@
+[
+ {
+  "queueType": "RANKED_SOLO_5x5",
+  "tier": "CHALLENGER",
+  "rank": "I",
+  "puuid": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+  "leaguePoints": 3112,
+  "wins": 506,
+  "losses": 408,
+  "veteran": true,
+  "inactive": false,
+  "freshBlood": false,
+  "hotStreak": false
+ },
+ {
+  "queueType": "RANKED_FLEX_SR",
+  "tier": "EMERALD",
+  "rank": "I",
+  "puuid": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+  "leaguePoints": 97,
+  "wins": 4,
+  "losses": 1,
+  "veteran": false,
+  "inactive": false,
+  "freshBlood": false,
+  "hotStreak": false
+ }
+]
