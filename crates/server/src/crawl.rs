@@ -622,18 +622,14 @@ async fn fit(sh: &Shared, patch: &str, games: u64) -> Result<FitMemo, String> {
     let config = &sh.env.config;
     let text = |path: &Path| path.to_string_lossy().into_owned();
     let (rows, table, cases) = (dir.join("rows.npz"), dir.join("fit").join("winprob.toml"), dir.join("fit").join("winprob_cases.json"));
-    let features = vec![config.python.clone(), "-I".to_owned(), text(&config.tools_dir.join("features.py")), "--raw".to_owned(), text(&dir.join("raw")), "--out".to_owned(), text(&rows), "--patch".to_owned(), patch.to_owned(), "--items".to_owned(), text(&items)];
+    let exe = std::env::current_exe().map_err(|err| format!("cannot find this executable: {err}"))?;
+    let features = vec![text(&exe), "features".to_owned(), "--raw".to_owned(), text(&dir.join("raw")), "--out".to_owned(), text(&rows), "--patch".to_owned(), patch.to_owned(), "--items".to_owned(), text(&items), "--bands".to_owned(), text(&dir)];
     let fitting = vec![config.python.clone(), "-I".to_owned(), text(&config.tools_dir.join("fit.py")), "--rows".to_owned(), text(&rows), "--out".to_owned(), text(&table), "--cases".to_owned(), text(&cases)];
     let passed = (sh.env.runner)(features).await == 0 && (sh.env.runner)(fitting).await == 0;
-    match std::env::current_exe() {
-        Ok(exe) => {
-            let builds = vec![text(&exe), "builds".to_owned(), "--raw".to_owned(), text(&dir.join("raw")), "--bands".to_owned(), text(&dir), "--items".to_owned(), text(&items), "--patch".to_owned(), patch.to_owned(), "--out".to_owned(), text(&dir.join("builds.json"))];
-            let code = (sh.env.runner)(builds).await;
-            if code != 0 {
-                tracing::warn!(code, patch, "the build tables were not made");
-            }
-        }
-        Err(err) => tracing::warn!(%err, "cannot find the service's own executable for the build tables"),
+    let builds = vec![text(&exe), "builds".to_owned(), "--raw".to_owned(), text(&dir.join("raw")), "--bands".to_owned(), text(&dir), "--items".to_owned(), text(&items), "--patch".to_owned(), patch.to_owned(), "--out".to_owned(), text(&dir.join("builds.json"))];
+    let code = (sh.env.runner)(builds).await;
+    if code != 0 {
+        tracing::warn!(code, patch, "the build tables were not made");
     }
     let memo = FitMemo { fit_games: games, passed, at: now_secs() };
     let bytes = serde_json::to_vec(&memo).map_err(|err| err.to_string())?;

@@ -466,7 +466,7 @@ async fn the_fit_runs_as_two_commands_when_due_and_not_again_for_the_same_games(
     let (tools, text) = (PathBuf::from("/tools"), |p: PathBuf| p.to_string_lossy().into_owned());
     let items = text(rig.root().join("winprob").join("items-16.21.1.json"));
     let want = vec![
-        vec!["py".to_owned(), "-I".to_owned(), text(tools.join("features.py")), "--raw".to_owned(), text(dir.join("raw")), "--out".to_owned(), text(dir.join("rows.npz")), "--patch".to_owned(), "16.21".to_owned(), "--items".to_owned(), items.clone()],
+        vec![text(std::env::current_exe().unwrap()), "features".to_owned(), "--raw".to_owned(), text(dir.join("raw")), "--out".to_owned(), text(dir.join("rows.npz")), "--patch".to_owned(), "16.21".to_owned(), "--items".to_owned(), items.clone(), "--bands".to_owned(), text(dir.clone())],
         vec!["py".to_owned(), "-I".to_owned(), text(tools.join("fit.py")), "--rows".to_owned(), text(dir.join("rows.npz")), "--out".to_owned(), text(dir.join("fit").join("winprob.toml")), "--cases".to_owned(), text(dir.join("fit").join("winprob_cases.json"))],
         vec![text(std::env::current_exe().unwrap()), "builds".to_owned(), "--raw".to_owned(), text(dir.join("raw")), "--bands".to_owned(), text(dir.clone()), "--items".to_owned(), items.clone(), "--patch".to_owned(), "16.21".to_owned(), "--out".to_owned(), text(dir.join("builds.json"))],
     ];

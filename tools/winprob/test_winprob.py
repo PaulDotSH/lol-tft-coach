@@ -3,8 +3,9 @@
 WINPROB_SKIP_CARGO=1 leaves out the one test that builds and runs the Rust replay example.
 The synthetic fit and cargo are skipped while League of Legends runs.
 """
-import argparse, collections, gzip, io, json, math, os, re, shutil, subprocess, sys, tempfile, threading, time, tomllib, types, unittest
+import argparse, collections, contextlib, gzip, io, json, math, os, re, shutil, subprocess, sys, tempfile, threading, time, tomllib, types, unittest
 from contextlib import redirect_stdout
+from unittest import mock
 from pathlib import Path
 
 import numpy as np
@@ -305,12 +306,16 @@ class Timeline(unittest.TestCase):
                 for name, obj in (("match", match), ("timeline", timeline)):
                     with gzip.open(d / f"EUW1_{i}.{name}.json.gz", "wt", encoding="utf-8") as f:
                         json.dump(obj, f)
-            with redirect_stdout(io.StringIO()):
-                F.main(["--raw", str(d), "--out", str(d / "rows.npz"), "--items", str(DDRAGON_ITEMS)])
+            (d / "euw1.json").write_text(json.dumps({"stored": ["EUW1_1"], "bands": {"EUW1_1": "DIAMOND", "EUW1_0": 3}}), encoding="utf-8")
+            (d / "kr.json").write_text(json.dumps({"bands": {"EUW1_1": "EMERALD"}}), encoding="utf-8")
+            (d / "broken.json").write_text("{", encoding="utf-8")
+            with redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                F.main(["--raw", str(d), "--out", str(d / "rows.npz"), "--items", str(DDRAGON_ITEMS), "--bands", str(d)])
             with np.load(d / "rows.npz") as z:
                 r = {k: z[k] for k in z.files}
             self.assertEqual((str(r["mode"]), str(r["patch"]), str(r["source"]), tuple(r["keys"])), ("rift", "16.21", "riot", F.KEYS))
             self.assertEqual((r["X"].shape, list(r["match_ids"])), ((26, len(F.KEYS)), ["EUW1_0", "EUW1_1"]))
+            self.assertEqual(list(r["band"]), [F.TOP_BAND, "DIAMOND"], "the first state file by name wins; a band that is not text counts as none")
             self.assertEqual(list(r["test"]), [F.is_test(r["match_ids"][g]) for g in r["game"]])
             self.assertTrue(np.all(r["y"] == 1.0) and np.all(r["X"][:, F.KEYS.index("side")] == 1.0))
         finally:
@@ -789,6 +794,29 @@ class Report(unittest.TestCase):
     def test_what_the_model_says_of_its_favourite(self):
         got = fit.sides(np.array([1.0, 0.0, 0.0, 0.0]), np.array([0.7, 0.7, 0.3, 0.2]))
         self.assertEqual([(s, n, round(said, 3), won) for s, n, said, won in got], [("blue", 2, 0.7, 0.5), ("red", 2, 0.75, 1.0)])
+
+    def test_held_out_scores_by_band(self):
+        band = np.array(["APEX", "APEX", "DIAMOND", "DIAMOND", "DIAMOND"])
+        game, y = np.array([0, 0, 1, 1, 2]), np.array([1.0, 1.0, 0.0, 0.0, 1.0])
+        p, base = np.array([0.6, 0.7, 0.4, 0.3, 0.5]), np.full(5, 0.5)
+        got = fit.by_band(band, game, y, p, base)
+        self.assertEqual([(b, n, s["rows"], g["rows"]) for b, n, s, g in got], [("APEX", 1, 2, 2), ("DIAMOND", 2, 3, 3)])
+        self.assertAlmostEqual(got[1][2]["brier"], float(np.mean((p[2:] - y[2:]) ** 2)))
+        self.assertAlmostEqual(got[0][3]["brier"], 0.25)
+        with redirect_stdout(io.StringIO()) as out:
+            fit.print_bands(got)
+        self.assertIn("DIAMOND", out.getvalue())
+
+    def test_a_fit_on_rows_and_columns_is_the_fit_on_their_copy(self):
+        rng = np.random.default_rng(4)
+        X, minute = rng.normal(size=(3000, 4)), rng.uniform(0, 45, 3000)
+        y, w = (rng.random(3000) < 0.5).astype(float), rng.uniform(0.5, 1.5, 3000)
+        H, rows, cols = fit.hat(minute), np.flatnonzero(rng.random(3000) < 0.7), [0, 2, 3]
+        with mock.patch.object(fit, "CHUNK", 500):
+            whole = fit.newton(X[rows][:, cols], H[rows], y[rows], w[rows], 10.0)
+            self.assertTrue(np.array_equal(fit.newton(X, H, y, w, 10.0, rows, cols), whole))
+            self.assertTrue(np.array_equal(fit.newton(X, H, y, w, 10.0), fit.newton(X.copy(), H, y, w, 10.0)))
+        self.assertTrue(np.array_equal(X, np.random.default_rng(4).normal(size=(3000, 4))), "the rows given are not changed")
 
     def test_whole_games_are_drawn_again(self):
         rng = np.random.default_rng(5)

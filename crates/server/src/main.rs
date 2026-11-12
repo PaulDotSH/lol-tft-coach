@@ -1,5 +1,5 @@
 use lol_coach_server::config::Config;
-use lol_coach_server::{builds, crawl};
+use lol_coach_server::{builds, crawl, features};
 use lol_coach_server::riot::Riot;
 use lol_coach_server::{AppState, app};
 use std::path::PathBuf;
@@ -77,6 +77,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|a| a == "features") {
+        return features::run(args.into_iter().skip(1));
+    }
     if args.first().is_some_and(|a| a == "builds") {
         return match builds::parse_args(&args[1..]).and_then(|a| builds::run(&a)) {
             Ok(summary) => {
