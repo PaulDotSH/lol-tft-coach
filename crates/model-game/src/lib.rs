@@ -272,6 +272,14 @@ pub struct MatchDetail {
     pub frames: Vec<Frame>,
     pub kills: Vec<KillEvent>,
     pub marks: Vec<TimelineMark>,
+    /// My item purchases in time order, undone ones removed.
+    pub purchases: Vec<Purchase>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Purchase {
+    pub time: f32,
+    pub item: ItemId,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]

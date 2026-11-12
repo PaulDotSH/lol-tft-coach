@@ -147,3 +147,22 @@ async fn winprob_table_skips_a_newer_patch_without_a_fit() {
     std::fs::create_dir_all(app.path().join("winprob").join("16.11").join("fit")).unwrap();
     assert_eq!(app.get("/v1/winprob.toml").await.text(), "patch = \"16.9\"\n");
 }
+
+#[tokio::test]
+async fn build_tables_need_no_token_and_come_from_the_newest_patch_that_has_one() {
+    let app = TestApp::new();
+    assert_eq!(app.send(Method::GET, "/v1/builds.json", None, Vec::new()).await.status, StatusCode::NOT_FOUND);
+    let write = |patch: &str, body: &str| {
+        let dir = app.path().join("winprob").join(patch);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("builds.json"), body).unwrap();
+    };
+    write("16.21", r#"{"patch":"16.21"}"#);
+    write("16.9", r#"{"patch":"16.9"}"#);
+    std::fs::create_dir_all(app.path().join("winprob").join("16.22").join("raw")).unwrap();
+    let res = app.send(Method::GET, "/v1/builds.json", None, Vec::new()).await;
+    assert_eq!((res.status, res.text()), (StatusCode::OK, r#"{"patch":"16.21"}"#.to_owned()), "the previous patch's table stays up until the new one has its own");
+    assert!(res.headers[header::CONTENT_TYPE].to_str().unwrap().contains("json"));
+    write("16.22", r#"{"patch":"16.22"}"#);
+    assert_eq!(app.send(Method::GET, "/v1/builds.json", None, Vec::new()).await.text(), r#"{"patch":"16.22"}"#);
+}

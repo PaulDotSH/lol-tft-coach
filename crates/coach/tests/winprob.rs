@@ -473,6 +473,7 @@ fn a_past_game_frame_gives_the_same_features() {
             mark(1300.0, false, "Inhibitor", Some("bot")),
             mark(1400.0, true, "Baron", None),
         ],
+        purchases: vec![],
     };
     let s = State::from_frame(&d, 25);
     assert_eq!(s.minute, 25.0);

@@ -22,6 +22,7 @@ struct Rig {
     dir: TempDir,
     commands: Arc<Mutex<Vec<Command>>>,
     fit_code: Arc<AtomicI32>,
+    builds_code: Arc<AtomicI32>,
 }
 
 fn id(n: u32) -> String {
@@ -66,7 +67,7 @@ impl Rig {
     async fn new(versions: &[&str]) -> Self {
         let fake = fake_riot().await;
         fake.set(|m| m.rate_limit = Some("100000:1,1000000:120".to_owned()));
-        Self { fake, dd: fake_ddragon(versions).await, dir: TempDir::new().unwrap(), commands: Arc::default(), fit_code: Arc::default() }
+        Self { fake, dd: fake_ddragon(versions).await, dir: TempDir::new().unwrap(), commands: Arc::default(), fit_code: Arc::default(), builds_code: Arc::default() }
     }
 
     fn root(&self) -> &Path {
@@ -74,10 +75,16 @@ impl Rig {
     }
 
     fn runner(&self) -> Runner {
-        let (commands, code) = (self.commands.clone(), self.fit_code.clone());
+        let (commands, code, builds) = (self.commands.clone(), self.fit_code.clone(), self.builds_code.clone());
         Arc::new(move |command: Command| {
             commands.lock().unwrap().push(command.clone());
-            let code = if command.iter().any(|a| a.ends_with("fit.py")) { code.load(Ordering::SeqCst) } else { 0 };
+            let code = if command.iter().any(|a| a.ends_with("fit.py")) {
+                code.load(Ordering::SeqCst)
+            } else if command.get(1).is_some_and(|a| a == "builds") {
+                builds.load(Ordering::SeqCst)
+            } else {
+                0
+            };
             Box::pin(async move { code }) as Pin<Box<dyn Future<Output = i32> + Send>>
         })
     }
@@ -184,7 +191,7 @@ async fn it_resumes_without_fetching_a_game_twice() {
     rig.apex("euw1", "MASTER", &["b", "a"]);
     rig.page("euw1", "DIAMOND I", 1, &["c"]);
     rig.player("europe", "a", &[id(1), id(2)]);
-    rig.player("europe", "b", &[id(2), id(3)]);
+    rig.player("europe", "b", &[id(3), id(2)]);
     rig.player("europe", "c", &[id(4), id(5)]);
     for n in 1..=5 {
         rig.game("europe", &id(n), if n == 2 { "16.20.1.2" } else { "16.21.1.2" });
@@ -192,7 +199,9 @@ async fn it_resumes_without_fetching_a_game_twice() {
     let mut crawl = rig.start(&["euw1/europe"], 2);
     wait(&crawl.status, "done", state_is(0, "done")).await;
     crawl.stop().await;
-    assert_eq!(rig.state("16.21", "euw1")["stored"], json!([id(1), id(3)]));
+    let state = rig.state("16.21", "euw1");
+    assert_eq!(state["stored"], json!([id(1), id(4)]), "half from the top leagues, half from Diamond and Emerald");
+    assert_eq!(state["bands"], json!({ id(4): "DIAMOND" }));
     assert_eq!(rig.raw_names("16.21").len(), 4);
     assert_eq!(rig.fake.hits_exact(&format!("{}/timeline", Rig::match_path("europe", &id(2)))), 0, "a match of another patch costs no timeline");
 
@@ -200,8 +209,10 @@ async fn it_resumes_without_fetching_a_game_twice() {
     wait(&crawl.status, "ladder used up", state_is(0, "done: ladder used up")).await;
     crawl.stop().await;
     let state = rig.state("16.21", "euw1");
-    assert_eq!(state["stored"], json!([id(1), id(3), id(4), id(5)]));
-    assert_eq!(state["ladder"]["puuids"], json!(["a", "b", "c"]));
+    assert_eq!(state["stored"], json!([id(1), id(4), id(5), id(3)]), "the queues take turns, one player each");
+    assert_eq!(state["bands"], json!({ id(4): "DIAMOND", id(5): "DIAMOND" }));
+    assert_eq!(state["ladder"]["puuids"], json!(["a", "b"]));
+    assert_eq!(state["ladder"]["lower_puuids"], json!([{ "puuid": "c", "tier": "DIAMOND" }]));
     for n in 1..=5 {
         let path = Rig::match_path("europe", &id(n));
         assert_eq!(rig.fake.hits_exact(&path), 1, "{path}");
@@ -220,11 +231,12 @@ async fn an_older_patch_ends_a_players_list_and_a_newer_one_is_passed_over() {
     let state = rig.state("16.21", "euw1");
     assert_eq!(state["stored"], json!([id(2)]), "ids come newest first: nothing follows an older patch");
     assert_eq!(state["seen"], json!([id(1), id(2), id(3)]));
+    assert_eq!(state["older"], json!([id(3)]), "the game that ended the list ends it again on the next pass, with no request");
     let hits = |n| rig.fake.hits_exact(&Rig::match_path("europe", &id(n)));
     assert_eq!([hits(1), hits(2), hits(3), hits(4), hits(5)], [1, 1, 1, 0, 0]);
     assert_eq!(rig.fake.hits_exact(&format!("{}/timeline", Rig::match_path("europe", &id(1)))), 0);
     assert_eq!(rig.fake.hits_exact(&format!("{}/timeline", Rig::match_path("europe", &id(3)))), 0);
-    assert_eq!(state["ladder"]["next_puuid"], 1);
+    assert!(rig.fake.hits_with("/europe/lol/match/v5/matches/by-puuid/a/") >= 2, "the top leagues were read a second time");
 }
 
 #[tokio::test]
@@ -289,8 +301,9 @@ async fn players_of_another_key_are_dropped_once_and_the_ladder_is_read_again() 
     wait(&crawl.status, "ladder used up", state_is(0, "done: ladder used up")).await;
     crawl.stop().await;
     let state = rig.state("16.21", "euw1");
-    assert_eq!(state["ladder"]["puuids"], json!(["new"]));
+    assert_eq!(state["ladder"]["lower_puuids"], json!([{ "puuid": "new", "tier": "DIAMOND" }]));
     assert_eq!(state["stored"], json!([id(1), id(2)]), "the games on disk are kept");
+    assert_eq!(state["bands"], json!({ id(2): "DIAMOND" }));
     assert_eq!(rig.fake.hits_exact(&Rig::match_path("europe", &id(1))), 0, "a game already seen is not fetched again");
     assert_eq!(rig.fake.hits_with("/euw1/lol/league/v4/challengerleagues"), 1, "the ladder is read again, from the top");
     assert_eq!(rig.fake.hits_with("/europe/lol/match/v5/matches/by-puuid/old/"), 1);
@@ -349,9 +362,14 @@ fn two_regions(rig: &Rig) {
     rig.apex("euw1", "CHALLENGER", &["e"]);
     rig.apex("na1", "CHALLENGER", &["n"]);
     let (euw, na): (Vec<String>, Vec<String>) = ((1..=5).map(id).collect(), (1..=5).map(|n| format!("NA1_{n:03}")).collect());
+    rig.page("euw1", "DIAMOND I", 1, &["e2"]);
+    rig.page("na1", "DIAMOND I", 1, &["n2"]);
+    let (euw2, na2): (Vec<String>, Vec<String>) = ((101..=105).map(id).collect(), (101..=105).map(|n| format!("NA1_{n:03}")).collect());
     rig.player("europe", "e", &euw);
     rig.player("americas", "n", &na);
-    for (region, ids) in [("europe", &euw), ("americas", &na)] {
+    rig.player("europe", "e2", &euw2);
+    rig.player("americas", "n2", &na2);
+    for (region, ids) in [("europe", &euw), ("americas", &na), ("europe", &euw2), ("americas", &na2)] {
         for id in ids {
             rig.game(region, id, "16.21.1.2");
         }
@@ -404,7 +422,11 @@ async fn two_patches_share_max_games_and_older_patches_lose_their_raw_games() {
     old_games(&rig, "16.19", &["X1"]);
     old_games(&rig, "16.20", &["Y1", "Y2"]);
     old_games(&rig, "16.21", &["O1", "O2", "O3", "O4"]);
-    rig.one_player_world(&(1..=5).map(|n| (n, "16.22.1.2")).collect::<Vec<_>>());
+    rig.one_player_world(&(1..=3).map(|n| (n, "16.22.1.2")).collect::<Vec<_>>());
+    rig.page("euw1", "EMERALD I", 1, &["d"]);
+    rig.player("europe", "d", &[id(4), id(5)]);
+    rig.game("europe", &id(4), "16.22.1.2");
+    rig.game("europe", &id(5), "16.22.1.2");
     let mut crawl = rig.start(&["euw1/europe"], 6);
     wait(&crawl.status, "done", state_is(0, "done")).await;
     crawl.stop().await;
@@ -444,8 +466,9 @@ async fn the_fit_runs_as_two_commands_when_due_and_not_again_for_the_same_games(
     let (tools, text) = (PathBuf::from("/tools"), |p: PathBuf| p.to_string_lossy().into_owned());
     let items = text(rig.root().join("winprob").join("items-16.21.1.json"));
     let want = vec![
-        vec!["py".to_owned(), "-I".to_owned(), text(tools.join("features.py")), "--raw".to_owned(), text(dir.join("raw")), "--out".to_owned(), text(dir.join("rows.npz")), "--patch".to_owned(), "16.21".to_owned(), "--items".to_owned(), items.clone()],
+        vec![text(std::env::current_exe().unwrap()), "features".to_owned(), "--raw".to_owned(), text(dir.join("raw")), "--out".to_owned(), text(dir.join("rows.npz")), "--patch".to_owned(), "16.21".to_owned(), "--items".to_owned(), items.clone(), "--bands".to_owned(), text(dir.clone())],
         vec!["py".to_owned(), "-I".to_owned(), text(tools.join("fit.py")), "--rows".to_owned(), text(dir.join("rows.npz")), "--out".to_owned(), text(dir.join("fit").join("winprob.toml")), "--cases".to_owned(), text(dir.join("fit").join("winprob_cases.json"))],
+        vec![text(std::env::current_exe().unwrap()), "builds".to_owned(), "--raw".to_owned(), text(dir.join("raw")), "--bands".to_owned(), text(dir.clone()), "--items".to_owned(), items.clone(), "--patch".to_owned(), "16.21".to_owned(), "--out".to_owned(), text(dir.join("builds.json"))],
     ];
     assert_eq!(commands_of(&rig), want);
     assert_eq!(std::fs::read_to_string(&items).unwrap(), ITEM_JSON, "the items of the first version of the patch");
@@ -459,14 +482,14 @@ async fn the_fit_runs_as_two_commands_when_due_and_not_again_for_the_same_games(
     wait(&crawl.status, "done", state_is(0, "done")).await;
     settle().await;
     crawl.stop().await;
-    assert_eq!(commands_of(&rig).len(), 2, "the same games are not fitted twice, also after a restart");
+    assert_eq!(commands_of(&rig).len(), 3, "the same games are not fitted twice, also after a restart");
 }
 
 #[tokio::test]
 async fn it_fits_again_after_refit_every_more_games_and_downloads_the_items_once() {
     let rig = Rig::new(&["16.21.1"]).await;
     fit_world(&rig, 5);
-    let mut crawl = crawl::start(rig.env(&["euw1/europe"], 5, 5, 2));
+    let mut crawl = crawl::start(rig.env(&["euw1/europe"], 10, 5, 2));
     wait(&crawl.status, "first fit", |v| v["fit"]["fit_games"] == 5).await;
     crawl.stop().await;
     rig.apex("euw1", "MASTER", &["b"]);
@@ -476,7 +499,7 @@ async fn it_fits_again_after_refit_every_more_games_and_downloads_the_items_once
     let mut crawl = crawl::start(rig.env(&["euw1/europe"], 20, 5, 2));
     wait(&crawl.status, "second fit", |v| v["fit"]["fit_games"] == 7).await;
     crawl.stop().await;
-    assert_eq!(commands_of(&rig).len(), 4);
+    assert_eq!(commands_of(&rig).len(), 6);
     assert_eq!(rig.dd.hits_with("item.json"), 1);
     assert_eq!(memo_of(&rig)["fit_games"], 7);
 }
@@ -490,12 +513,12 @@ async fn a_fit_whose_gates_fail_is_recorded_all_the_same() {
     wait(&crawl.status, "fit", |v| v["fit"]["fit_games"] == 3).await;
     crawl.stop().await;
     assert_eq!(memo_of(&rig)["passed"], false);
-    assert_eq!(commands_of(&rig).len(), 2);
+    assert_eq!(commands_of(&rig).len(), 3, "the build tables are made whatever the fit gave");
     let mut crawl = crawl::start(rig.env(&["euw1/europe"], 20, 3, 2));
     wait(&crawl.status, "done", state_is(0, "done")).await;
     settle().await;
     crawl.stop().await;
-    assert_eq!(commands_of(&rig).len(), 2);
+    assert_eq!(commands_of(&rig).len(), 3);
 }
 
 #[tokio::test]
@@ -524,7 +547,7 @@ async fn the_status_has_the_documented_shape_and_is_served_by_the_route() {
     let after = app.get("/v1/status").await.json();
     assert_eq!(
         after["crawl"],
-        json!({ "patch": "16.21", "games": 1, "max_games": 1, "servers": [{ "platform": "euw1", "stored": 1, "players": 1, "next_player": 1, "state": "done" }], "fit": null })
+        json!({ "patch": "16.21", "games": 1, "max_games": 1, "servers": [{ "platform": "euw1", "stored": 1, "top": 1, "lower": 0, "players": 1, "next_player": 1, "lower_players": 0, "next_lower": 0, "state": "done" }], "fit": null })
     );
     crawl.stop().await;
     let off = TestApp::new().get("/v1/status").await.json();
@@ -572,4 +595,88 @@ async fn stopping_does_not_wait_for_tasks_that_are_done() {
     let begun = tokio::time::Instant::now();
     crawl::wait_all(vec![quick(2), quick(1)], Duration::from_secs(30)).await;
     assert_eq!(begun.elapsed(), Duration::from_secs(2));
+}
+
+#[test]
+fn each_queue_takes_up_to_half_the_share_and_they_take_turns() {
+    use crawl::Queue::{Lower, Top};
+    let pick = |top, lower, top_ready, lower_ready, top_turn| crawl::next_queue(top, lower, 10, top_ready, lower_ready, top_turn);
+    assert_eq!([pick(0, 0, true, true, true), pick(0, 0, true, true, false)], [Some(Top), Some(Lower)]);
+    assert_eq!([pick(5, 0, true, true, true), pick(0, 5, true, true, false)], [Some(Lower), Some(Top)], "a band at half the share stops");
+    assert_eq!([pick(5, 5, true, true, true), pick(4, 0, false, true, true), pick(0, 4, true, false, false)], [None, Some(Lower), Some(Top)]);
+    assert_eq!([pick(7, 2, true, true, true), pick(7, 3, true, true, true)], [Some(Lower), None], "a top band over half leaves the lower queue only what is left");
+    assert_eq!(pick(2, 2, false, false, true), None);
+    assert_eq!([crawl::next_queue(1, 1, 3, true, true, true), crawl::next_queue(2, 1, 3, true, true, false)], [Some(Top), None], "an odd share rounds the halves up");
+}
+
+#[tokio::test]
+async fn a_state_file_from_before_the_bands_reads_as_a_top_queue_in_progress() {
+    let rig = Rig::new(&["16.21.1"]).await;
+    let dir = rig.patch_dir("16.21");
+    std::fs::create_dir_all(&dir).unwrap();
+    let old = json!({ "ladder": { "apex_done": ["CHALLENGER", "GRANDMASTER", "MASTER"], "pages": {}, "exhausted": [], "turn": 0, "puuids": ["a", "b"], "next_puuid": 1 }, "seen": [id(1)], "stored": [id(1)] });
+    std::fs::write(dir.join("euw1.json"), old.to_string()).unwrap();
+    rig.player("europe", "b", &[id(2)]);
+    rig.game("europe", &id(2), "16.21.1.2");
+    rig.page("euw1", "DIAMOND I", 1, &["d"]);
+    rig.player("europe", "d", &[id(3)]);
+    rig.game("europe", &id(3), "16.21.1.2");
+    let mut crawl = rig.start(&["euw1/europe"], 4);
+    wait(&crawl.status, "done", state_is(0, "done")).await;
+    let server = crawl.status.snapshot()["servers"][0].clone();
+    crawl.stop().await;
+    assert_eq!(rig.fake.hits_with("/europe/lol/match/v5/matches/by-puuid/a/"), 0, "the top queue goes on at the next player");
+    let state = rig.state("16.21", "euw1");
+    assert_eq!(state["stored"], json!([id(1), id(2), id(3)]));
+    assert_eq!(state["bands"], json!({ id(3): "DIAMOND" }), "the games stored before are top band");
+    assert_eq!((server["top"].as_u64(), server["lower"].as_u64()), (Some(2), Some(1)));
+}
+
+#[tokio::test]
+async fn evicting_an_older_game_drops_its_band() {
+    let rig = Rig::new(&["16.22.1", "16.21.1"]).await;
+    old_games(&rig, "16.21", &["O1", "O2", "O3"]);
+    let path = rig.patch_dir("16.21").join("euw1.json");
+    std::fs::write(&path, json!({ "seen": ["O1", "O2", "O3"], "stored": ["O1", "O2", "O3"], "bands": { "O1": "EMERALD", "O3": "DIAMOND" } }).to_string()).unwrap();
+    rig.one_player_world(&[(1, "16.22.1.2"), (2, "16.22.1.2")]);
+    let mut crawl = rig.start(&["euw1/europe"], 4);
+    wait(&crawl.status, "done", state_is(0, "done")).await;
+    crawl.stop().await;
+    let older = rig.state("16.21", "euw1");
+    assert_eq!(older["stored"], json!(["O2", "O3"]));
+    assert_eq!(older["bands"], json!({ "O3": "DIAMOND" }));
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_top_queue_starts_over_and_waits_an_hour_after_a_pass_with_no_game() {
+    let rig = Rig::new(&["16.21.1"]).await;
+    rig.one_player_world(&[(1, "16.21.1.2")]);
+    let mut crawl = rig.start(&["euw1/europe"], 10);
+    wait(&crawl.status, "ladder used up", state_is(0, "done: ladder used up")).await;
+    let challenger = || rig.fake.hits_with("/euw1/lol/league/v4/challengerleagues");
+    assert_eq!(challenger(), 2, "a pass that stored a game is followed by another at once");
+    rig.player("europe", "a", &[id(2), id(1)]);
+    rig.game("europe", &id(2), "16.21.1.2");
+    tokio::time::advance(Duration::from_secs(1800)).await;
+    settle().await;
+    assert_eq!(challenger(), 2, "the pass that stored nothing waits an hour");
+    tokio::time::advance(Duration::from_secs(1900)).await;
+    wait(&crawl.status, "the second game", |v| v["servers"][0]["stored"] == 2).await;
+    crawl.stop().await;
+    assert_eq!(rig.state("16.21", "euw1")["stored"], json!([id(1), id(2)]));
+    assert_eq!(rig.fake.hits_exact(&Rig::match_path("europe", &id(1))), 1, "a game already seen costs no match request");
+}
+
+#[tokio::test]
+async fn a_failed_build_table_changes_nothing_else() {
+    let rig = Rig::new(&["16.21.1"]).await;
+    rig.builds_code.store(1, Ordering::SeqCst);
+    fit_world(&rig, 3);
+    let mut crawl = crawl::start(rig.env(&["euw1/europe"], 20, 3, 2));
+    wait(&crawl.status, "fit", |v| v["fit"]["fit_games"] == 3).await;
+    wait(&crawl.status, "done", state_is(0, "done")).await;
+    crawl.stop().await;
+    assert_eq!(memo_of(&rig)["passed"], true);
+    assert_eq!(commands_of(&rig).len(), 3);
+    assert_eq!(rig.state("16.21", "euw1")["stored"].as_array().unwrap().len(), 3);
 }

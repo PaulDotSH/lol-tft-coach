@@ -613,6 +613,8 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
         winprob: if settings.win_prob { fetched.as_deref() } else { Some(&no_fit) },
         situations: &situations,
     });
+    let builds = sh.builds.lock().unwrap().clone();
+    advice.pace = builds.and_then(|t| coach::builds::pace(&t, me.champ, lane, snap.mode, snap.swiftplay, &me.items));
     let ults = crate::ingame::ults(sh, sd, snap);
     let enemies: Vec<ChampKey> = snap.players.iter().filter(|p| p.team != me.team).map(|p| p.champ).collect();
     let memory = coach::matchup_memory(games, &enemies, snap.mode, Some(me.champ));

@@ -639,6 +639,12 @@
      "levelUpType": "NORMAL"
     },
     {
+     "type": "ITEM_PURCHASED",
+     "timestamp": 170200,
+     "participantId": 4,
+     "itemId": 1036
+    },
+    {
      "type": "CHAMPION_KILL",
      "timestamp": 171000,
      "killerId": 2,
@@ -650,6 +656,32 @@
       "x": 7000,
       "y": 9000
      }
+    },
+    {
+     "type": "ITEM_PURCHASED",
+     "timestamp": 171400,
+     "participantId": 4,
+     "itemId": 3070
+    },
+    {
+     "type": "ITEM_UNDO",
+     "timestamp": 172900,
+     "participantId": 4,
+     "beforeId": 3070,
+     "afterId": 0,
+     "goldGain": 400
+    },
+    {
+     "type": "ITEM_PURCHASED",
+     "timestamp": 173100,
+     "participantId": 3,
+     "itemId": 1001
+    },
+    {
+     "type": "ITEM_PURCHASED",
+     "timestamp": 174000,
+     "participantId": 4,
+     "itemId": 1001
     }
    ]
   },
@@ -1286,6 +1318,20 @@
       "x": 6800,
       "y": 7100
      }
+    },
+    {
+     "type": "ITEM_SOLD",
+     "timestamp": 400000,
+     "participantId": 4,
+     "itemId": 1056
+    },
+    {
+     "type": "ITEM_UNDO",
+     "timestamp": 400500,
+     "participantId": 4,
+     "beforeId": 0,
+     "afterId": 1056,
+     "goldGain": -160
     }
    ]
   },
@@ -1927,7 +1973,14 @@
      "teamScore": 0
     }
    },
-   "events": []
+   "events": [
+    {
+     "type": "ITEM_PURCHASED",
+     "timestamp": 612300,
+     "participantId": 4,
+     "itemId": 6655
+    }
+   ]
   },
   {
    "timestamp": 720037,
