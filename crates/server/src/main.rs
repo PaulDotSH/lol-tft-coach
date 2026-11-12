@@ -1,5 +1,5 @@
 use lol_coach_server::config::Config;
-use lol_coach_server::crawl;
+use lol_coach_server::{builds, crawl};
 use lol_coach_server::riot::Riot;
 use lol_coach_server::{AppState, app};
 use std::path::PathBuf;
@@ -75,8 +75,25 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Ok(())
 }
 
+fn main() -> ExitCode {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|a| a == "builds") {
+        return match builds::parse_args(&args[1..]).and_then(|a| builds::run(&a)) {
+            Ok(summary) => {
+                println!("{summary}");
+                ExitCode::SUCCESS
+            }
+            Err(err) => {
+                eprintln!("lol-coach-server builds: {err}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+    serve()
+}
+
 #[tokio::main(worker_threads = 2)]
-async fn main() -> ExitCode {
+async fn serve() -> ExitCode {
     tracing_subscriber::fmt().with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "lol_coach_server=info,tower_http=info".into())).init();
     match run().await {
         Ok(()) => ExitCode::SUCCESS,

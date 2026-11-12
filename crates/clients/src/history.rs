@@ -457,8 +457,22 @@ pub fn parse_match(game: &Value, puuid: Option<&str>, timeline: Option<&Value>) 
         }
         marks.push(TimelineMark { time, ours, kind: kind.to_string(), detail, pos: pos(&e["position"]), mine, presence: None });
     }
+    let mut purchases: Vec<Purchase> = Vec::new();
+    let mut mine: Vec<&&Value> = events.iter().filter(|e| e["participantId"].as_i64() == Some(me_id) && (e["type"] == "ITEM_PURCHASED" || e["type"] == "ITEM_UNDO")).collect();
+    mine.sort_by_key(|e| e["timestamp"].as_u64());
+    for e in mine {
+        match (e["type"].as_str(), id(&e["itemId"]), id(&e["beforeId"]), id(&e["afterId"])) {
+            (Some("ITEM_PURCHASED"), Some(item), _, _) => purchases.push(Purchase { time: secs(e), item }),
+            (Some("ITEM_UNDO"), _, Some(before), None) => {
+                if let Some(at) = purchases.iter().rposition(|p| p.item == before) {
+                    purchases.remove(at);
+                }
+            }
+            _ => {}
+        }
+    }
     let frames = frames.into_iter().flatten().map(frame).collect();
-    Some(MatchDetail { game: past, me, players, frames, kills, marks })
+    Some(MatchDetail { game: past, me, players, frames, kills, marks, purchases })
 }
 
 fn dragon_name(sub: &str) -> Option<&'static str> {

@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod account;
+mod builds;
 mod calib;
 mod coachless;
 mod commands;
@@ -80,6 +81,7 @@ fn main() {
             tauri::async_runtime::spawn(orchestrator::run(app.handle().clone(), shared.clone()));
             tauri::async_runtime::spawn(tft::run(app.handle().clone(), shared.clone(), tft_shared.clone()));
             tauri::async_runtime::spawn(winprob::run(shared.clone()));
+            tauri::async_runtime::spawn(builds::run(shared.clone()));
             tauri::async_runtime::spawn(remote::run(shared.clone()));
             Ok(())
         })

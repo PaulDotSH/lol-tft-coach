@@ -54,7 +54,7 @@
   <div class="build">
     <Shopping list={game.shopping} at={game.time} />
     {#if game.tips.length}<Tips tips={game.tips} />{/if}
-    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} whatIf={game.what_if} />
+    <BuyNext pick={game.buy_next} alternatives={game.alternatives} eta={game.gold_eta} upgrade={game.support_upgrade} whatIf={game.what_if} pace={game.pace} />
     {#if game.skill}<SkillNext skill={game.skill} />{/if}
     {#if game.gold_sinks.length}<GoldSinks sinks={game.gold_sinks} />{/if}
     <BuildPath owned={game.owned} path={game.path} source={game.build_source} />

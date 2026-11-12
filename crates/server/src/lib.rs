@@ -1,5 +1,6 @@
 pub mod account;
 pub mod auth;
+pub mod builds;
 pub mod config;
 pub mod crawl;
 pub mod error;

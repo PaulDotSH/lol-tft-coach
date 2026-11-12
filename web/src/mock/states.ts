@@ -223,6 +223,7 @@ const riftGame: GameAdvice = {
   jungle: null,
   win: null,
   posture: null,
+  pace: { slot: 'second item', early: 951, median: 1052, late: 1147 },
   skill: { key: 'W', unspent: 0, at_level: 14, priority: 'QWE', source: 'vs Zed, 2.1k games' },
   what_if: [
     {
@@ -368,6 +369,7 @@ const mayhemGame: GameAdvice = {
   jungle: null,
   win: null,
   posture: null,
+  pace: null,
   skill: { key: 'E', unspent: 1, at_level: 9, priority: 'QEW', source: 'lolalytics 16.21' },
   what_if: [
     {

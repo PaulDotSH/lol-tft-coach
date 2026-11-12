@@ -18,6 +18,7 @@
   import GoldChart from './GoldChart.svelte';
   import Scoreboard from './Scoreboard.svelte';
   import Swings from './Swings.svelte';
+  import Build from './Build.svelte';
 
   let { gameId, onclose }: { gameId: number; onclose: () => void } = $props();
 
@@ -214,6 +215,7 @@
           {/if}
         </section>
         <Swings swings={a.swings} />
+        {#if a.build}<Build b={a.build} />{/if}
         {#if a.jungle}
           <JungleReview j={a.jungle} rich={a.rich_marks} />
         {:else if a.laning}

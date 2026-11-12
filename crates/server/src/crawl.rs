@@ -38,6 +38,7 @@ const RETRY_WAIT: Duration = Duration::from_secs(60);
 const IDLE_WAIT: Duration = Duration::from_secs(60);
 const PATCH_TTL: Duration = Duration::from_secs(3600);
 const FIT_RETRY: Duration = Duration::from_secs(600);
+const TOP_PASS_WAIT: Duration = Duration::from_secs(3600);
 const STOP_WAIT: Duration = Duration::from_secs(30);
 const STATE_CHARS: usize = 120;
 
@@ -89,8 +90,12 @@ pub struct FitMemo {
 pub struct ServerStatus {
     pub platform: String,
     pub stored: u64,
+    pub top: u64,
+    pub lower: u64,
     pub players: usize,
     pub next_player: usize,
+    pub lower_players: usize,
+    pub next_lower: usize,
     pub state: String,
 }
 
@@ -112,7 +117,7 @@ pub struct Status(Mutex<StatusInner>);
 
 impl Status {
     fn new(max_games: u64, platforms: &[String]) -> Self {
-        let servers = platforms.iter().map(|p| ServerStatus { platform: p.clone(), stored: 0, players: 0, next_player: 0, state: "starting".to_owned() }).collect();
+        let servers = platforms.iter().map(|p| ServerStatus { platform: p.clone(), stored: 0, top: 0, lower: 0, players: 0, next_player: 0, lower_players: 0, next_lower: 0, state: "starting".to_owned() }).collect();
         Self(Mutex::new(StatusInner { patch: None, older_games: 0, max_games, servers, fit: None }))
     }
 
@@ -139,7 +144,7 @@ impl Status {
         s.older_games = older_games;
         s.fit = fit;
         for server in &mut s.servers {
-            server.stored = 0;
+            (server.stored, server.top, server.lower) = (0, 0, 0);
         }
     }
 
@@ -159,11 +164,20 @@ impl Status {
 #[serde(default)]
 struct Ladder {
     apex_done: Vec<String>,
+    puuids: Vec<String>,
+    next_puuid: usize,
+    pass_start: u64,
+    lower_puuids: Vec<LowerPlayer>,
+    next_lower: usize,
     pages: BTreeMap<String, u32>,
     exhausted: Vec<String>,
     turn: usize,
-    puuids: Vec<String>,
-    next_puuid: usize,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct LowerPlayer {
+    puuid: String,
+    tier: String,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -172,6 +186,37 @@ struct Saved {
     ladder: Ladder,
     seen: Vec<String>,
     stored: Vec<String>,
+    bands: BTreeMap<String, String>,
+    older: Vec<String>,
+}
+
+impl Saved {
+    fn counts(&self) -> (u64, u64) {
+        let lower = self.bands.len() as u64;
+        ((self.stored.len() as u64).saturating_sub(lower), lower)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Queue {
+    Top,
+    Lower,
+}
+
+pub fn may_take(band: u64, stored: u64, share: u64) -> bool {
+    band < share.div_ceil(2) && stored < share
+}
+
+pub fn next_queue(top: u64, lower: u64, share: u64, top_ready: bool, lower_ready: bool, top_turn: bool) -> Option<Queue> {
+    let stored = top + lower;
+    let top_may = top_ready && may_take(top, stored, share);
+    let lower_may = lower_ready && may_take(lower, stored, share);
+    match (top_may, lower_may) {
+        (true, true) => Some(if top_turn { Queue::Top } else { Queue::Lower }),
+        (true, false) => Some(Queue::Top),
+        (false, true) => Some(Queue::Lower),
+        (false, false) => None,
+    }
 }
 
 struct Loaded {
@@ -181,7 +226,11 @@ struct Loaded {
     saved: Saved,
     seen: HashSet<String>,
     puuids: HashSet<String>,
+    lower_puuids: HashSet<String>,
+    older: HashSet<String>,
     reread: bool,
+    top_turn: bool,
+    top_wait: Option<Instant>,
 }
 
 impl Loaded {
@@ -196,7 +245,21 @@ impl Loaded {
         let raw = dir.join("raw");
         tokio::fs::create_dir_all(&raw).await.map_err(|err| format!("cannot create {}: {err}", raw.display()))?;
         let (seen, puuids) = (saved.seen.iter().cloned().collect(), saved.ladder.puuids.iter().cloned().collect());
-        Ok(Self { patch: patch.to_owned(), path, raw, saved, seen, puuids, reread: false })
+        let (lower_puuids, older) = (saved.ladder.lower_puuids.iter().map(|p| p.puuid.clone()).collect(), saved.older.iter().cloned().collect());
+        Ok(Self { patch: patch.to_owned(), path, raw, saved, seen, puuids, lower_puuids, older, reread: false, top_turn: true, top_wait: None })
+    }
+
+    fn lower_used_up(&self) -> bool {
+        let ladder = &self.saved.ladder;
+        ladder.next_lower >= ladder.lower_puuids.len() && ladder_order().iter().all(|d| ladder.exhausted.contains(d))
+    }
+
+    fn add_lower(&mut self, tier: &str, puuids: impl IntoIterator<Item = String>) {
+        for puuid in puuids {
+            if self.lower_puuids.insert(puuid.clone()) {
+                self.saved.ladder.lower_puuids.push(LowerPlayer { puuid, tier: tier.to_owned() });
+            }
+        }
     }
 
     fn mark_seen(&mut self, id: &str) {
@@ -386,6 +449,7 @@ fn evict_one(dir: &Path) -> io::Result<bool> {
     }
     let Some((path, mut saved)) = best else { return Ok(false) };
     let id = saved.stored.remove(0);
+    saved.bands.remove(&id);
     write_atomic(&path, &serde_json::to_vec(&saved)?)?;
     for file in game_files(&dir.join("raw"), &id) {
         match fs::remove_file(file) {
@@ -561,6 +625,16 @@ async fn fit(sh: &Shared, patch: &str, games: u64) -> Result<FitMemo, String> {
     let features = vec![config.python.clone(), "-I".to_owned(), text(&config.tools_dir.join("features.py")), "--raw".to_owned(), text(&dir.join("raw")), "--out".to_owned(), text(&rows), "--patch".to_owned(), patch.to_owned(), "--items".to_owned(), text(&items)];
     let fitting = vec![config.python.clone(), "-I".to_owned(), text(&config.tools_dir.join("fit.py")), "--rows".to_owned(), text(&rows), "--out".to_owned(), text(&table), "--cases".to_owned(), text(&cases)];
     let passed = (sh.env.runner)(features).await == 0 && (sh.env.runner)(fitting).await == 0;
+    match std::env::current_exe() {
+        Ok(exe) => {
+            let builds = vec![text(&exe), "builds".to_owned(), "--raw".to_owned(), text(&dir.join("raw")), "--bands".to_owned(), text(&dir), "--items".to_owned(), text(&items), "--patch".to_owned(), patch.to_owned(), "--out".to_owned(), text(&dir.join("builds.json"))];
+            let code = (sh.env.runner)(builds).await;
+            if code != 0 {
+                tracing::warn!(code, patch, "the build tables were not made");
+            }
+        }
+        Err(err) => tracing::warn!(%err, "cannot find the service's own executable for the build tables"),
+    }
     let memo = FitMemo { fit_games: games, passed, at: now_secs() };
     let bytes = serde_json::to_vec(&memo).map_err(|err| err.to_string())?;
     let target = dir.join("fit.json");
@@ -629,10 +703,14 @@ impl Ctx {
     }
 
     fn publish(&self, c: &Loaded) {
+        let (top, lower) = c.saved.counts();
         self.sh.status.update(self.idx, |s| {
             s.stored = c.saved.stored.len() as u64;
+            (s.top, s.lower) = (top, lower);
             s.players = c.saved.ladder.puuids.len();
             s.next_player = c.saved.ladder.next_puuid;
+            s.lower_players = c.saved.ladder.lower_puuids.len();
+            s.next_lower = c.saved.ladder.next_lower;
         });
     }
 
@@ -666,8 +744,19 @@ impl Ctx {
             self.state("done");
             return Next::Wait(IDLE_WAIT);
         }
+        let (top, lower) = c.saved.counts();
+        let top_ready = c.top_wait.is_none_or(|t| Instant::now() >= t);
+        let Some(queue) = next_queue(top, lower, self.share, top_ready, !c.lower_used_up(), c.top_turn) else {
+            self.state(if c.lower_used_up() { "done: ladder used up" } else { "waiting: the top leagues are read again within the hour" });
+            return Next::Wait(IDLE_WAIT);
+        };
         self.state("crawling");
-        let result = if c.saved.ladder.next_puuid >= c.saved.ladder.puuids.len() { self.more_players(c).await } else { self.player(c).await };
+        let ladder = &c.saved.ladder;
+        let result = match queue {
+            Queue::Top if ladder.next_puuid >= ladder.puuids.len() => self.more_top(c).await,
+            Queue::Lower if ladder.next_lower >= ladder.lower_puuids.len() => self.more_lower(c).await,
+            queue => self.player(c, queue).await,
+        };
         match result {
             Ok(next) => next,
             Err(Fail::Riot(err)) if other_key(&err) => self.reread(c).await,
@@ -681,8 +770,10 @@ impl Ctx {
         }
         c.reread = true;
         tracing::info!(players = c.saved.ladder.puuids.len(), "the players were read with another key, reading the ladder again");
-        c.saved.ladder = Ladder::default();
+        c.saved.ladder = Ladder { pass_start: c.saved.counts().0, ..Ladder::default() };
         c.puuids.clear();
+        c.lower_puuids.clear();
+        c.top_wait = None;
         self.save(c).await;
         Next::Again
     }
@@ -699,7 +790,7 @@ impl Ctx {
         Next::Wait(wait)
     }
 
-    async fn more_players(&self, c: &mut Loaded) -> Result<Next, Fail> {
+    async fn more_top(&self, c: &mut Loaded) -> Result<Next, Fail> {
         if let Some((tier, path)) = APEX.iter().find(|(tier, _)| !c.saved.ladder.apex_done.iter().any(|d| d == tier)) {
             let league: Option<League> = self.json(&self.platform, path).await?;
             c.add_players(league.into_iter().flat_map(|l| l.entries).map(|e| e.puuid));
@@ -707,11 +798,25 @@ impl Ctx {
             self.save(c).await;
             return Ok(Next::Again);
         }
+        let (top, _) = c.saved.counts();
+        if top == c.saved.ladder.pass_start && c.top_wait.is_none() {
+            c.top_wait = Some(Instant::now() + TOP_PASS_WAIT);
+            return Ok(Next::Again);
+        }
+        c.top_wait = None;
+        tracing::info!(platform = %self.platform, players = c.saved.ladder.puuids.len(), games = top.saturating_sub(c.saved.ladder.pass_start),"the top leagues are used up, starting over");
+        let ladder = &mut c.saved.ladder;
+        (ladder.apex_done, ladder.puuids, ladder.next_puuid, ladder.pass_start) = (Vec::new(), Vec::new(), 0, top);
+        c.puuids.clear();
+        self.save(c).await;
+        Ok(Next::Again)
+    }
+
+    async fn more_lower(&self, c: &mut Loaded) -> Result<Next, Fail> {
         let all = ladder_order();
         let start = c.saved.ladder.turn % all.len();
         let Some(at) = (0..all.len()).map(|i| (start + i) % all.len()).find(|&i| !c.saved.ladder.exhausted.contains(&all[i])) else {
-            self.state("done: ladder used up");
-            return Ok(Next::Wait(IDLE_WAIT));
+            return Ok(Next::Again);
         };
         let division = all[at].clone();
         let page = c.saved.ladder.pages.get(&division).copied().unwrap_or(1);
@@ -721,15 +826,22 @@ impl Ctx {
         c.saved.ladder.turn = at + 1;
         c.saved.ladder.pages.insert(division.clone(), page + 1);
         if entries.is_empty() {
-            c.saved.ladder.exhausted.push(division);
+            c.saved.ladder.exhausted.push(division.clone());
         }
-        c.add_players(entries.into_iter().map(|e| e.puuid));
+        c.add_lower(tier, entries.into_iter().map(|e| e.puuid));
         self.save(c).await;
         Ok(Next::Again)
     }
 
-    async fn player(&self, c: &mut Loaded) -> Result<Next, Fail> {
-        let puuid = c.saved.ladder.puuids[c.saved.ladder.next_puuid].clone();
+    async fn player(&self, c: &mut Loaded, queue: Queue) -> Result<Next, Fail> {
+        let ladder = &c.saved.ladder;
+        let (puuid, band) = match queue {
+            Queue::Top => (ladder.puuids[ladder.next_puuid].clone(), None),
+            Queue::Lower => {
+                let player = &ladder.lower_puuids[ladder.next_lower];
+                (player.puuid.clone(), Some(player.tier.clone()))
+            }
+        };
         let since = now_secs().saturating_sub(DAYS * 86400);
         let path = format!("/lol/match/v5/matches/by-puuid/{}/ids?queue={QUEUE}&startTime={since}&start=0&count={IDS_PAGE}", path_segment(&puuid));
         let ids: Vec<String> = match self.json(&self.region, &path).await {
@@ -744,14 +856,19 @@ impl Ctx {
         let max_games = self.sh.env.config.max_games;
         let mut halted = false;
         for id in ids {
+            if c.older.contains(&id) {
+                break;
+            }
             if c.seen.contains(&id) {
                 continue;
             }
-            if self.halted() || c.saved.stored.len() as u64 >= self.share || self.sh.status.newest_games() >= max_games {
+            let (top, lower) = c.saved.counts();
+            let held = if queue == Queue::Top { top } else { lower };
+            if self.halted() || !may_take(held, top + lower, self.share) || self.sh.status.newest_games() >= max_games {
                 halted = true;
                 break;
             }
-            match self.game(c, &id).await? {
+            match self.game(c, &id, band.as_deref()).await? {
                 Game::Done => {}
                 Game::EndList => break,
                 Game::Halt => {
@@ -761,13 +878,17 @@ impl Ctx {
             }
         }
         if !halted {
-            c.saved.ladder.next_puuid += 1;
+            match queue {
+                Queue::Top => c.saved.ladder.next_puuid += 1,
+                Queue::Lower => c.saved.ladder.next_lower += 1,
+            }
         }
+        c.top_turn = queue == Queue::Lower;
         self.save(c).await;
         Ok(Next::Again)
     }
 
-    async fn game(&self, c: &mut Loaded, id: &str) -> Result<Game, Fail> {
+    async fn game(&self, c: &mut Loaded, id: &str, band: Option<&str>) -> Result<Game, Fail> {
         if !safe_id(id) {
             c.mark_seen(id);
             return Ok(Game::Done);
@@ -781,22 +902,28 @@ impl Ctx {
         if found.as_deref() != Some(c.patch.as_str()) {
             c.mark_seen(id);
             let older = found.is_some_and(|p| patch_number(&p) < patch_number(&c.patch));
+            if older && c.older.insert(id.to_owned()) {
+                c.saved.older.push(id.to_owned());
+            }
             return Ok(if older { Game::EndList } else { Game::Done });
         }
         let Some(timeline) = self.bytes(&format!("/lol/match/v5/matches/{encoded}/timeline")).await? else {
             c.mark_seen(id);
             return Ok(Game::Done);
         };
-        self.store_game(c, id, game, timeline).await
+        self.store_game(c, id, band, game, timeline).await
     }
 
-    async fn store_game(&self, c: &mut Loaded, id: &str, game: Vec<u8>, timeline: Vec<u8>) -> Result<Game, Fail> {
+    async fn store_game(&self, c: &mut Loaded, id: &str, band: Option<&str>, game: Vec<u8>, timeline: Vec<u8>) -> Result<Game, Fail> {
         let mut store = self.sh.store.lock().await;
         if store.newest.as_deref() != Some(c.patch.as_str()) || self.sh.status.newest_games() >= self.sh.env.config.max_games {
             return Ok(Game::Halt);
         }
         c.mark_seen(id);
         c.saved.stored.push(id.to_owned());
+        if let Some(band) = band {
+            c.saved.bands.insert(id.to_owned(), band.to_owned());
+        }
         let state = serde_json::to_vec(&c.saved).map_err(|err| Fail::Disk(err.to_string()))?;
         let (raw, path, name) = (c.raw.clone(), c.path.clone(), id.to_owned());
         let written = tokio::task::spawn_blocking(move || write_game(&raw, &name, &game, &timeline, &path, &state)).await;
@@ -804,6 +931,7 @@ impl Ctx {
             c.seen.remove(id);
             c.saved.seen.pop();
             c.saved.stored.pop();
+            c.saved.bands.remove(id);
             return Err(Fail::Disk(format!("cannot store a game: {err}")));
         }
         self.publish(c);
