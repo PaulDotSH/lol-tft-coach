@@ -1,8 +1,7 @@
 """Every assumption the win-probability tools make about Riot's API and its match-v5 JSON.
 
-None of this has been checked against a real reply: it follows Riot's published match-v5 /
-league-v4 documentation as remembered, because no RIOT_API_KEY was available (plan task T0b).
-README.md, "Unverified until a key exists", lists each item with the check that confirms it.
+Checked against real replies on 2026-11-12 (patch 16.22, plan task T0b); README.md, "What the
+real API showed", lists what differed from Riot's documentation and what is still unseen.
 Code elsewhere reads these names only, so a correction is made here.
 """
 
@@ -42,8 +41,13 @@ M_TEAMS = "teams"
 P_ID = "participantId"
 P_TEAM = "teamId"
 P_CHAMP = "championId"
+# Seen 2026-11-12: Viego. Each possession sends ITEM_DESTROYED for all he holds, then for all the
+# body held, and nothing when he has his own items back.
+POSSESSOR = 234
 P_REMAKE_FLAGS = ("gameEndedInEarlySurrender", "teamEarlySurrendered")
 P_ITEMS = tuple(f"item{i}" for i in range(7))
+# Seen 2026-11-12 (16.22): a slot of its own, a role quest reward or the boots of a player who has one.
+P_ROLE_ITEM = "roleBoundItem"
 T_ID = "teamId"
 T_WIN = "win"
 BLUE, RED = 100, 200
@@ -65,6 +69,9 @@ PF_FIELDS = (PF_LEVEL, PF_MINIONS, PF_JUNGLE, PF_TOTAL_GOLD, PF_CURRENT_GOLD)
 E_TYPE = "type"
 E_TIMESTAMP = "timestamp"
 E_PARTICIPANT = "participantId"
+# Seen 2026-11-12: an id of 0 on ITEM_PURCHASED (each support's World Atlas at 0:00) and a team
+# of 0 on DRAGON_SOUL_GIVEN (the soul's kind announced after the second dragon, nobody has it).
+NOBODY = 0
 E_ITEM = "itemId"
 E_UNDO_BEFORE = "beforeId"
 E_UNDO_AFTER = "afterId"
@@ -75,6 +82,9 @@ E_BUILDING_TEAM = "teamId"
 E_MONSTER = "monsterType"
 E_MONSTER_SUB = "monsterSubType"
 E_KILLER_TEAM = "killerTeamId"
+# Seen 2026-11-12: a killer team of 300 on a Rift Herald (88 of 1,122) and a Void Grub (8 of
+# 3,609) that no side killed.
+NEUTRAL = 300
 E_SOUL_TEAM = "teamId"
 E_WINNER = "winningTeam"
 E_TOWER_TYPE = "towerType"

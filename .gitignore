@@ -5,3 +5,4 @@ src-tauri/gen/
 target-build/
 __pycache__/
 .claude/worktrees/
+riot-api-key.txt

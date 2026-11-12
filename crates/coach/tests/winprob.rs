@@ -71,6 +71,36 @@ fn no_fit_no_number() {
 }
 
 #[test]
+fn a_table_from_outside_the_build_is_checked() {
+    let good = "patch = \"16.22\"\ngames = 500\nknots = [0, 20]\n[rift]\ngold = [5.0, 6.0]\n[rift.metrics]\nlog_loss = 0.5\nbrier = 0.2\nece = 1.0\ndropped = [\"side\"]";
+    assert_eq!(Model::parse(good).unwrap().fault(), None);
+    assert_eq!(model().fault(), None);
+    for (bad, why) in [
+        (good.replace("games = 500", "games = 0"), "no games"),
+        (good.replace("knots = [0, 20]", "knots = [20, 0]"), "knots"),
+        (good.replace("gold = [5.0, 6.0]", "gold = [5.0]"), "rift.gold"),
+        (good.replace("gold = [5.0, 6.0]", "gold = [5.0, nan]"), "rift.gold"),
+        (good.replace("gold = ", "mana = "), "rift.mana"),
+        (good.replace("gold = [5.0, 6.0]\n", ""), "no table"),
+    ] {
+        let fault = Model::parse(&bad).unwrap().fault();
+        assert!(fault.as_ref().is_some_and(|f| f.contains(why)), "{bad}: {fault:?}");
+    }
+    assert!(Model::parse(&good.replace("gold = [5.0, 6.0]", "gold = \"high\"")).is_err());
+}
+
+#[test]
+fn the_newer_table_wins() {
+    let m = |patch: &str, games: u32| Model { patch: patch.into(), games, ..Default::default() };
+    assert!(m("16.22", 1).newer_than(&m("", 0)), "any fit over none");
+    assert!(m("16.23", 100).newer_than(&m("16.22", 20000)));
+    assert!(m("16.10", 100).newer_than(&m("16.9", 100)), "by number, not as text");
+    assert!(m("16.22", 12500).newer_than(&m("16.22", 10000)), "more games on the same patch");
+    assert!(!m("16.22", 10000).newer_than(&m("16.22", 10000)));
+    assert!(!m("16.21", 20000).newer_than(&m("16.22", 10000)));
+}
+
+#[test]
 fn tables_use_known_keys_and_one_value_per_knot() {
     for m in [Model::shipped().clone(), model()] {
         for t in [&m.rift, &m.aram] {

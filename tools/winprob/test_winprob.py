@@ -3,7 +3,7 @@
 WINPROB_SKIP_CARGO=1 leaves out the one test that builds and runs the Rust replay example.
 The synthetic fit and cargo are skipped while League of Legends runs.
 """
-import argparse, collections, gzip, io, json, math, os, re, shutil, subprocess, sys, tempfile, tomllib, unittest
+import argparse, collections, gzip, io, json, math, os, re, shutil, subprocess, sys, tempfile, time, tomllib, unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import crawl  # noqa: E402
 import features as F  # noqa: E402
 import fit  # noqa: E402
+import nightly  # noqa: E402
 import riot_format as R  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
@@ -227,6 +228,51 @@ class Timeline(unittest.TestCase):
         with self.assertRaises(F.FormatError):
             self.parse([dict(soul, teamId=200)])
 
+    def test_what_real_timelines_do(self):
+        """Shapes seen in 16.22 replies (2026-11-12) that the documentation does not mention."""
+        ev = lambda ts, kind, **kw: {"type": kind, "timestamp": ts, **kw}
+        gone = lambda ts, pid, item: ev(ts, R.ITEM_DESTROYED, participantId=pid, itemId=item)
+        atlas = [ev(0, R.ITEM_PURCHASED, participantId=0, itemId=3865), ev(0, R.ITEM_PURCHASED, participantId=0, itemId=3865)]
+        more = atlas + [
+            gone(70000, 5, 3865), gone(190000, 5, 3866), gone(200000, 5, 3867), gone(250000, 10, 3865),
+            ev(130000, R.DRAGON_SOUL_GIVEN, teamId=0, name="Cloud"),
+            ev(150000, R.ITEM_UNDO, participantId=2, beforeId=0, afterId=0, goldGain=75),
+            ev(160000, R.ITEM_SOLD, participantId=3, itemId=3031),
+            ev(170000, R.ITEM_UNDO, participantId=3, beforeId=3031, afterId=0, goldGain=3400),
+            ev(300000, R.ITEM_PURCHASED, participantId=4, itemId=3070), gone(500000, 4, 3070),
+            ev(500000, R.ITEM_PURCHASED, participantId=4, itemId=3004), gone(500000, 4, 3004),
+            ev(410000, R.ELITE_MONSTER_KILL, monsterType=R.GRUB, killerTeamId=300, killerId=0),
+            ev(410000, R.ELITE_MONSTER_KILL, monsterType="RIFTHERALD", killerTeamId=300, killerId=0),
+        ]
+        g, why = self.parse(more)
+        self.assertIsNone(why)
+        gold = lambda m: g.states[m].item_gold
+        self.assertEqual(gold(1), [450 + 400, 700 + 400], "each support's World Atlas, bought by participant 0 at 0:00")
+        self.assertEqual(gold(2), [450 + 400, 1050 + 400], "Runic Compass follows it with no event and counts the same")
+        self.assertEqual(g.final_items[5], collections.Counter({3869: 1}), "the upgrade is not logged: the lowest of the five, same cost")
+        self.assertEqual(g.final_items[10], collections.Counter({3866: 1}))
+        self.assertEqual(g.final_items[4], collections.Counter({3042: 1}), "a Manamune bought with a full Tear is a Muramana at once")
+        self.assertEqual((gold(12)[0], g.states[12].soul), (750 + 400 + 2900, 0), "Bounty of Worlds counts 0 in the app, the upgrade 400 again")
+        self.assertEqual(g.states[12].grubs, [2, 0], "a grub that left the map (team 300) is nobody's")
+        self.assertEqual(g.odd, collections.Counter({"undo with no item": 1, "lost an item of value never given": 1, "undid a purchase never seen": 1}))
+        role = participant(4, 104, roleBoundItem=1001)
+        self.assertEqual(F.final_items(role), collections.Counter({1001: 1}))
+
+    def test_viego_keeps_his_items_through_a_possession(self):
+        """Seen 2026-11-12: a possession destroys his whole inventory, then the body's, and gives nothing back."""
+        ev = lambda ts, kind, pid, item: {"type": kind, "timestamp": ts, "participantId": pid, "itemId": item}
+        match, timeline = hand_game([
+            ev(200000, R.ITEM_PURCHASED, 3, 3031), ev(205000, R.ITEM_PURCHASED, 3, 1036),
+            ev(260000, R.ITEM_DESTROYED, 3, 3031), ev(260000, R.ITEM_DESTROYED, 3, 1036),
+            ev(270000, R.ITEM_DESTROYED, 3, 3865), ev(270000, R.ITEM_DESTROYED, 3, 1055),
+            ev(290000, R.ITEM_PURCHASED, 3, 3133), ev(290000, R.ITEM_DESTROYED, 3, 1036),
+        ])
+        match["info"]["participants"][2]["championId"] = R.POSSESSOR
+        g, why = F.parse_game(match, timeline, self.values)
+        self.assertIsNone(why)
+        self.assertEqual(g.final_items[3], collections.Counter({3031: 1, 3133: 1}), "only what a purchase of his used up is gone")
+        self.assertEqual(g.odd, collections.Counter())
+
     def test_left_out(self):
         self.assertEqual(self.parse(gameEndedInEarlySurrender=True), (None, "remake or early surrender"))
 
@@ -234,9 +280,11 @@ class Timeline(unittest.TestCase):
         for bad in [{"type": "NEW_EVENT", "timestamp": 5000}, {"timestamp": 5000}, {"type": R.CHAMPION_KILL, "timestamp": 5000, "victimId": 3},
                     {"type": R.BUILDING_KILL, "timestamp": 5000, "buildingType": "NEW_BUILDING", "teamId": 100},
                     {"type": R.ELITE_MONSTER_KILL, "timestamp": 5000, "monsterType": "NEW_MONSTER", "killerTeamId": 100},
+                    {"type": R.ELITE_MONSTER_KILL, "timestamp": 5000, "monsterType": R.BARON, "killerTeamId": 300},
                     {"type": R.ELITE_MONSTER_KILL, "timestamp": 5000, "monsterType": R.DRAGON, "monsterSubType": "NEW_DRAGON", "killerTeamId": 100},
-                    {"type": R.ITEM_SOLD, "timestamp": 5000, "participantId": 3, "itemId": 3031},
-                    {"type": R.ITEM_UNDO, "timestamp": 5000, "participantId": 3, "beforeId": 3031, "afterId": 0}]:
+                    {"type": R.ITEM_SOLD, "timestamp": 5000, "participantId": 11, "itemId": 3031},
+                    {"type": R.ITEM_PURCHASED, "timestamp": 5000, "participantId": 0, "itemId": 3031},
+                    {"type": R.ITEM_UNDO, "timestamp": 5000, "participantId": 3, "beforeId": 3031, "afterId": 1001}]:
             with self.assertRaises(F.FormatError, msg=bad):
                 self.parse([bad])
         match, timeline = hand_game()
@@ -342,6 +390,186 @@ class Crawl(unittest.TestCase):
                 crawl.load_state(path, argparse.Namespace(platform="na1", region="americas", queue=420, patch="16.21"))
         finally:
             shutil.rmtree(d)
+
+    def crawl_one_player(self, ids, patches, **kw):
+        q = R.LEAGUE_QUEUE
+        replies = {
+            R.LEAGUE_APEX["CHALLENGER"].format(queue=q): {"entries": [{"puuid": "top"}]},
+            R.LEAGUE_ENTRIES.format(queue=q, tier="DIAMOND", division="I") + "?page=1": [{"puuid": "a"}],
+            R.MATCH_IDS.format(puuid="a"): ids,
+            **{R.MATCH.format(match_id=i): {"metadata": {"matchId": i}, "info": {"gameVersion": f"{p}.1.2"}} for i, p in zip(ids, patches)},
+            **{R.TIMELINE.format(match_id=i): {"metadata": {"matchId": i}} for i in ids},
+        }
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d)
+        path = d / "crawl_state.json"
+        args = argparse.Namespace(platform="euw1", region="europe", queue=420, patch="16.21")
+        now = [0.0]
+
+        class Ticking(FakeApi):
+            def get(self, host, path, params=None):
+                now[0] += 1
+                return super().get(host, path, params)
+
+        api = Ticking(replies)
+
+        def run(**more):
+            s = crawl.load_state(path, args)
+            with redirect_stdout(io.StringIO()):
+                crawl.crawl(api, s, lambda: crawl.save_state(path, s), d, 10, "16.21", 420, 0, clock=lambda: now[0], apex=False, **more)
+            return s
+
+        return api, run, run(**kw)
+
+    def test_stops_at_its_hour_and_resumes(self):
+        api, run, s = self.crawl_one_player(["M1", "M2", "M3", "M4"], ["16.21"] * 4, until=5.0)
+        self.assertEqual((s["stored"], s["next_puuid"]), (["M1", "M2"], 0), "the fifth request is the last one started")
+        self.assertEqual(run()["stored"], ["M1", "M2", "M3", "M4"])
+        self.assertTrue(all(n == 1 for k, n in api.calls.items() if "/matches/" in k and "by-puuid" not in k), api.calls)
+
+    def test_an_older_patch_ends_a_players_list(self):
+        api, _, s = self.crawl_one_player(["M1", "M2", "M3", "M4", "M5"], ["16.22", "16.21", "16.20", "16.20", "16.21"])
+        self.assertEqual(s["stored"], ["M2"], "ids come newest first: a newer patch is passed over, nothing follows an older one")
+        self.assertEqual([api.calls[R.MATCH.format(match_id=i)] for i in ("M1", "M3", "M4", "M5")], [1, 1, 0, 0])
+        self.assertEqual(s["next_puuid"], 1)
+
+    def test_the_top_leagues_can_be_left_out(self):
+        api, _, s = self.crawl_one_player(["M1"], ["16.21"])
+        self.assertEqual((s["puuids"], s["apex_done"]), (["a"], []))
+        self.assertFalse(any("leagues/by-queue" in k for k in api.calls), "Challenger, Grandmaster and Master are not read")
+        self.assertEqual(sorted(k.split("/entries/")[1] for k in api.calls if "/entries/" in k and k.endswith("page=1")),
+                         sorted(f"{R.LEAGUE_QUEUE}/{t}/{d}?page=1" for t in R.LADDER_TIERS for d in R.LADDER_DIVISIONS), "every division in turn")
+
+    def test_key_from_a_file_or_the_environment(self):
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d)
+        (d / "key.txt").write_text("﻿RGAPI-file\r\n", encoding="utf-8")
+        self.assertEqual(crawl.read_key(d / "key.txt", {"RIOT_API_KEY": "RGAPI-env"}), "RGAPI-file", "a file named on the command line wins")
+        self.assertEqual(crawl.read_key(None, {"RIOT_API_KEY": " RGAPI-env "}, d / "none.txt"), "RGAPI-env")
+        self.assertEqual(crawl.read_key(None, {}, d / "key.txt"), "RGAPI-file")
+        with self.assertRaises(SystemExit):
+            crawl.read_key(None, {}, d / "none.txt")
+        with self.assertRaises(SystemExit):
+            crawl.read_key(d / "none.txt", {"RIOT_API_KEY": "RGAPI-env"})
+
+
+class Nightly(unittest.TestCase):
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.d)
+        self.calls, self.said, self.n, self.status = [], [], 0, {}
+
+    def args(self, **kw):
+        return argparse.Namespace(**{**dict(dir=self.d, hours=2.0, games=20000, fit_at=10, refit_every=5, keep=2, key_file=None, publish=None, platform="euw1", region="europe"), **kw})
+
+    def state(self, d, patch, n):
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "crawl_state.json").write_text(json.dumps({"patch": patch, "stored": [f"M{i}" for i in range(n)]}), encoding="utf-8")
+
+    def sh(self, cmd):
+        script = f"git {cmd[3]}" if cmd[0] == "git" else Path(cmd[2]).name
+        self.calls.append(cmd)
+        if script == "crawl.py":
+            self.state(Path(cmd[cmd.index("--out") + 1]), "16.23", self.n)
+        return self.status.get(script, 0)
+
+    def run_once(self, n, playing=False, **kw):
+        self.n, self.calls = n, []
+        status = nightly.run(self.args(**kw), "16.23", self.sh, self.said.append, lambda: playing)
+        return status, [f"git {c[3]}" if c[0] == "git" else Path(c[2]).name for c in self.calls]
+
+    def memo(self):
+        p = self.d / "16.23" / "nightly.json"
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+    def test_a_patch_gets_its_own_directory(self):
+        self.assertEqual(nightly.patch_dir(self.d, "16.23"), self.d / "16.23")
+        self.state(self.d, "16.22", 3)
+        self.assertEqual(nightly.patch_dir(self.d, "16.22"), self.d, "a crawl started by hand in the root goes on there")
+        self.assertEqual(nightly.patch_dir(self.d, "16.23"), self.d / "16.23")
+        self.assertEqual((nightly.stored(self.d), nightly.stored(self.d / "16.23")), (3, 0))
+
+    def test_when_a_fit_is_due(self):
+        due = lambda games, last: nightly.due(games, last, 10000, 2500)
+        self.assertEqual([due(9999, None), due(10000, None), due(12499, 10000), due(12500, 10000)], [False, True, False, True])
+
+    def test_crawls_then_fits_when_enough_games_are_in(self):
+        self.assertEqual(self.run_once(9), (0, ["crawl.py"]))
+        self.assertIsNone(self.memo())
+        self.assertEqual(self.run_once(10), (0, ["crawl.py", "features.py", "fit.py"]))
+        crawl_cmd, feat, fit_cmd = self.calls
+        d = self.d / "16.23"
+        self.assertEqual(crawl_cmd[:2] + crawl_cmd[3:], [sys.executable, "-I", "--games", "20000", "--hours", "2.0", "--patch", "16.23",
+                                                         "--platform", "euw1", "--region", "europe", "--out", str(d)])
+        self.assertEqual(feat[3:], ["--raw", str(d / "raw"), "--out", str(d / "rows.npz"), "--patch", "16.23"])
+        self.assertEqual(fit_cmd[3:], ["--rows", str(d / "rows.npz"), "--out", str(d / "fit" / "winprob.toml"), "--cases", str(d / "fit" / "winprob_cases.json")])
+        self.assertEqual((self.memo()["fit_games"], self.memo()["passed"]), (10, True))
+        self.assertEqual(self.run_once(14), (0, ["crawl.py"]), "not again until refit_every more games")
+        self.assertEqual(self.run_once(15)[1], ["crawl.py", "features.py", "fit.py"])
+        self.assertEqual(self.run_once(15, key_file="k.txt")[1], ["crawl.py"])
+        self.assertEqual(self.calls[0][-2:], ["--key-file", "k.txt"])
+
+    def test_a_failed_step_shows_in_the_exit_status(self):
+        self.status = {"crawl.py": 1}
+        self.assertEqual(self.run_once(10), (1, ["crawl.py", "features.py", "fit.py"]), "a rejected key does not stop the fit")
+        self.assertTrue(self.memo()["passed"])
+        self.status = {"fit.py": 1}
+        self.assertEqual(self.run_once(15), (1, ["crawl.py", "features.py", "fit.py"]))
+        self.assertEqual((self.memo()["fit_games"], self.memo()["passed"]), (15, False))
+        self.status = {"features.py": 1}
+        self.assertEqual(self.run_once(20), (1, ["crawl.py", "features.py"]))
+        self.assertFalse(self.memo()["passed"])
+
+    def test_no_fit_while_a_game_runs(self):
+        self.assertEqual(self.run_once(10, playing=True), (0, ["crawl.py"]))
+        self.assertIsNone(self.memo(), "the next run fits")
+        self.assertIn("League", " ".join(self.said))
+
+    def test_publishes_the_fitted_table(self):
+        pub, table = self.d / "pub", self.d / "16.23" / "fit" / "winprob.toml"
+        self.assertEqual(self.run_once(3, publish=str(pub)), (0, ["crawl.py"]))
+        self.assertFalse(pub.exists(), "no table yet, nothing published")
+        table.parent.mkdir()
+        table.write_text('patch = "16.23"\ngames = 8000\n', encoding="utf-8")
+        self.assertEqual(self.run_once(3, publish=str(pub)), (0, ["crawl.py"]), "a plain directory gets a copy")
+        self.assertEqual((pub / "winprob.toml").read_text(encoding="utf-8"), table.read_text(encoding="utf-8"))
+        (pub / ".git").mkdir()
+        table.write_text('patch = "16.23"\ngames = 10500\n', encoding="utf-8")
+        self.status = {"git diff": 1}
+        self.assertEqual(self.run_once(3, publish=str(pub)), (0, ["crawl.py", "git add", "git diff", "git commit", "git push"]))
+        self.assertEqual(self.calls[3], ["git", "-C", str(pub), "commit", "-q", "-m", "winprob 16.23: 10500 games"])
+        self.assertIn("10500", (pub / "winprob.toml").read_text(encoding="utf-8"))
+        self.status = {"git push": 1}
+        self.assertEqual(self.run_once(3, publish=str(pub)), (1, ["crawl.py", "git add", "git diff", "git push"]), "nothing new to commit; the push is tried again")
+
+    def test_old_patches_lose_their_raw_games_only(self):
+        for name in ("16.9", "16.10", "16.11", "notes"):
+            (self.d / name / "raw").mkdir(parents=True)
+            (self.d / name / "fit").mkdir()
+            for f in ("raw/M1.match.json.gz", "rows.npz", "fit/winprob.toml", "crawl_state.json"):
+                (self.d / name / f).write_text("x", encoding="utf-8")
+        (self.d / "raw").mkdir()
+        self.assertEqual(nightly.prune(self.d, 2), ["16.9"])
+        left = sorted(p.relative_to(self.d / "16.9").as_posix() for p in (self.d / "16.9").rglob("*") if p.is_file())
+        self.assertEqual(left, ["crawl_state.json", "fit/winprob.toml"])
+        for name in ("16.10", "16.11", "notes"):
+            self.assertTrue((self.d / name / "raw" / "M1.match.json.gz").exists() and (self.d / name / "rows.npz").exists(), name)
+        self.assertTrue((self.d / "raw").exists(), "the root's own crawl is never touched")
+        self.assertEqual(nightly.prune(self.d, 2), [])
+        self.assertEqual(nightly.prune(self.d, 0), [], "0 keeps everything")
+
+    def test_one_run_at_a_time(self):
+        path = self.d / "nightly.lock"
+        with nightly.Lock(path):
+            with self.assertRaises(nightly.Busy):
+                nightly.Lock(path).__enter__()
+        self.assertFalse(path.exists())
+        path.write_text("", encoding="utf-8")
+        old = time.time() - (nightly.STALE_LOCK_H + 1) * 3600
+        os.utime(path, (old, old))
+        with nightly.Lock(path):
+            pass
+        self.assertFalse(path.exists(), "a crashed run's lock is taken over")
 
 
 TRUE = {

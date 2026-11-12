@@ -16,6 +16,7 @@ mod settings;
 mod state;
 mod tab;
 mod tft;
+mod winprob;
 
 use state::Shared;
 use std::sync::{Arc, Mutex};
@@ -76,6 +77,7 @@ fn main() {
             orchestrator::spawn_minimap(app.handle().clone(), shared.clone());
             tauri::async_runtime::spawn(orchestrator::run(app.handle().clone(), shared.clone()));
             tauri::async_runtime::spawn(tft::run(app.handle().clone(), shared.clone(), tft_shared.clone()));
+            tauri::async_runtime::spawn(winprob::run(shared.clone()));
             Ok(())
         })
         .on_window_event(|window, event| {

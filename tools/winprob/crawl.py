@@ -1,13 +1,15 @@
 """Crawls ranked games (match + timeline) from Riot match-v5 for the win-probability fit.
 
-py -3.12 -I tools/winprob/crawl.py --games 10000 [--platform euw1 --region europe] [--queue 420] [--patch 16.22] [--days 14] [--out DIR]
+py -3.12 -I tools/winprob/crawl.py --games 10000 [--hours 2] [--platform euw1 --region europe] [--queue 420] [--patch 16.22] [--days 14] [--out DIR] [--key-file FILE] [--no-apex]
 
-Key: env RIOT_API_KEY (docs/riot-api-key.md), never printed. Ladder players (Emerald+: Diamond and
-Emerald divisions page by page, round robin, after Master, Grandmaster and Challenger) → their
-recent match ids → match, and its timeline when the match is on the patch. Raw JSON is gzipped
-in DIR\\raw (default %LOCALAPPDATA%\\lol-coach\\dev\\winprob). Resumable: the queue of players,
-the ladder pages read and every match id seen are kept in DIR\\crawl_state.json. One limiter for
-20 requests / s and 100 / 2 min; a 429 waits for its Retry-After.
+Key: --key-file, else env RIOT_API_KEY, else riot-api-key.txt at the repo root (docs/riot-api-key.md);
+never printed. Ladder players, Emerald and above, the highest first (Challenger, Grandmaster and
+Master, which alone fill a crawl of 20,000 games, then Diamond and Emerald divisions page by page,
+round robin; --no-apex starts at Diamond), their recent match ids, newest first, each match and
+its timeline when the match is on the patch; a match of an older patch ends that player's list.
+Raw JSON is gzipped in DIR/raw (default `features.DEV`). Resumable: the queue of players, the ladder
+pages read and every match id seen are kept in DIR/crawl_state.json. Stops at --games on disk or
+after --hours. One limiter for 20 requests / s and 100 / 2 min; a 429 waits for its Retry-After.
 """
 import argparse, collections, gzip, json, os, sys, time
 from pathlib import Path
@@ -23,6 +25,8 @@ LIMIT_PAD = 0.1
 RETRIES = 8
 RETRY_AFTER = 10
 PROGRESS = 100
+KEY_ENV = "RIOT_API_KEY"
+KEY_FILE = Path(__file__).resolve().parents[2] / "riot-api-key.txt"
 
 
 class KeyRejected(Exception):
@@ -81,6 +85,17 @@ class Api:
         raise RuntimeError(f"gave up on {path} after {RETRIES} tries")
 
 
+def read_key(path=None, env=os.environ, default=KEY_FILE):
+    """The key: the first word of the file `path` when one is named, else env RIOT_API_KEY, else `default`."""
+    from_file = lambda p: (p.read_text(encoding="utf-8-sig").split() or [""])[0] if p.exists() else ""
+    key = from_file(Path(path)) if path else env.get(KEY_ENV, "").strip() or from_file(Path(default))
+    return key or sys.exit(f"no Riot key: {path or f'{KEY_ENV} is not set and {default} is missing'} (docs/riot-api-key.md)")
+
+
+def newest_patch():
+    return ".".join(requests.get(R.DDRAGON_VERSIONS, timeout=30).json()[0].split(".")[:2])
+
+
 def ladder_order():
     return [f"{t} {d}" for d in R.LADDER_DIVISIONS for t in R.LADDER_TIERS]
 
@@ -102,11 +117,11 @@ def save_state(path, s):
     os.replace(tmp, path)
 
 
-def more_players(api, s):
-    """Adds one ladder page (or one apex league) of puuids; False when the ladder is used up."""
+def more_players(api, s, apex=True):
+    """Adds one apex league (unless `apex` is off) or one ladder page of puuids; False when the ladder is used up."""
     known = set(s["puuids"])
     add = lambda entries: s["puuids"].extend(p for p in (R.need(e, R.ENTRY_PUUID, "league entry") for e in entries) if p not in known)
-    for tier, path in R.LEAGUE_APEX.items():
+    for tier, path in R.LEAGUE_APEX.items() if apex else ():
         if tier not in s["apex_done"]:
             league = api.get(api.platform, path.format(queue=R.LEAGUE_QUEUE)) or {}
             add(R.need(league, R.APEX_ENTRIES, f"{tier} league") if league else [])
@@ -133,30 +148,38 @@ def save_gz(path, obj):
     os.replace(tmp, path)
 
 
-def crawl(api, s, save, raw, games, patch, queue, since):
-    """Stores games until `games` are on disk or the ladder is used up; `save()` keeps `s`."""
+def crawl(api, s, save, raw, games, patch, queue, since, until=None, clock=time.monotonic, apex=True):
+    """Stores games until `games` are on disk, `clock()` reaches `until` or the ladder is used up;
+    `save()` keeps `s`."""
     seen = set(s["seen"])
-    started = time.monotonic()
+    started = clock()
+    over = lambda: until is not None and clock() >= until
 
     def done(mid):
         seen.add(mid)
         s["seen"].append(mid)
 
-    while len(s["stored"]) < games:
+    while len(s["stored"]) < games and not over():
         if s["next_puuid"] >= len(s["puuids"]):
-            if not more_players(api, s):
+            if not more_players(api, s, apex):
                 print("ladder used up")
                 break
             save()
             continue
         puuid = s["puuids"][s["next_puuid"]]
         ids = api.get(api.region, R.MATCH_IDS.format(puuid=puuid), {"queue": queue, "startTime": since, "start": 0, "count": R.MATCH_IDS_PAGE}) or []
+        stop = False
         for mid in ids:
-            if mid in seen or len(s["stored"]) >= games:
+            if mid in seen:
                 continue
+            stop = len(s["stored"]) >= games or over()
+            if stop:
+                break
             match = api.get(api.region, R.MATCH.format(match_id=mid))
             if match is None or F.patch_of(match) != patch:
                 done(mid)
+                if match is not None and F.version(F.patch_of(match)) < F.version(patch):
+                    break
                 continue
             timeline = api.get(api.region, R.TIMELINE.format(match_id=mid))
             if timeline is not None:
@@ -166,9 +189,9 @@ def crawl(api, s, save, raw, games, patch, queue, since):
             done(mid)
             save()
             if timeline is not None and len(s["stored"]) % PROGRESS == 0:
-                h = (time.monotonic() - started) / 3600
+                h = (clock() - started) / 3600
                 print(f"{len(s['stored'])} games, {api.requests} requests, player {s['next_puuid']} of {len(s['puuids'])}, {h:.2f} h", flush=True)
-        if len(s["stored"]) < games:
+        if not stop:
             s["next_puuid"] += 1
         save()
 
@@ -176,16 +199,18 @@ def crawl(api, s, save, raw, games, patch, queue, since):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--games", type=int, required=True)
+    ap.add_argument("--hours", type=float, help="stop after this long (default: no limit)")
     ap.add_argument("--platform", default="euw1")
     ap.add_argument("--region", default="europe")
     ap.add_argument("--queue", type=int, default=420)
     ap.add_argument("--patch", help="major.minor (default: the newest on Data Dragon)")
     ap.add_argument("--days", type=int, default=14, help="match ids from this many days back")
     ap.add_argument("--out", default=str(F.DEV))
+    ap.add_argument("--key-file")
+    ap.add_argument("--no-apex", dest="apex", action="store_false", help="leave out Challenger, Grandmaster and Master players")
     a = ap.parse_args()
-    key = os.environ.get("RIOT_API_KEY") or sys.exit("RIOT_API_KEY is not set (docs/riot-api-key.md)")
-    if not a.patch:
-        a.patch = ".".join(requests.get(R.DDRAGON_VERSIONS, timeout=30).json()[0].split(".")[:2])
+    key = read_key(a.key_file)
+    a.patch = a.patch or newest_patch()
     out = Path(a.out)
     raw = out / "raw"
     raw.mkdir(parents=True, exist_ok=True)
@@ -194,7 +219,8 @@ def main():
     save = lambda: save_state(state_path, s)
     print(f"patch {a.patch}, queue {a.queue}, {a.platform}/{a.region}: {len(s['stored'])} games stored, target {a.games}", flush=True)
     try:
-        crawl(Api(key, a.platform, a.region), s, save, raw, a.games, a.patch, a.queue, int(time.time()) - a.days * 86400)
+        crawl(Api(key, a.platform, a.region), s, save, raw, a.games, a.patch, a.queue, int(time.time()) - a.days * 86400,
+              time.monotonic() + a.hours * 3600 if a.hours else None, apex=a.apex)
     except KeyRejected as e:
         save()
         sys.exit(str(e))
@@ -202,7 +228,7 @@ def main():
         save()
         sys.exit("stopped; run again to resume")
     save()
-    print(f"done: {len(s['stored'])} games in {raw}")
+    print(f"stopped: {len(s['stored'])} games in {raw}")
 
 
 if __name__ == "__main__":

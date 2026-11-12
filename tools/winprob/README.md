@@ -4,39 +4,41 @@ Fits the in-game win probability (`crates/coach/src/winprob.rs`, coefficients in
 `crates/coach/winprob.toml`) from Riot match-v5 timelines. Spec:
 `docs/superpowers/specs/2026-11-11-win-probability-design.md` (section 2 and "Testing"); plan task T3.
 
-**Status: written and tested offline, never run against the Riot API.** No `RIOT_API_KEY` was
-available, so the crawler has not made a request and the timeline format is taken from Riot's
-documentation, not from a reply (plan task T0b is undone). Read "Unverified until a key exists"
-before trusting a fit.
+**Status: run against the Riot API on 2026-11-12** (patch 16.22, EUW, a dev key). The probe crawl
+and `features.py --check` are plan task T0b; what they showed is under "What the real API
+showed". The Riot facts are also in the spec's "Facts".
 
-Python is the system 3.12 with `requests numpy`, run as `py -3.12 -I`. Dev data lives outside the
-repo in `%LOCALAPPDATA%\lol-coach\dev\winprob\`: `raw\` (gzipped match and timeline JSON),
-`crawl_state.json`, `item-<version>.json` (Data Dragon) and `rows.npz`.
+Python is the system 3.12 with `requests numpy`, run as `py -3.12 -I` (`python3 -I` on Linux).
+Dev data lives outside the repo in `%LOCALAPPDATA%\lol-coach\dev\winprob\` (on Linux
+`$XDG_DATA_HOME` or `~/.local/share`, then `lol-coach/dev/winprob/`): `raw\` (gzipped match and
+timeline JSON, about 73 KB a game), `crawl_state.json`, `item-<version>.json` (Data Dragon) and
+`rows.npz`.
 
 | file | does |
 |---|---|
 | `riot_format.py` | every endpoint, field name, event type and enum value the tools assume, in one place |
-| `crawl.py` | ladder players → match ids → match + timeline, resumable, rate limited |
+| `crawl.py` | ladder players (Emerald+, the highest first) → match ids → match + timeline, resumable, rate limited |
 | `features.py` | rows (one per minute frame, blue's side) with the Rust features; `--check` runs the T0b checks |
 | `fit.py` | the fit, the report, the gates; writes the TOML and the parity cases only when the gates pass |
+| `nightly.py` | one scheduled run: crawl the newest patch for a while, refit when enough games are in, drop old raw games |
 | `test_winprob.py` | offline tests (below) |
 
-## Run, once a key exists
+## Run
 
 ```
-setx RIOT_API_KEY RGAPI-...        (docs/riot-api-key.md; open a new terminal)
+riot-api-key.txt at the repo root  (the key alone, git-ignored; or --key-file, or env RIOT_API_KEY; docs/riot-api-key.md)
 tasklist | findstr /i "League"     (nothing long while a game runs)
 
 py -3.12 -I tools/winprob/crawl.py --games 20 --out %LOCALAPPDATA%\lol-coach\dev\winprob\probe
 py -3.12 -I tools/winprob/features.py --check --raw %LOCALAPPDATA%\lol-coach\dev\winprob\probe\raw --limit 20
 ```
 
-The check must end with every player's item gold rebuilt and every agreement line "N of N"; it
-exits 1 otherwise, and any `FormatError` names the match, frame and field. Fix
-`riot_format.py` (and the spec's "Facts") from what the real replies show, then:
+The check must end with every agreement line "N of N" and the teams' rebuilt item gold within
+its tolerance; it exits 1 otherwise, and any `FormatError` names the match, frame and field. On
+a new patch, fix `riot_format.py` (and the spec's "Facts") from what the replies show, then:
 
 ```
-py -3.12 -I tools/winprob/crawl.py --games 10000            (about 7 h on a dev key; rerun it after a stop or a new key)
+py -3.12 -I tools/winprob/crawl.py --games 10000            (about 10 h on a dev key; rerun it after a stop or a new key)
 py -3.12 -I tools/winprob/features.py --check --limit 500
 py -3.12 -I tools/winprob/features.py                       (→ rows.npz)
 py -3.12 -I tools/winprob/fit.py                            (→ crates/coach/winprob.toml, fixtures/coach/winprob_cases.json)
@@ -46,10 +48,104 @@ cargo run -p lol-coach --example winprob_replay             (the fit over the re
 
 `crawl.py` options: `--platform euw1 --region europe` (routing), `--queue 420` (450 for ARAM),
 `--patch 16.22` (default: newest on Data Dragon; matches on other patches are not stored),
-`--days 14`, `--out DIR`. A dev key expires after 24 h: the crawler saves its state and stops on
+`--days 14`, `--out DIR`, `--hours H` (stop after that long), `--key-file FILE`, `--no-apex`.
+Players are read from the top: Challenger, Grandmaster and Master, then Diamond and Emerald one
+page of a division after another. The top three leagues alone fill 20,000 games, so a fit is in
+practice on Master and above; `--no-apex` starts at Diamond. Match ids come
+newest first, so a match of an older patch ends that player's list. A dev key expires after 24 h: the crawler saves its state and stops on
 401 / 403. `features.py --mode aram` and `fit.py` on its rows write the `[aram]` table and keep
 an existing `[rift]` one. `fit.py --out X --cases Y` writes elsewhere; rows marked synthetic are
 refused for any path inside the repo.
+
+## Every night
+
+`nightly.py` is one run for a scheduler, the same on Linux and Windows (written and tested on
+Windows; not yet run on Linux):
+
+1. crawls the newest patch (Data Dragon) for `--hours 2`, up to `--games 20000`, into
+   `DIR/<patch>/`; each patch has its own directory and crawl state. A crawl started by hand in
+   `DIR` itself goes on there while its patch is the newest;
+2. once `--fit-at 10000` games are stored, and again every `--refit-every 2500` more, runs
+   `features.py` and `fit.py` into `DIR/<patch>/fit/` (`winprob.toml`, `winprob_cases.json`).
+   The gates decide whether anything is written; it never writes into the repo. Not while League
+   of Legends runs: the next run fits;
+3. with `--publish DIR`, copies the newest patch's fitted table to `DIR/winprob.toml`; when
+   `DIR` is a git checkout it also commits (`winprob <patch>: <games> games`) and pushes. A push
+   that failed is tried again the next night;
+4. removes `raw/` and `rows.npz` of patches older than the newest `--keep 2` (0 keeps all); the
+   fitted tables stay.
+
+Everything goes to `DIR/nightly.log`. `DIR/nightly.lock` keeps two runs apart. Exit status 1 when
+the crawl, the features, the fit or the push failed. A new patch can bring an event shape the tools do not
+know: then the fit fails, the log names the match and the field, and the crawl goes on.
+
+It needs a key that lasts, a personal key (`docs/riot-api-key.md`, section 2). With a dev key the
+crawl stops on 401 a day after the key was made, until the file holds a new one. Disk: about
+1.5 GB for a patch of 20,000 games, so 3 GB with two patches kept.
+
+Setup: a checkout of the repo, the key in `riot-api-key.txt` at its root, and Python 3.11 or newer
+with `requests` and `numpy` where `-I` sees them (system packages or a venv, not `pip --user`):
+
+```
+sudo apt install python3-requests python3-numpy                (Debian, Ubuntu)
+chmod 600 riot-api-key.txt
+python3 -I tools/winprob/nightly.py --hours 0.05               (a three-minute try)
+```
+
+Linux, cron (`crontab -e`), every night at 03:30:
+
+```
+30 3 * * * cd $HOME/lol-coach && /usr/bin/python3 -I tools/winprob/nightly.py
+```
+
+or a systemd user timer (`systemctl --user enable --now winprob.timer`, and
+`loginctl enable-linger $USER` so it runs with nobody logged in):
+
+```
+# ~/.config/systemd/user/winprob.service
+[Service]
+Type=oneshot
+WorkingDirectory=%h/lol-coach
+ExecStart=/usr/bin/python3 -I tools/winprob/nightly.py
+
+# ~/.config/systemd/user/winprob.timer
+[Timer]
+OnCalendar=*-*-* 03:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Windows, Task Scheduler:
+
+```
+schtasks /Create /TN "lol-coach winprob" /SC DAILY /ST 03:30 /TR "py -3.12 -I C:\path\to\lol-coach\tools\winprob\nightly.py"
+```
+
+### The app downloads the table
+
+At its start and every 6 hours the app (`src-tauri/src/winprob.rs`) reads `winprob.toml` from the
+repo's `winprob-data` branch on GitHub, or from the address in env `LOL_COACH_WINPROB_URL`. The
+table is used when `Model::fault` finds nothing wrong (a fit, rising knots, features this build
+knows, one number per knot) and it is newer than the built-in one: a later patch, or the same
+patch and more games. The last good download stays in the app's disk cache and is used when
+there is no network. Anything else leaves the built-in table in use.
+
+The branch exists (made empty on 2026-11-12, no history shared with `master`). The machine that
+fits checks it out once:
+
+```
+git clone --branch winprob-data --single-branch git@github.com:PaulDotSH/lol-tft-coach.git ~/winprob-data
+```
+
+and its scheduler line gets `--publish $HOME/winprob-data`. A deploy key with write access is
+enough for the push (GitHub, the repo's Settings, Deploy keys). Until the branch has a table the
+app logs "win probability table not downloaded" and goes on with the built-in one.
+
+The built-in table is still set by hand, for a build that works offline from its first start:
+copy `DIR/<patch>/fit/winprob.toml` to `crates/coach/winprob.toml` and `winprob_cases.json` to
+`fixtures/coach/`, run `cargo test -p coach -q --test winprob`, rebuild.
 
 ## What the tools compute
 
@@ -98,60 +194,53 @@ and cases under the Rust schema, and `cargo run -q -p lol-coach --example winpro
 that TOML (`WINPROB_SKIP_CARGO=1` leaves it out; it uses `target-build` and 2 jobs). The
 simulation and cargo are skipped while League runs. Nothing is written into the repo.
 
-## Unverified until a key exists
+## What the real API showed (2026-11-12, 16.22)
 
-Each item is an assumption in `riot_format.py` (or in how `features.py` reads it) that plan T0b
-was to confirm. "check" says how; most are covered by `features.py --check` on the probe crawl.
+The documented format held for everything but the items and the soul event. `riot_format.py`
+and `features.py` follow the replies now; the differences:
 
-1. `league-v4` `/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{division}?page=N` and the
-   Master / Grandmaster / Challenger `…leagues/by-queue/RANKED_SOLO_5x5` (`entries[]`) carry
-   `puuid` on every entry; an empty page ends a division. Check: the probe crawl finds players
-   (a `FormatError` "no field 'puuid'" otherwise).
-2. `match-v5` `/matches/by-puuid/{puuid}/ids` takes `queue`, `startTime` (epoch s), `start`,
-   `count` ≤ 100. Check: the probe crawl stores games of the asked queue only.
-3. Match fields: `metadata.matchId`; `info.gameVersion` ("16.22.x.y"), `info.mapId` (11 / 12),
-   `info.queueId`, `info.gameDuration` in seconds; `info.participants[]` with `participantId`
-   1–10, `teamId` 100 / 200, `championId`, `gameEndedInEarlySurrender`, `teamEarlySurrendered`,
-   `item0`…`item6`; `info.teams[]` with `teamId` and `win`. Check: `--check` parses them and
-   prints "duration within 60 s of the last frame: N of N".
-4. Remakes are flagged by `gameEndedInEarlySurrender` / `teamEarlySurrendered`, and a 15-minute
-   surrender is not. Check: `--check` prints the left-out games with their length; remakes are
-   about 3–4 min, nothing near 15.
-5. Timeline: `info.frameInterval` = 60000; `info.frames[]` with `timestamp` (ms),
-   `participantFrames` keyed "1"…"10" with the match's participant ids, each with integer
-   `level`, `minionsKilled`, `jungleMinionsKilled`, `totalGold`, `currentGold`; `events[]` per
-   frame (which frame an event sits in does not matter). Check: `--check` parses them; "seconds
-   between frames" shows 60 and one shorter final gap.
-6. The last frame is at the game's end and the timeline ends with `GAME_END` carrying
-   `winningTeam`, which agrees with `info.teams[].win`. Check: `--check` raises on a disagreement.
-7. Item events: `ITEM_PURCHASED`, `ITEM_SOLD`, `ITEM_DESTROYED` with `participantId`, `itemId`;
-   `ITEM_DESTROYED` covers used consumables and the components a purchase consumes, with the
-   purchase's exact timestamp; `ITEM_UNDO` with `beforeId` = X, `afterId` = 0 undoes buying X and
-   gives the components back without further events; `beforeId` = 0, `afterId` = X undoes
-   selling X; transforms (Manamune → Muramana, the support quest) arrive as events that leave
-   the final item held; rune items (Biscuits, Stopwatch) need no event. Check: "final items
-   rebuilt from the events: N of N players … N same item gold"; the worst mismatches are listed.
-8. `CHAMPION_KILL` with `killerId` (0 for an execution) and `victimId`. Check: parsed by
-   `--check`; executions show as kills by 0.
-9. `BUILDING_KILL` with `buildingType` `TOWER_BUILDING` / `INHIBITOR_BUILDING` and `teamId` = the
-   side that **lost** it; nexus turrets are towers (`towerType` `NEXUS_TURRET`). Check: "building
-   teamId is not the killer's team" and "nexus turrets fall on the losing side", N of N.
-10. `ELITE_MONSTER_KILL` with `monsterType` `DRAGON` / `BARON_NASHOR` / `HORDE` / `RIFTHERALD` /
-    `ATAKHAN`, `monsterSubType` `FIRE_ / WATER_ / EARTH_ / AIR_ / HEXTECH_ / CHEMTECH_DRAGON` or
-    `ELDER_DRAGON`, and `killerTeamId` = the side credited; one `HORDE` event per grub. Check:
-    "monster killerTeamId is the killer's team", N of N; an unknown type or subtype raises.
-11. `DRAGON_SOUL_GIVEN` with `teamId`, given to a side with four elemental dragons. Check: a
-    `FormatError` otherwise.
-12. Ignored event types: `PAUSE_START`, `PAUSE_END`, `SKILL_LEVEL_UP`, `LEVEL_UP`, `WARD_PLACED`,
-    `WARD_KILL`, `TURRET_PLATE_DESTROYED`, `CHAMPION_SPECIAL_KILL`, `CHAMPION_TRANSFORM`,
-    `OBJECTIVE_BOUNTY_PRESTART`, `OBJECTIVE_BOUNTY_FINISH`, `FEAT_UPDATE`. Any other type stops
-    the run with "unknown event type"; add it to `USED_EVENTS` or `IGNORED_EVENTS` after looking
-    at it. Check: "event types" from `--check`.
-13. Limits: 20 requests / s and 100 / 2 min on a dev key, `Retry-After` (s) on a 429, 401 / 403
-    for a bad or expired key. Check: the crawl's request count per hour (~3,000).
-14. Data Dragon has a version `<patch>.x` whose `item.json` costs match the servers'. Check:
-    the item rebuild in 7 (a cost change shows as a constant offset).
+1. `ITEM_PURCHASED` comes with `participantId` 0 twice a game: each support's World Atlas at
+   0:00. `features.adopt` gives them to the players who later lose that item, or end with it,
+   without having bought it.
+2. An item can change into another with no purchase event, only an `ITEM_DESTROYED` of the old
+   one: the support quest's stages and its upgrade, upgraded boots. `Values.after` (from Data
+   Dragon's `specialRecipe`, and `from` with a base cost of 0) names what a destroyed item becomes
+   when its owner bought nothing at that moment. Of the support item's five upgrades the events
+   do not say which; they cost the same.
+3. Items are destroyed that the events never gave: components of an item bought whole, rune and
+   quest items. `ITEM_UNDO` sometimes has neither `beforeId` nor `afterId`. These are counted
+   (`Inventories.odd`), not errors.
+4. Match participants have `roleBoundItem` beside `item0`…`item6`: a role quest reward, or the
+   boots of a player with a boots slot. `final_items` counts it.
+5. `DRAGON_SOUL_GIVEN` is sent with `teamId` 0 when the soul's kind is announced (after the
+   second dragon) and with a side's id when it takes its fourth. Only the second is the soul.
+6. A winner can lose a nexus turret, so that line of `--check` asks for most, not all.
+7. `ELITE_MONSTER_KILL` has `killerTeamId` 300 for a monster no side killed: a Rift Herald (88
+   of 1,122) and a Void Grub (8 of 3,609). Those grubs are nobody's.
+8. Viego: each possession sends `ITEM_DESTROYED` for all he holds, then for all the body held,
+   and nothing when his own items are back. For him (`POSSESSOR`) a destroyed item counts only
+   when he bought something at that timestamp (its components).
+9. A Tear item bought with the Tear already full is purchased and destroyed at one timestamp
+   and is its upgrade from then on (`Values.at_once`).
 
-Not about the API, also unchecked: that the Live Client's `creepScore` equals `minionsKilled +
-jungleMinionsKilled`, that the Live Client's `respawn_in` matches `fights::respawn` at the death's
-level, and that lolalytics buckets games by length the way `features.bucket` does.
+So the item rebuild is close, not exact, and `--check` passes on a tolerance: a team's rebuilt
+item gold within 2 % of its final items' on average and 10 % at worst. On 500 games (489
+kept): 4,777 of 4,890 players exact in gold, teams off 0.11 % on average and 4.2 % at worst. Most
+of the rest are mid laners with the quest reward (`roleBoundItem` 1206), whose boots change with
+no event that says to what. Gold spent (`totalGold − currentGold`) would be 7.6 % high (first
+20 games).
+
+Confirmed as assumed: the league and match-id endpoints, the match and frame fields,
+`frameInterval` 60000 with a last frame at the game's end, `GAME_END.winningTeam`,
+`BUILDING_KILL.teamId` as the side that lost it, `ELITE_MONSTER_KILL.killerTeamId`, one `HORDE`
+event per grub, `killerId` 0 for executions and minions, the rate limits. The crawl stores about
+1,000 games an hour: half the match ids are from another patch and cost a request each.
+
+Seen later, in the first 1,221 games of the crawl: an Elder dragon is `DRAGON` with
+`monsterSubType` `ELDER_DRAGON` (59), a remake has `gameEndedInEarlySurrender` and lasts 66 to
+134 s (9 of 500), `CHAMPION_TRANSFORM` exists (ignored), and there is no Atakhan event at all.
+
+Still unverified: `PAUSE_START` and `FEAT_UPDATE` (ignored types, not seen), ARAM (queue 450). Not about the API: whether the Live Client's `items` include the
+role-bound slot, that its `creepScore` equals `minionsKilled + jungleMinionsKilled`, that its
+`respawn_in` matches `fights::respawn`, and that lolalytics buckets games by length the way
+`features.bucket` does.

@@ -31,6 +31,9 @@ setx RIOT_API_KEY RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 (Open a new terminal afterwards. For the dev key, run it again each day.)
 
+The win-probability tools (`tools/winprob/`) also read the key from `riot-api-key.txt` at the repo
+root (the key alone on one line; the file is git-ignored), or from `--key-file`.
+
 ## 4. Check it works
 
 Europe routing (EUW/EUNE accounts use `europe`; NA `americas`, KR `asia`). Replace the name and tag:

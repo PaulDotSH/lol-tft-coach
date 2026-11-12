@@ -111,6 +111,8 @@ pub struct Shared {
     /// Where the screen readers found their elements (`calib.json`) and how they are doing.
     pub calib: Mutex<crate::calib::Calib>,
     pub health: Mutex<crate::health::Health>,
+    /// A downloaded win-probability table newer than the built-in one.
+    pub winprob: Mutex<Option<Arc<coach::winprob::Model>>>,
 }
 
 impl Shared {
@@ -179,6 +181,7 @@ impl Shared {
             minimap_cfg: Mutex::new(None),
             calib: Mutex::new(crate::calib::Calib::load(&crate::settings::local_dir("").join("calib.json"))),
             health: Mutex::default(),
+            winprob: Mutex::new(None),
         }
     }
 

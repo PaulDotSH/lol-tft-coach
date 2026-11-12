@@ -577,7 +577,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
 
     let rift = snap.mode == Mode::Rift;
     let curves = lengths(sh, sd, snap.players.iter().map(|p| (p.champ, p.position.filter(|_| rift))), snap.mode);
-    let no_fit = coach::winprob::Model::default();
+    let (no_fit, fetched) = (coach::winprob::Model::default(), sh.winprob.lock().unwrap().clone());
     let mut advice = coach::game_advice(&coach::GameInput {
         snap,
         sd,
@@ -595,7 +595,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
         matchup: vs_page.as_deref(),
         curves: &curves,
         income: memo.tracker.income(),
-        winprob: (!settings.win_prob).then_some(&no_fit),
+        winprob: if settings.win_prob { fetched.as_deref() } else { Some(&no_fit) },
         situations: &situations,
     });
     let ults = crate::ingame::ults(sh, sd, snap);

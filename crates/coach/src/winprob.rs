@@ -92,6 +92,34 @@ impl Model {
         &SHIPPED
     }
 
+    /// Why a table from outside the build (downloaded) cannot be used, if so.
+    pub fn fault(&self) -> Option<String> {
+        if self.games == 0 {
+            return Some("no games fitted".into());
+        }
+        if self.knots.is_empty() || self.knots.iter().any(|k| !k.is_finite()) || self.knots.windows(2).any(|w| w[0] >= w[1]) {
+            return Some(format!("knots {:?} are not rising minutes", self.knots));
+        }
+        if self.rift.beta.is_empty() && self.aram.beta.is_empty() {
+            return Some("no table".into());
+        }
+        [("rift", &self.rift), ("aram", &self.aram)].into_iter().flat_map(|(mode, t)| t.beta.iter().map(move |(k, v)| (mode, k, v))).find_map(|(mode, k, v)| {
+            if !KEYS.contains(&k.as_str()) {
+                Some(format!("{mode}.{k}: a feature this build does not know"))
+            } else if v.len() != self.knots.len() || v.iter().any(|x| !x.is_finite()) {
+                Some(format!("{mode}.{k}: not one number per knot"))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// A later patch, or the same patch fitted on more games.
+    pub fn newer_than(&self, other: &Model) -> bool {
+        let rank = |m: &Model| (m.patch.split('.').map(|p| p.parse().unwrap_or(0)).collect::<Vec<u32>>(), m.games);
+        rank(self) > rank(other)
+    }
+
     pub(crate) fn table(&self, mode: Mode) -> Option<&Table> {
         let t = if mode == Mode::Rift { &self.rift } else { &self.aram };
         (self.games > 0 && !t.beta.is_empty()).then_some(t)

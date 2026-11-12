@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import riot_format as R  # noqa: E402
 from riot_format import FormatError, need  # noqa: E402
 
-DEV = Path(os.environ.get("LOCALAPPDATA", ".")) / "lol-coach" / "dev" / "winprob"
+DEV = Path(os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "lol-coach" / "dev" / "winprob"
 RAW = DEV / "raw"
 ROWS = DEV / "rows.npz"
 
@@ -26,6 +26,9 @@ KNOTS = (0, 10, 15, 20, 25, 30, 40)
 
 GOLD_PAD = 3000.0
 SOUL_DRAGONS = 4
+CHECK_TEAM_MEAN = 0.02
+CHECK_TEAM_WORST = 0.10
+CHECK_NEXUS = 0.9
 DRAKE_CAP = SOUL_DRAGONS - 1
 DEAD_CAP = 45.0
 GRUBS_COUNT = 3
@@ -119,24 +122,56 @@ def item_values(ddragon):
                          and d.get("hideFromAll") is not True and "Trinket" not in d.get("tags", []))
     keep = {i for i, d in raw.items() if shop(i, d)}
     keep |= {i for i, d in raw.items() if d.get("specialRecipe") in keep}
-    return {i: 0 if "Consumable" in raw[i].get("tags", []) else raw[i]["gold"]["total"] for i in keep}
+    values = Values({i: 0 if "Consumable" in raw[i].get("tags", []) else raw[i]["gold"]["total"] for i in keep})
+    for i, d in sorted(raw.items(), reverse=True):
+        only = [int(x) for x in d.get("from", [])]
+        if d.get("specialRecipe"):
+            values.after[int(d["specialRecipe"])] = i
+            values.at_once.add(int(d["specialRecipe"]))
+        elif len(only) == 1 and d["gold"]["base"] == 0:
+            values.after[only[0]] = i
+    return values
+
+
+class Values(dict):
+    """Item id → gold. `after`: the item one turns into with no purchase event (a quest item's
+    next stage, the support item's upgrade, upgraded boots); of several, the lowest id, all of
+    which cost the same. `at_once`: those of them that can turn the moment they are bought (a Tear
+    item bought with the Tear full)."""
+
+    def __init__(self, *a):
+        super().__init__(*a)
+        self.after = {}
+        self.at_once = set()
 
 
 class Inventories:
     """Held items per participant from the item events. An undone purchase also gives back the
-    items destroyed by that participant at the purchase's timestamp (its components)."""
+    items destroyed by that participant at the purchase's timestamp (its components). An item
+    destroyed with no purchase at that moment, or bought at that very moment (a Tear item finished
+    as it is bought), becomes `Values.after` of it; for `possessors`
+    (Viego, whose possessions destroy all he holds and never give it back) it is skipped. Real timelines also
+    lose items the events never gave (components of an item bought whole, rune and quest items):
+    those are counted in `odd`, not errors; `check` measures what they cost."""
 
-    def __init__(self, values):
+    def __init__(self, values, bought_at=(), possessors=()):
         self.values = values
+        self.after = getattr(values, "after", {})
+        self.at_once = getattr(values, "at_once", ())
+        self.bought_at = collections.defaultdict(set)
+        for pid, ts, item in bought_at:
+            self.bought_at[pid, ts].add(item)
+        self.possessors = set(possessors)
         self.held = collections.defaultdict(collections.Counter)
         self.buys = collections.defaultdict(list)
         self.destroyed = collections.defaultdict(list)
+        self.odd = collections.Counter()
 
     def _remove(self, pid, item, where):
         if self.held[pid][item] > 0:
             self.held[pid][item] -= 1
         elif self.values.get(item, 0) > 0:
-            raise FormatError(f"{where}: participant {pid} loses item {item}, which the events never gave them")
+            self.odd["lost an item of value never given"] += 1
 
     def apply(self, ev, where):
         pid, kind, ts = ev[R.E_PARTICIPANT], ev[R.E_TYPE], ev[R.E_TIMESTAMP]
@@ -146,14 +181,20 @@ class Inventories:
         elif kind == R.ITEM_SOLD:
             self._remove(pid, ev[R.E_ITEM], where)
         elif kind == R.ITEM_DESTROYED:
+            bought = self.bought_at.get((pid, ts), ())
+            if pid in self.possessors and not bought:
+                return
             self._remove(pid, ev[R.E_ITEM], where)
             self.destroyed[pid].append((ev[R.E_ITEM], ts))
+            if ev[R.E_ITEM] in self.after and (not bought or (ev[R.E_ITEM] in bought and ev[R.E_ITEM] in self.at_once)):
+                self.held[pid][self.after[ev[R.E_ITEM]]] += 1
         else:
             before, after = ev[R.E_UNDO_BEFORE], ev[R.E_UNDO_AFTER]
             if before and not after:
                 at = next((i for i in range(len(self.buys[pid]) - 1, -1, -1) if self.buys[pid][i][0] == before), None)
                 if at is None:
-                    raise FormatError(f"{where}: participant {pid} undoes buying {before}, never bought")
+                    self.odd["undid a purchase never seen"] += 1
+                    return
                 _, bought = self.buys[pid].pop(at)
                 self._remove(pid, before, where)
                 back = [x for x in self.destroyed[pid] if x[1] == bought]
@@ -162,6 +203,8 @@ class Inventories:
                     self.held[pid][item] += 1
             elif after and not before:
                 self.held[pid][after] += 1
+            elif not before:
+                self.odd["undo with no item"] += 1
             else:
                 raise FormatError(f"{where}: ITEM_UNDO with {R.E_UNDO_BEFORE}={before} and {R.E_UNDO_AFTER}={after}")
 
@@ -260,6 +303,30 @@ def read_frames(timeline, mid):
     return frames
 
 
+def final_items(participant):
+    """What a player ends with: the seven slots and the role-bound one where the patch has it."""
+    return collections.Counter(i for i in (*(participant[k] for k in R.P_ITEMS), participant.get(R.P_ROLE_ITEM, 0)) if i)
+
+
+def adopt(orphans, items, final):
+    """Purchases logged for nobody (each support's World Atlas at 0:00 comes with participant 0)
+    go to the players who later lose that item, or end with it, without ever buying it."""
+    first, given = {}, collections.defaultdict(set)
+    for _, ev, _ in items:
+        if ev[R.E_TYPE] != R.ITEM_UNDO:
+            first.setdefault((ev[R.E_PARTICIPANT], ev[R.E_ITEM]), ev[R.E_TYPE])
+    adopted = []
+    for ts, ev, where in orphans:
+        item = ev[R.E_ITEM]
+        lost = lambda p: first.get((p, item)) in (R.ITEM_SOLD, R.ITEM_DESTROYED) or ((p, item) not in first and final[p][item] > 0)
+        takers = [p for p in sorted(final) if p not in given[item] and lost(p)]
+        if not takers:
+            raise FormatError(f"{where}: item {item} bought by nobody and never lost or kept by a player who did not buy it")
+        given[item].add(takers[0])
+        adopted.append((ts, {**ev, R.E_PARTICIPANT: takers[0]}, where))
+    return sorted(adopted + items, key=lambda x: x[0])
+
+
 def parse_game(match, timeline, values):
     """(Game, None) or (None, why it is left out). Raises FormatError on an unknown shape."""
     mid, info, side, champs, skip = read_match(match)
@@ -282,12 +349,13 @@ def parse_game(match, timeline, values):
             raise FormatError(f"{where}: participant {pid!r}")
         return pid
 
-    inv = Inventories(values)
     kills, towers, inhibs, dragons, barons, grubs, souls, end = [], [], [], [], [], [], [], None
-    items = []
+    items, orphans = [], []
     for ts, _, _, ev, where in events:
         kind, t = ev[R.E_TYPE], ts / 1000.0
-        if kind in (R.ITEM_PURCHASED, R.ITEM_SOLD, R.ITEM_DESTROYED, R.ITEM_UNDO):
+        if kind == R.ITEM_PURCHASED and ev[R.E_PARTICIPANT] == R.NOBODY:
+            orphans.append((ts, ev, where))
+        elif kind in (R.ITEM_PURCHASED, R.ITEM_SOLD, R.ITEM_DESTROYED, R.ITEM_UNDO):
             pid_ok(ev[R.E_PARTICIPANT], where)
             items.append((ts, ev, where))
         elif kind == R.CHAMPION_KILL:
@@ -302,7 +370,7 @@ def parse_game(match, timeline, values):
             (towers if b == R.TOWER else inhibs).append((t, _side(ev[R.E_BUILDING_TEAM], where)))
         elif kind == R.ELITE_MONSTER_KILL:
             m = ev[R.E_MONSTER]
-            if m in R.IGNORED_MONSTERS:
+            if m in R.IGNORED_MONSTERS or (m == R.GRUB and ev[R.E_KILLER_TEAM] == R.NEUTRAL):
                 continue
             taker = _side(ev[R.E_KILLER_TEAM], where)
             if m == R.DRAGON:
@@ -317,7 +385,8 @@ def parse_game(match, timeline, values):
             else:
                 raise FormatError(f"{where}: monster {m!r}")
         elif kind == R.DRAGON_SOUL_GIVEN:
-            souls.append(_side(ev[R.E_SOUL_TEAM], where))
+            if ev[R.E_SOUL_TEAM] != R.NOBODY:
+                souls.append(_side(ev[R.E_SOUL_TEAM], where))
         elif kind == R.GAME_END:
             if _side(ev[R.E_WINNER], where) != (0 if y else 1):
                 raise FormatError(f"{where}: {R.GAME_END} winner {ev[R.E_WINNER]} disagrees with match teams")
@@ -325,6 +394,9 @@ def parse_game(match, timeline, values):
     for s in souls:
         if sum(1 for _, taker, elder in dragons if taker == s and not elder) < SOUL_DRAGONS:
             raise FormatError(f"{mid}: {R.DRAGON_SOUL_GIVEN} for side {s} with fewer than {SOUL_DRAGONS} dragons")
+    items = adopt(orphans, items, {p[R.P_ID]: final_items(p) for p in info[R.M_PARTICIPANTS]})
+    inv = Inventories(values, [(ev[R.E_PARTICIPANT], ts, ev[R.E_ITEM]) for ts, ev, _ in items if ev[R.E_TYPE] == R.ITEM_PURCHASED],
+                      {p[R.P_ID] for p in info[R.M_PARTICIPANTS] if p[R.P_CHAMP] == R.POSSESSOR})
 
     respawn_back = INHIB_RESPAWN[mode]
     frame_s = [f[R.F_TIMESTAMP] / 1000.0 for f in frames]
@@ -379,6 +451,7 @@ def parse_game(match, timeline, values):
     game = Game(mid, mode, patch, y, champs, info[R.M_DURATION_S] / 60.0, minutes, states)
     game.final_items = {pid: inv.items(pid) for pid in range(1, 11)}
     game.final_gold = {pid: inv.gold(pid) for pid in range(1, 11)}
+    game.odd = inv.odd
     return game, None
 
 
@@ -474,13 +547,19 @@ def patch_of(match):
     return ".".join(str(match[R.M_INFO][R.M_VERSION]).split(".")[:2])
 
 
+def version(patch):
+    return tuple(int(x) for x in patch.split("."))
+
+
 def check(raw, limit, values):
-    """The plan T0b checks on up to `limit` crawled games; True when every player's item gold
-    rebuilt from the events equals that of their final items."""
+    """The plan T0b checks on up to `limit` crawled games; True when the agreement lines all
+    hold and each team's item gold rebuilt from the events is close to that of its final items
+    (`CHECK_TEAM_MEAN` on average, `CHECK_TEAM_WORST` at worst). Real timelines do not log every
+    item change, so players are not all exact."""
     kinds, gaps, skipped = collections.Counter(), collections.Counter(), collections.Counter()
-    agree = collections.Counter()
+    agree, odd, nexus = collections.Counter(), collections.Counter(), collections.Counter()
     players = same_items = same_gold = 0
-    worst = []
+    worst, teams = [], []
     for n, (mp, tp) in enumerate(raw_pairs(raw)):
         if n >= limit:
             break
@@ -502,26 +581,37 @@ def check(raw, limit, values):
             if e[R.E_TYPE] == R.BUILDING_KILL and killer:
                 agree["building teamId is not the killer's team", e[R.E_BUILDING_TEAM] != killer] += 1
             if e[R.E_TYPE] == R.BUILDING_KILL and e.get(R.E_TOWER_TYPE) == R.NEXUS_TURRET:
-                agree["nexus turrets fall on the losing side", e[R.E_BUILDING_TEAM] == loser] += 1
+                nexus[e[R.E_BUILDING_TEAM] == loser] += 1
             if e[R.E_TYPE] == R.ELITE_MONSTER_KILL and killer:
                 agree["monster killerTeamId is the killer's team", e[R.E_KILLER_TEAM] == killer] += 1
+        odd.update(game.odd)
+        sums = collections.defaultdict(lambda: [0, 0])
         for p in info[R.M_PARTICIPANTS]:
             pid = p[R.P_ID]
-            final = collections.Counter(p[k] for k in R.P_ITEMS if p[k])
+            final = final_items(p)
             want = sum(values.get(i, 0) * c for i, c in final.items())
             players += 1
             same_items += final == game.final_items[pid]
             same_gold += want == game.final_gold[pid]
+            sums[p[R.P_TEAM]][0] += want
+            sums[p[R.P_TEAM]][1] += game.final_gold[pid]
             if want != game.final_gold[pid]:
-                worst.append((abs(want - game.final_gold[pid]), game.match_id, pid, dict(final), dict(game.final_items[pid])))
+                worst.append((abs(want - game.final_gold[pid]), game.match_id, pid, dict(final - game.final_items[pid]), dict(game.final_items[pid] - final)))
+        teams += [(got - want) / max(want, 1) for want, got in sums.values()]
     print(f"event types: {dict(kinds.most_common())}")
     print(f"seconds between frames: {dict(gaps.most_common(5))}; left out: {dict(skipped)}")
     for what in sorted({w for w, _ in agree}):
         print(f"{what}: {agree[what, True]} of {agree[what, True] + agree[what, False]}")
+    print(f"nexus turrets on the losing side: {nexus[True]} of {nexus[True] + nexus[False]} (a winner can lose one; most must be the loser's)")
     print(f"final items rebuilt from the events: {same_items} of {players} players exact, {same_gold} same item gold")
-    for w in sorted(worst, reverse=True)[:10]:
-        print(f"  off by {w[0]} g: {w[1]} participant {w[2]} final {w[3]} rebuilt {w[4]}")
-    return players > 0 and same_gold == players and not any(agree[w, False] for w, _ in agree)
+    mean, top = (sum(abs(t) for t in teams) / len(teams), max(abs(t) for t in teams)) if teams else (1.0, 1.0)
+    print(f"team item gold, rebuilt against final: off {100 * mean:.2f} % on average, {100 * top:.1f} % at worst, over {len(teams)} teams"
+          f" (allowed {100 * CHECK_TEAM_MEAN:.0f} % and {100 * CHECK_TEAM_WORST:.0f} %)")
+    print(f"item events that fit no inventory: {dict(odd.most_common())}")
+    for w in sorted(worst, key=lambda w: w[:3], reverse=True)[:10]:
+        print(f"  off by {w[0]} g: {w[1]} participant {w[2]} only in final {w[3]} only rebuilt {w[4]}")
+    sides = nexus[True] >= CHECK_NEXUS * (nexus[True] + nexus[False])
+    return players > 0 and mean <= CHECK_TEAM_MEAN and top <= CHECK_TEAM_WORST and sides and not any(agree[w, False] for w, _ in agree)
 
 
 def main(argv=None):
@@ -559,7 +649,7 @@ def main(argv=None):
             print(f"{n + 1} of {len(pairs)} read", flush=True)
     arrays = rows_of(games)
     save_rows(a.out, arrays, a.mode, patch, "riot")
-    print(f"{len(games)} games ({int(arrays['train_games'])} training), {len(arrays['y'])} rows → {a.out}; left out: {dict(skipped)}")
+    print(f"{len(games)} games ({int(arrays['train_games'])} training), {len(arrays['y'])} rows to {a.out}; left out: {dict(skipped)}")
 
 
 if __name__ == "__main__":

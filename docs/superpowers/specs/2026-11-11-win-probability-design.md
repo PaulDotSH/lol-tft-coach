@@ -1,6 +1,6 @@
 # Live win probability, state-aware items and posture
 
-Date: 2026-11-11. Status: approved 2026-11-11; everything but the fit is built (T0b and the T3 run wait for a Riot key), nothing shown yet (see Implementation status). Plan: `docs/superpowers/plans/2026-11-11-win-probability-plan.md`.
+Date: 2026-11-11. Status: approved 2026-11-11; everything but the fit is built (T0b done 2026-11-12, the crawl for the T3 fit is running), nothing shown yet (see Implementation status). Plan: `docs/superpowers/plans/2026-11-11-win-probability-plan.md`.
 
 ## Goal
 
@@ -138,6 +138,61 @@ Live events (plan T0c, over the 3,556 recordings, 2026-11-11):
 - An inhibitor comes back after 300 s on the Rift (5 of 5) and 250 s on Howling Abyss (38 of 38),
   and always falls after its lane's last turret (135 of 135).
 
+Riot match-v5 (plan T0b, 2026-11-12: 20 ranked solo games, EUW, patch 16.22, crawled with a dev
+key by `tools/winprob/crawl.py` and read by `features.py --check`):
+
+- Match: `info.gameVersion` "16.22.834.8910", `gameDuration` in seconds, `endOfGameResult`
+  "GameComplete", `teams[].win`; per participant `participantId` 1–10, `teamId` 100 / 200,
+  `championId`, `item0`…`item6`, `gameEndedInEarlySurrender`, `teamEarlySurrendered`,
+  `gameEndedInSurrender`, and **`roleBoundItem`**: a slot of its own that holds a role quest
+  reward (ids 12xx, cost 0) or, for 40 of 200 players, their boots.
+- Timeline: `frameInterval` 60000; frames 60 s apart plus one shorter last frame at the game's
+  end (within 60 s of `gameDuration` in 20 of 20); `participantFrames` keyed "1"…"10" with
+  `totalGold`, `currentGold`, `level`, `minionsKilled`, `jungleMinionsKilled`, `xp`, `position`
+  and stat blocks. `GAME_END.winningTeam` agrees with `teams[].win` (20 of 20).
+- Event types in the 20 games: ITEM_PURCHASED 4,091, ITEM_DESTROYED 3,859, WARD_PLACED 2,815,
+  SKILL_LEVEL_UP 2,734, LEVEL_UP 2,465, CHAMPION_KILL 926, TURRET_PLATE_DESTROYED 920,
+  WARD_KILL 646, BUILDING_KILL 199, ELITE_MONSTER_KILL 154, ITEM_SOLD 137, ITEM_UNDO 131,
+  CHAMPION_SPECIAL_KILL 125, DRAGON_SOUL_GIVEN 23, OBJECTIVE_BOUNTY_PRESTART 21, PAUSE_END 20,
+  GAME_END 20, OBJECTIVE_BOUNTY_FINISH 5.
+- `BUILDING_KILL`: `buildingType` TOWER_BUILDING / INHIBITOR_BUILDING, `towerType` OUTER_ /
+  INNER_ / BASE_ / NEXUS_TURRET, `laneType`; `teamId` is the side that lost it (never the
+  killer's team, 193 of 193); `killerId` 0 when a minion took it. A winner can lose a nexus
+  turret (1 of 22).
+- `ELITE_MONSTER_KILL`: `monsterType` DRAGON / HORDE / RIFTHERALD / BARON_NASHOR, `killerTeamId`
+  is the killer's team (151 of 151), `killerId` can be 0; dragon subtypes FIRE_, WATER_, EARTH_,
+  AIR_, HEXTECH_, CHEMTECH_DRAGON. One HORDE event per grub. No Elder and no Atakhan in these 20.
+- **`DRAGON_SOUL_GIVEN` is sent twice**: with `teamId` 0 when the soul's kind is announced after
+  the second dragon (18 of 23), and with the side's id when it takes its fourth (5 of 23).
+- `CHAMPION_KILL`: `killerId` 0 for an execution; `victimId`, `assistingParticipantIds`.
+- **Item events do not add up to the inventory.** Each support's World Atlas is an
+  `ITEM_PURCHASED` by participant 0 at 0:00; its later stages and its upgrade arrive with no
+  purchase, only an `ITEM_DESTROYED` of the stage before; an item bought whole destroys
+  components the player never bought; rune and quest items come and go without a purchase; 4 of
+  131 `ITEM_UNDO` have neither `beforeId` nor `afterId`. Rebuilt with rules for these
+  (`features.Inventories`), 191 of 200 players end with the item gold of their final items and a
+  team's item gold is off by 0.46 % on average, 6.2 % at worst. Gold spent
+  (`totalGold − currentGold`) is 7.6 % above held item gold on average at the end of a game.
+- Crawl speed on a dev key: about 1,000 stored games an hour (half the match ids of ladder
+  players are from another patch and cost a request each).
+
+From the first 1,221 games of the full crawl (same day, `features.py --check --limit 500`):
+
+- An Elder dragon is `monsterType` DRAGON with `monsterSubType` ELDER_DRAGON (59 events). No
+  Atakhan event in any game. `killerTeamId` is **300** for a monster no side killed: a Rift
+  Herald (88 of 1,122) and a Void Grub (8 of 3,609).
+- A remake has `gameEndedInEarlySurrender` and lasts 66 to 134 s (9 of 500); two more games were
+  under 5 minutes. `CHAMPION_TRANSFORM` exists (16 events, ignored).
+- **Viego**: each possession sends `ITEM_DESTROYED` for all he holds, then for all the body
+  held, and nothing when his own items are back. Counted as written he ends up to 11,300 g
+  short; a destroyed item of his counts only when he bought something at that timestamp.
+- A Tear item bought with the Tear full is purchased and destroyed at one timestamp and is its
+  upgrade from then on.
+- With these rules, on 489 kept games: 4,777 of 4,890 players end with the item gold of their
+  final items; a team's item gold is off by 0.11 % on average, 4.2 % at worst. Most of the rest
+  are mid laners with the quest reward (`roleBoundItem` 1206), whose boots change with no event
+  that says to what. Nexus turrets fall on the losing side in 765 of 786.
+
 Policy (see `docs/ideas.md` section 1): every input is on the scoreboard or announced; nothing
 estimates enemy gold or cooldowns. A win probability is analysis of known information. Posture is
 worded as a read plus options, as the game-plan card is ("facts and comparisons, never orders");
@@ -204,8 +259,8 @@ Outlook { now, later, later_min }     // outlook feature now and 10 min on
 
 ### 2. Fitting (`tools/winprob/`, offline, Python as `tools/tft-render`)
 
-- `crawl.py`: Riot match-v5 with `RIOT_API_KEY`. Ladder entries (Emerald+, the app's default
-  tier) → puuids → ranked solo match ids → match + timeline, raw JSON gzipped under
+- `crawl.py`: Riot match-v5 with `RIOT_API_KEY`. Ladder entries (Emerald+, the highest leagues
+  first; see "Third pass") → puuids → ranked solo match ids → match + timeline, raw JSON gzipped under
   `%LOCALAPPDATA%\lol-coach\dev\winprob\`. Resumable, obeys the 100 requests / 2 min limit
   (about 1,500 games an hour); target 10k games on the current patch, ARAM (queue 450) 5k.
 - `features.py`: one row per minute frame per game from blue's side, the features above rebuilt
@@ -507,6 +562,40 @@ With a key, in order (details in `tools/winprob/README.md`): crawl 20 games, run
 differs), crawl the full set, `features.py`, `fit.py`, then `cargo test -p coach --test winprob`
 and the replay. Then a real Rift game: the card, the posture, the stance call, the trend after
 two minutes, and a past game in the review.
+
+### Third pass (2026-11-12): T0b, the crawl, a nightly job
+
+- T0b is done on real replies (Facts, "Riot match-v5"); `tools/winprob` follows them: support
+  items bought by participant 0, items that change with no purchase, `roleBoundItem`, the soul
+  event sent twice, killer team 300, Viego's possessions, a Tear item finished as it is bought.
+- **Whose games** (decided by the user, 2026-11-12: any Emerald+, the higher the better).
+  `crawl.py` takes Challenger, Grandmaster and Master players first, then Diamond and Emerald
+  divisions page by page in turn. The apex leagues alone fill 20,000 games, so the fit is in
+  practice on Master and above; `--no-apex` starts at Diamond. The user plays at Emerald and
+  Diamond: if the number reads too sure of a lead in their games, this is the first thing to
+  look at.
+- The crawl for the first fit runs on a dev key (EUW, 16.22, into `dev\winprob\16.22\`): 2,002
+  games of Challenger players and 94 of Diamond I players from a short run without the apex
+  leagues. A trial fit on the first 1,055 training games ran end to end and failed the
+  calibration gate as expected at that size (ECE 4.13 against 2.0; log loss 0.584 against 0.600
+  for gold alone; Elder, grubs, outlook and side dropped for unstable signs). Nothing is shipped
+  from it.
+- `tools/winprob/nightly.py` is one run for a scheduler (cron, a systemd timer, Task Scheduler;
+  README "Every night"): it crawls the newest patch for two hours into a directory per patch,
+  refits at 10,000 games and every 2,500 more into that directory (never the repo), and removes
+  the raw games of all but the two newest patches. `crawl.py` got `--hours`, `--key-file`, the
+  key from `riot-api-key.txt`, and stops a player's list at the first match of an older patch.
+  Tried for real on Windows (36 games, the fit step run and refused); not yet run on Linux. It
+  needs a personal API key: a dev key lasts a day.
+- A table fitted on another machine reaches the app by download (decided 2026-11-12).
+  `nightly.py --publish DIR` copies the fitted table to a directory and, in a git checkout,
+  commits and pushes it; the app (`src-tauri/src/winprob.rs`) reads `winprob.toml` from the
+  repo's `winprob-data` branch at start and every 6 hours (`LOL_COACH_WINPROB_URL` names another
+  address), through the disk cache. It replaces the built-in table when `Model::fault` finds
+  nothing wrong with it and `Model::newer_than` says it is a later patch or the same patch on
+  more games; otherwise the built-in table stays. The branch exists and is empty (made 2026-11-12), so
+  nothing is downloaded until a fit passes and is published. A table can change during a game; the trend and
+  the review curve then mix two tables for that game.
 
 ## Sources
 
