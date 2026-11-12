@@ -113,6 +113,10 @@ pub struct Shared {
     pub health: Mutex<crate::health::Health>,
     /// A downloaded win-probability table newer than the built-in one.
     pub winprob: Mutex<Option<Arc<coach::winprob::Model>>>,
+    /// The settings panel's line on the minipc sync.
+    pub sync_status: Mutex<String>,
+    /// The League client connection the orchestrator holds, for the sync's claim.
+    pub lcu: Mutex<Option<clients::lcu::Lcu>>,
 }
 
 impl Shared {
@@ -143,6 +147,7 @@ impl Shared {
                 ranked: vec![],
                 readers: vec![],
                 plan: None,
+                sync: String::new(),
             }),
             sd: RwLock::new(None),
             mayhem: Mutex::default(),
@@ -182,6 +187,8 @@ impl Shared {
             calib: Mutex::new(crate::calib::Calib::load(&crate::settings::local_dir("").join("calib.json"))),
             health: Mutex::default(),
             winprob: Mutex::new(None),
+            sync_status: Mutex::default(),
+            lcu: Mutex::new(None),
         }
     }
 

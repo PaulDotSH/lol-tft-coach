@@ -39,7 +39,7 @@ fn replay(json: &str, sd: &StaticData, until: f32) -> DeathReview {
     let tick = |log: &mut GameLog, sights: &SightLog, time: f32| {
         let ev: Vec<GameEvent> = events.iter().filter(|e| matches!(e, GameEvent::Kill { time: t, .. } if *t <= time)).cloned().collect();
         let snap = GameSnapshot { time, me: g.me, players: players.clone(), events: ev, ..snap(vec![], vec![]) };
-        let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
+        let advice = game_advice(&GameInput { snap: &snap, sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() });
         log.observe(&snap, &advice, sd, Some(sights));
     };
     for (time, blips) in &g.reads {

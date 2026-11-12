@@ -12,7 +12,7 @@ const ZED_I: usize = 7;
 
 fn advise(s: &GameSnapshot, stats: Option<&ChampStats>, tracker: &Tracker) -> GameAdvice {
     let sd = sd();
-    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker, ults: &HashMap::new(), notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     a
 }
@@ -139,7 +139,7 @@ fn an_enchanter_item_is_no_spike() {
     p[ZED_I].items.push(SHURELYAS);
     let s = GameSnapshot { time: 850.0, ..snap(p, vec![]) };
     t.observe(&s, &sd);
-    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() });
+    let mut a = game_advice(&GameInput { snap: &s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: &s, sd: &sd, tracker: &t, ults: &HashMap::new(), notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     assert!(!a.calls.iter().any(|c| c.key.starts_with(&format!("item-{ZED}-"))), "{:?}", a.calls);
 }

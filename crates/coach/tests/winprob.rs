@@ -60,9 +60,9 @@ fn stake<'a>(w: &'a WinProb, name: &str) -> Option<&'a Stake> {
 #[test]
 fn no_fit_no_number() {
     let (sd, s) = (sd(), even());
-    let shipped = Model::shipped();
-    assert_eq!(shipped.games, 0, "ships without a fit until tools/winprob has run");
-    assert_eq!(win_prob(&Input { model: shipped, snap: &s, sd: &sd, curves: &HashMap::new(), history: &[] }), None);
+    let unfitted = Model::default();
+    assert_eq!(unfitted.games, 0);
+    assert_eq!(win_prob(&Input { model: &unfitted, snap: &s, sd: &sd, curves: &HashMap::new(), history: &[] }), None);
     // A fit without a table for the mode.
     let rift_only = Model::parse("patch = \"16.22\"\ngames = 500\nknots = [0, 20]\n[rift]\ngold = [5.0, 6.0]").unwrap();
     let aram = GameSnapshot { mode: Mode::Aram, map: 12, ..even() };
@@ -98,6 +98,17 @@ fn the_newer_table_wins() {
     assert!(m("16.22", 12500).newer_than(&m("16.22", 10000)), "more games on the same patch");
     assert!(!m("16.22", 10000).newer_than(&m("16.22", 10000)));
     assert!(!m("16.21", 20000).newer_than(&m("16.22", 10000)));
+}
+
+#[test]
+fn the_shipped_table_is_a_fit_that_checks_out() {
+    let (sd, s) = (sd(), even());
+    let shipped = Model::shipped();
+    assert_eq!(shipped.fault(), None);
+    assert!(shipped.games >= 5000, "fitted on {} games", shipped.games);
+    assert!(shipped.rift.beta.contains_key("gold"));
+    let p = win_prob(&Input { model: shipped, snap: &s, sd: &sd, curves: &HashMap::new(), history: &[] }).expect("a number on the Rift");
+    assert!((0.35..=0.65).contains(&p.p), "an even game reads {}", p.p);
 }
 
 #[test]
@@ -491,8 +502,12 @@ fn the_advice_carries_it_and_the_gold_history_keeps_the_base() {
     assert_eq!(w, win(&s));
     assert!(w.p > w.base);
     assert_eq!(a.gold.history.last().unwrap().win, Some(w.base));
-    let none = advise(None);
-    assert_eq!((none.win, none.gold.history.last().unwrap().win), (None, None), "the built-in table has no fit yet");
+    let unfitted = Model::default();
+    let none = advise(Some(&unfitted));
+    assert_eq!((none.win, none.gold.history.last().unwrap().win), (None, None), "no fit, no number");
+    let built_in = advise(None);
+    let w = built_in.win.clone().expect("the built-in table is a fit");
+    assert_eq!(built_in.gold.history.last().unwrap().win, Some(w.base));
 }
 
 /// `fit.py` writes held-out states with its own probability; absent until a fit exists.

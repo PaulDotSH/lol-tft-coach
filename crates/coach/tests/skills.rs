@@ -85,7 +85,7 @@ fn vs_zed(games: u32) -> MatchupBuild {
 
 fn skill(s: &GameSnapshot, stats: Option<&ChampStats>, matchup: Option<&MatchupBuild>) -> Option<SkillNext> {
     let sd = sd();
-    game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() }).skill
+    game_advice(&GameInput { snap: s, sd: &sd, stats, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &Default::default() }).skill
 }
 
 #[test]

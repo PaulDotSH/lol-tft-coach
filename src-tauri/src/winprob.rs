@@ -21,11 +21,22 @@ fn checked(toml: &str) -> anyhow::Result<Model> {
     }
 }
 
+/// Where the table is read from: `LOL_COACH_WINPROB_URL`, else the minipc service when one is set
+/// (the table needs no token), else the data branch.
+fn table_url(env: Option<String>, server_url: &str) -> String {
+    let server = server_url.trim().trim_end_matches('/');
+    match env.filter(|u| !u.is_empty()) {
+        Some(url) => url,
+        None if !server.is_empty() => format!("{server}/v1/winprob.toml"),
+        None => URL.into(),
+    }
+}
+
 /// Looks for a published table now and every `EVERY`. One that is newer than the built-in
 /// table replaces it; a failed download leaves things as they are.
 pub async fn run(sh: Arc<Shared>) {
-    let url = std::env::var(URL_ENV).ok().filter(|u| !u.is_empty()).unwrap_or_else(|| URL.into());
     loop {
+        let url = table_url(std::env::var(URL_ENV).ok(), &sh.settings().server_url);
         match sh.http.get_parsed(&url, FRESH, checked).await {
             Ok(m) => {
                 let newer = m.newer_than(Model::shipped()).then(|| Arc::new(m));
@@ -47,6 +58,14 @@ pub async fn run(sh: Arc<Shared>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_table_comes_from_the_env_then_the_service_then_the_data_branch() {
+        assert_eq!(table_url(None, ""), URL);
+        assert_eq!(table_url(Some(String::new()), "  "), URL);
+        assert_eq!(table_url(None, "https://lol.example/"), "https://lol.example/v1/winprob.toml");
+        assert_eq!(table_url(Some("http://x/t.toml".into()), "https://lol.example"), "http://x/t.toml");
+    }
 
     #[test]
     fn only_a_usable_table_is_kept() {

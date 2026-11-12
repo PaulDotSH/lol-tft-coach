@@ -13,7 +13,7 @@ const HANDSET: &str = include_str!("../../../fixtures/coach/winprob_handset.toml
 
 fn advise(s: &GameSnapshot, winprob: Option<&Model>) -> GameAdvice {
     let sd = sd();
-    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob, situations: &Default::default() });
+    let mut a = game_advice(&GameInput { snap: s, sd: &sd, stats: None, augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(winprob.unwrap_or(&coach::winprob::Model::default())), situations: &Default::default() });
     live_extras(&mut a, &LiveInput { snap: s, sd: &sd, tracker: &Tracker::default(), ults: &HashMap::new(), notes: &LaneNotes::default(), spells: &HashMap::new(), memory: &[] });
     a
 }
@@ -172,8 +172,8 @@ fn options_name_the_biggest_stake_with_its_timer_and_the_shutdowns() {
 #[test]
 fn no_win_probability_no_posture() {
     let (sd, s) = (sd(), at(1140.0));
-    let mut a = advise(&s, None);
-    assert_eq!(a.win, None, "the built-in table has no fit yet");
+    let mut a = advise(&s, Some(&Model::default()));
+    assert_eq!(a.win, None, "a table without a fit gives no number");
     let mut m = PostureMemo::default();
     posture(&mut a, &mut m, &s, &sd);
     assert_eq!(a.posture, None);

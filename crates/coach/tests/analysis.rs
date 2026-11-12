@@ -561,7 +561,8 @@ fn live_samples_make_the_curve_when_the_app_watched_the_game() {
 
 #[test]
 fn no_fit_no_curve() {
-    let a = saved(Model::shipped());
+    let unfitted = Model::default();
+    let a = saved(&unfitted);
     assert!(a.gold.iter().all(|p| p.win.is_none()) && a.swings.is_empty());
     let rift_only = Model::parse("patch = \"t\"\ngames = 1\nknots = [0, 20]\n[rift]\ngold = [5.0, 6.0]").unwrap();
     let mut aram = detail();
@@ -571,6 +572,6 @@ fn no_fit_no_curve() {
     // Live samples from a game played under an older fit are not shown without one now.
     let mut recap = live_recap(vec![], None);
     recap.win_curve = vec![(0.0, 0.5), (60.0, 0.6)];
-    let a = analyze_match(&detail(), &sd(), None, Some(&recap), Model::shipped());
+    let a = analyze_match(&detail(), &sd(), None, Some(&recap), &unfitted);
     assert!(a.gold.iter().all(|p| p.win.is_none()) && a.swings.is_empty());
 }

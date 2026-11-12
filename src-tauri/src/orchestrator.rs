@@ -2,7 +2,7 @@
 //! warm in the background, runs the coach and pushes `state` to the UI on change.
 
 use crate::health::Reader;
-use crate::{debug, settings};
+use crate::{account, debug, settings};
 use crate::state::{Shared, StatsKey, ensure};
 use clients::live::{Live, LiveState};
 use model::*;
@@ -95,9 +95,11 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
     let mut last_discover: Option<Instant> = None;
     let mut memo = Memo { recap: load_last_recap(), ..Memo::default() };
     let mut last_json = String::new();
-    let macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
+    let mut macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
     let mut self_coach = crate::selfcoach::SelfCoach::default();
-    let rank_log = Arc::new(crate::ranked::RankLog::default());
+    let mut rank_log = Arc::new(crate::ranked::RankLog::default());
+    let account_watch = Arc::new(account::Watch::default());
+    let mut account_epoch = account::global().epoch();
     let (mut last_flow, mut last_phase, mut probed): (Option<String>, Option<Phase>, bool) = (None, None, false);
     let mut lcu_misses = 0u32;
 
@@ -121,6 +123,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             if let Some(c) = &lcu {
                 tracing::info!("League client found at {}", c.base);
                 *sh.league_install.lock().unwrap() = c.install_dir.clone();
+                *sh.lcu.lock().unwrap() = Some(c.clone());
                 let (c2, sh2) = (c.clone(), sh.clone());
                 tokio::spawn(async move {
                     match c2.augment_names().await {
@@ -133,6 +136,14 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                     tokio::spawn(debug::probe_lcu(c.clone()));
                 }
             }
+        }
+        if account::global().epoch() != account_epoch {
+            account_epoch = account::global().epoch();
+            tracing::info!("the account's files changed: reading them again");
+            macro_sync = Arc::new(crate::macro_sync::MacroSync::default());
+            self_coach = crate::selfcoach::SelfCoach::default();
+            rank_log = Arc::new(crate::ranked::RankLog::default());
+            memo.recap = load_last_recap();
         }
         let flow = match &lcu {
             Some(c) => match c.phase().await {
@@ -150,6 +161,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                 Err(e) => {
                     tracing::info!("League client lost: {e:#}");
                     lcu = None;
+                    *sh.lcu.lock().unwrap() = None;
                     lcu_misses = 0;
                     None
                 }
@@ -328,6 +340,8 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
         let trends = self_coach.tick(phase, macro_sync.games(), memo.recap.as_ref(), &settings.goals);
         let history = macro_sync.games().map(|g| g.to_vec()).unwrap_or_default();
         let ranked = rank_log.tick(lcu.as_ref(), phase);
+        account_watch.tick(lcu.as_ref(), phase);
+        let sync = sh.sync_status.lock().unwrap().clone();
         let goal_progress = if game.is_some() { memo.goal_progress.clone() } else { vec![] };
         let plan = if matches!(phase, Phase::ChampSelect | Phase::Loading | Phase::InGame) { memo.plan.clone() } else { None };
         push(&app, &sh, &mut last_json, move |st| {
@@ -343,6 +357,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             st.ranked = ranked;
             st.readers = readers;
             st.plan = plan;
+            st.sync = sync;
         });
 
         let tick = match phase {
@@ -796,7 +811,7 @@ fn recap(sh: &Arc<Shared>, sd: &StaticData, eog: &EogStats, memo: &Memo) -> Reca
     let bench = stats(sh, sd, eog.champ, memo.last_lane, eog.mode).map(|s| s.benchmarks.clone()).unwrap_or_default();
     let r = coach::recap(eog, &bench, &memo.recommended, sd);
     let r = crate::selfcoach::finish(r, &memo.log, sd, &sh.settings().goals, unix_now());
-    let path = settings::local_dir("recaps").join(format!("{}.json", unix_now()));
+    let path = account::dir("recaps").join(format!("{}.json", unix_now()));
     if let Ok(json) = serde_json::to_string_pretty(&r) {
         let _ = std::fs::write(path, json);
     }
@@ -804,7 +819,7 @@ fn recap(sh: &Arc<Shared>, sd: &StaticData, eog: &EogStats, memo: &Memo) -> Reca
 }
 
 fn load_last_recap() -> Option<Recap> {
-    let dir = settings::local_dir("recaps");
+    let dir = account::dir("recaps");
     let newest = std::fs::read_dir(dir).ok()?.filter_map(|e| e.ok()).map(|e| e.path()).max()?;
     serde_json::from_str(&std::fs::read_to_string(newest).ok()?).ok()
 }

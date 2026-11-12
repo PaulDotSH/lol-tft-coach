@@ -2,7 +2,7 @@
 //! tick) and appends a snapshot whenever it changed, so each ranked game
 //! leaves a point. Saved in the app's local dir; the client keeps no LP history.
 
-use crate::settings;
+use crate::account;
 use clients::lcu::Lcu;
 use model::*;
 use std::sync::{Arc, Mutex};
@@ -24,7 +24,7 @@ struct Inner {
 }
 
 fn path() -> std::path::PathBuf {
-    settings::local_dir("ranked").join("snapshots.json")
+    account::dir("ranked").join("snapshots.json")
 }
 
 fn same(a: &RankSnapshot, b: &RankSnapshot) -> bool {

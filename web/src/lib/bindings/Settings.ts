@@ -43,4 +43,12 @@ win_prob: boolean,
 /**
  * Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
  */
-posture_calls: boolean, };
+posture_calls: boolean, 
+/**
+ * Address of the minipc service (`https://host`); empty keeps everything on this PC.
+ */
+server_url: string, 
+/**
+ * Bearer token of that service. A secret: never logged, never copied to the service.
+ */
+server_token: string, };

@@ -77,6 +77,12 @@ data! {
         /// Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
         #[serde(default)]
         pub posture_calls: bool,
+        /// Address of the minipc service (`https://host`); empty keeps everything on this PC.
+        #[serde(default)]
+        pub server_url: String,
+        /// Bearer token of that service. A secret: never logged, never copied to the service.
+        #[serde(default)]
+        pub server_token: String,
     }
 
     /// One screen reader's health (Settings, "Screen reading").
@@ -167,6 +173,9 @@ data! {
         /// Game-plan card: champ select preview (Rift, all ten shown), loading and in game.
         #[serde(default)]
         pub plan: Option<GamePlan>,
+        /// One sentence on the sync with the minipc service (settings panel).
+        #[serde(default)]
+        pub sync: String,
     }
 }
 
@@ -176,6 +185,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, server_url: String::new(), server_token: String::new() }
     }
 }

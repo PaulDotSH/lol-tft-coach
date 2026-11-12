@@ -45,7 +45,7 @@ fn behind() -> GameSnapshot {
 
 fn advise(s: &GameSnapshot, sd: &StaticData, winprob: Option<&Model>, income: Option<f32>, sits: &HashMap<ItemId, ItemSituations>) -> GameAdvice {
     let st = stats();
-    game_advice(&GameInput { snap: s, sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income, winprob, situations: sits })
+    game_advice(&GameInput { snap: s, sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income, winprob: Some(winprob.unwrap_or(&coach::winprob::Model::default())), situations: sits })
 }
 
 fn buy(a: &GameAdvice) -> ItemId {
@@ -166,7 +166,7 @@ fn situations_are_asked_for_buy_next_its_alternatives_and_the_next_two_path_item
     p[0] = p[0].clone().items(&[LUDENS, RABADONS, SORCS]);
     let s = snap(p, vec![]);
     let st = ahri_stats();
-    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &HashMap::new() });
+    let a = game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&st), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: Some(&coach::winprob::Model::default()), situations: &HashMap::new() });
     assert_eq!(a.alternatives.len(), 2);
     let mut expect: Vec<(ItemId, BuildSlot)> = vec![];
     let all = a.buy_next.iter().chain(&a.alternatives).map(|p| (p.item, BuildSlot::Legendary(2))).chain(a.path[1..3].iter().enumerate().map(|(i, p)| (p.item, BuildSlot::Legendary(3 + i))));

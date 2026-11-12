@@ -2,7 +2,7 @@
 //! and after each game, never inside the tick) and turns it into a `MacroReport`.
 
 use crate::state::Shared;
-use crate::{orchestrator, settings};
+use crate::{account, orchestrator};
 use clients::lcu::Lcu;
 use model::*;
 use std::collections::HashMap;
@@ -73,7 +73,7 @@ impl MacroSync {
             st.last_try = Some(Instant::now());
             let (me, lcu) = (self.clone(), lcu.clone());
             tokio::spawn(async move {
-                let res = clients::history::sync(&lcu, &settings::local_dir("history")).await;
+                let res = clients::history::sync(&lcu, &account::dir("history")).await;
                 let mut st = me.0.lock().unwrap();
                 st.running = false;
                 match res {

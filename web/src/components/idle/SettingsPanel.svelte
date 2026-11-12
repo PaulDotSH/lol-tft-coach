@@ -5,7 +5,7 @@
   import type { Sources } from '../../lib/bindings/Sources';
   import { coachless, saveSettings } from '../../lib/store.svelte';
 
-  let { settings, sources, readers = [] }: { settings: Settings; sources: Sources; readers?: ReaderHealth[] } = $props();
+  let { settings, sources, readers = [], sync = '' }: { settings: Settings; sources: Sources; readers?: ReaderHealth[]; sync?: string } = $props();
 
   const READER_STATES: Record<ReaderState, string> = {
     ok: 'OK',
@@ -83,7 +83,15 @@
       <small>saves unit pictures of each fight and scouted board for training unit recognition; always on in debug mode</small>
     </label>
     <input id="crops" type="checkbox" checked={settings.tft_crops} onchange={(e) => set('tft_crops', e.currentTarget.checked)} />
+    <label for="server">
+      Server address
+      <small>your minipc service keeps your games, recaps and rank history; leave empty to keep everything on this PC</small>
+    </label>
+    <input id="server" type="text" placeholder="https://" autocomplete="off" spellcheck="false" value={settings.server_url} onchange={(e) => set('server_url', e.currentTarget.value.trim())} />
+    <label for="token">Access token</label>
+    <input id="token" type="password" autocomplete="off" value={settings.server_token} onchange={(e) => set('server_token', e.currentTarget.value.trim())} />
   </div>
+  {#if sync}<p class="sync">{sync}</p>{/if}
   {#if readers.length}
     <h3>Screen reading</h3>
     <ul class="readers">
@@ -109,6 +117,20 @@
   }
   small {
     display: block;
+    color: var(--faint);
+    font-size: 12px;
+  }
+  input[type='text'],
+  input[type='password'] {
+    width: 220px;
+    padding: 3px 6px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--raised);
+    color: inherit;
+  }
+  .sync {
+    margin: 8px 0 0;
     color: var(--faint);
     font-size: 12px;
   }

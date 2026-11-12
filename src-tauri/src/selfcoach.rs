@@ -2,7 +2,7 @@
 //! recap with the death review, summary and goal results, and keeps personal
 //! trends from saved recaps plus the match-history cache.
 
-use crate::settings;
+use crate::account;
 use model::*;
 use std::sync::Arc;
 
@@ -76,7 +76,7 @@ impl SelfCoach {
 /// The app's own recap of a history game: same champion and length, saved just after it ended.
 pub fn recap_for(g: &PastGame) -> Option<Recap> {
     let end = g.created / 1000 + g.duration_s as u64;
-    std::fs::read_dir(settings::local_dir("recaps"))
+    std::fs::read_dir(account::dir("recaps"))
         .ok()?
         .filter_map(|e| {
             let p = e.ok()?.path();
@@ -88,7 +88,7 @@ pub fn recap_for(g: &PastGame) -> Option<Recap> {
 }
 
 fn load_summaries() -> Vec<GameSummary> {
-    let Ok(dir) = std::fs::read_dir(settings::local_dir("recaps")) else { return vec![] };
+    let Ok(dir) = std::fs::read_dir(account::dir("recaps")) else { return vec![] };
     let mut v: Vec<GameSummary> = dir
         .filter_map(|e| std::fs::read_to_string(e.ok()?.path()).ok())
         .filter_map(|s| serde_json::from_str::<Recap>(&s).ok()?.summary)

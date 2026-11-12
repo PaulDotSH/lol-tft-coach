@@ -44,4 +44,8 @@ readers: Array<ReaderHealth>,
 /**
  * Game-plan card: champ select preview (Rift, all ten shown), loading and in game.
  */
-plan: GamePlan | null, };
+plan: GamePlan | null, 
+/**
+ * One sentence on the sync with the minipc service (settings panel).
+ */
+sync: string, };
