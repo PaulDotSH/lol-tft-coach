@@ -1,0 +1,188 @@
+# Hand-written kit tags, one line per champion, keyed by Data Dragon id: tag = the spell that
+# does it ("Q", "W", "E", "R" or "P" for the passive). `coach` pairs my tags with the lane
+# opponent's to write the lines that are about both kits. A champion left out, or a tag left
+# off, only means fewer lines. Melee or ranged, damage type and tankiness come from Data Dragon
+# and traits.toml; level 2 and level 6 from champ_notes.toml.
+#   poke        ranged harass                   autos       fights with basic attacks
+#   burst       all-in combo                    shield      shield or damage reduction
+#   sustain     heals without hitting a champion  armor_stack gains armour (and no magic resist)
+#   spell_shield blocks a spell or its CC       dodge       untargetable, parry or stasis
+#   auto_block  blocks or blinds basic attacks  proj_block  stops projectiles
+#   as_slow     cuts attack speed               hook        pull or leash that minions block
+#   bind        hard CC thrown as a projectile  point_cc    targeted hard CC
+#   zone_cc     hard CC placed on the ground
+#   engage      gap-closing hard engage         dash        dash or leap
+#   blink       instant move                    anti_dash   stops or interrupts dashes
+#   true_dmg    true damage                     pct_hp      damage by the target's health
+
+Aatrox = { dash = "E", pct_hp = "P" }
+Ahri = { poke = "Q", bind = "E", dash = "R", burst = "E", true_dmg = "Q" }
+Akali = { poke = "Q", dash = "E", burst = "R" }
+Akshan = { poke = "Q", dash = "E", autos = "P" }
+Alistar = { engage = "W", sustain = "P" }
+Ambessa = { dash = "P", shield = "W", engage = "R" }
+Amumu = { hook = "Q", engage = "R" }
+Anivia = { poke = "E", bind = "Q" }
+Annie = { poke = "Q", point_cc = "Q", burst = "R", shield = "E" }
+Aphelios = { autos = "P" }
+Ashe = { autos = "Q", poke = "W", bind = "R" }
+AurelionSol = { poke = "Q" }
+Aurora = { poke = "Q", dash = "W", burst = "R" }
+Azir = { poke = "Q", dash = "E", autos = "W" }
+Bard = { poke = "Q", bind = "Q", sustain = "W" }
+Belveth = { autos = "P", dash = "Q" }
+Blitzcrank = { hook = "Q" }
+Brand = { poke = "W", bind = "Q", pct_hp = "P", burst = "R" }
+Braum = { proj_block = "E", poke = "Q" }
+Briar = { autos = "W", dash = "Q", point_cc = "Q", engage = "R" }
+Caitlyn = { poke = "Q", autos = "P", zone_cc = "W", dash = "E" }
+Camille = { true_dmg = "Q", dash = "E", engage = "E" }
+Cassiopeia = { poke = "Q", anti_dash = "W", sustain = "E" }
+Chogath = { zone_cc = "Q", sustain = "P", true_dmg = "R" }
+Corki = { poke = "R", dash = "W" }
+Darius = { autos = "W", true_dmg = "R" }
+Diana = { poke = "Q", shield = "W", dash = "E", burst = "E", engage = "R" }
+DrMundo = { poke = "Q", pct_hp = "Q", sustain = "R", spell_shield = "P" }
+Draven = { autos = "Q" }
+Ekko = { poke = "Q", dash = "E", dodge = "R", burst = "E" }
+Elise = { poke = "Q", bind = "E", dodge = "E", pct_hp = "Q" }
+Evelynn = { burst = "R", point_cc = "W", dodge = "R" }
+Ezreal = { poke = "Q", blink = "E" }
+Fiddlesticks = { point_cc = "Q", sustain = "W", engage = "R" }
+Fiora = { dodge = "W", true_dmg = "P", dash = "Q" }
+Fizz = { dodge = "E", dash = "Q", burst = "R" }
+Galio = { poke = "Q", engage = "E", shield = "W" }
+Gangplank = { poke = "Q", sustain = "W", true_dmg = "P" }
+Garen = { sustain = "P", shield = "W", true_dmg = "R" }
+Gnar = { poke = "Q", autos = "W", pct_hp = "W", dash = "E", engage = "R" }
+Gragas = { poke = "Q", sustain = "P", engage = "E" }
+Graves = { burst = "Q", dash = "E", armor_stack = "E" }
+Gwen = { autos = "E", pct_hp = "P", true_dmg = "Q", dash = "E", dodge = "W" }
+Hecarim = { sustain = "W", dash = "E", engage = "R" }
+Heimerdinger = { poke = "W", bind = "E" }
+Hwei = { poke = "Q", bind = "E" }
+Illaoi = { pct_hp = "W", hook = "E" }
+Irelia = { autos = "P", dash = "Q", sustain = "Q", shield = "W", zone_cc = "E" }
+Ivern = { bind = "Q", shield = "E" }
+Janna = { poke = "W", bind = "Q", shield = "E" }
+JarvanIV = { poke = "Q", engage = "E", shield = "W" }
+Jax = { auto_block = "E", dash = "Q", autos = "W" }
+Jayce = { poke = "Q", dash = "Q" }
+Jhin = { poke = "Q", bind = "W", autos = "P" }
+Jinx = { autos = "Q", poke = "W", zone_cc = "E" }
+KSante = { dash = "E", shield = "E", engage = "W", pct_hp = "P" }
+Kaisa = { autos = "P", poke = "W", dash = "R" }
+Kalista = { autos = "P", dash = "P" }
+Karma = { poke = "Q", shield = "E", point_cc = "W" }
+Karthus = { poke = "Q" }
+Kassadin = { poke = "Q", shield = "Q", blink = "R" }
+Katarina = { poke = "Q", blink = "E", burst = "R" }
+Kayle = { poke = "Q", autos = "E", sustain = "W", dodge = "R" }
+Kayn = { dash = "E", dodge = "R" }
+Kennen = { poke = "Q", dash = "E", engage = "R" }
+Khazix = { burst = "Q", dash = "E" }
+Kindred = { autos = "P", dash = "Q", dodge = "R" }
+Kled = { bind = "Q", dash = "E", autos = "W", engage = "R" }
+KogMaw = { autos = "W", pct_hp = "W", poke = "R" }
+Leblanc = { poke = "Q", dash = "W", bind = "E", burst = "W" }
+LeeSin = { poke = "Q", dash = "W", shield = "W" }
+Leona = { engage = "E" }
+Lillia = { poke = "Q", true_dmg = "Q", pct_hp = "P" }
+Lissandra = { poke = "Q", blink = "E", point_cc = "R", dodge = "R" }
+Lucian = { autos = "P", dash = "E", poke = "Q" }
+Lulu = { poke = "Q", point_cc = "W", shield = "E" }
+Lux = { poke = "E", bind = "Q", shield = "W", burst = "R" }
+Malphite = { poke = "Q", as_slow = "E", armor_stack = "W", shield = "P", engage = "R" }
+Malzahar = { poke = "E", spell_shield = "P", point_cc = "R" }
+Maokai = { point_cc = "W", dodge = "W", sustain = "P", poke = "E" }
+MasterYi = { dodge = "Q", autos = "E", true_dmg = "E", sustain = "W" }
+Mel = { poke = "Q", proj_block = "W", bind = "E" }
+Milio = { poke = "Q", shield = "E", sustain = "W" }
+MissFortune = { poke = "Q", autos = "P" }
+MonkeyKing = { dash = "E", armor_stack = "P", engage = "R" }
+Mordekaiser = { shield = "W", pct_hp = "P" }
+Morgana = { bind = "Q", spell_shield = "E", poke = "W" }
+Naafiri = { poke = "Q", dash = "E" }
+Nami = { bind = "Q", sustain = "W", poke = "W" }
+Nasus = { as_slow = "W", sustain = "P" }
+Nautilus = { hook = "Q", shield = "W", point_cc = "R" }
+Neeko = { poke = "Q", bind = "E", engage = "R" }
+Nidalee = { poke = "Q", sustain = "E", dash = "W" }
+Nilah = { auto_block = "W", dash = "E", autos = "Q" }
+Nocturne = { spell_shield = "W", point_cc = "E", autos = "P", engage = "R" }
+Nunu = { sustain = "Q", engage = "W" }
+Olaf = { poke = "Q", autos = "W", sustain = "W", true_dmg = "E" }
+Orianna = { poke = "Q", shield = "E", burst = "R" }
+Ornn = { engage = "R", pct_hp = "W", shield = "W", dash = "E" }
+Pantheon = { poke = "Q", point_cc = "W", auto_block = "E" }
+Poppy = { anti_dash = "W", point_cc = "E", shield = "P", pct_hp = "Q" }
+Pyke = { hook = "Q", dash = "E", sustain = "P" }
+Qiyana = { dash = "E", burst = "R" }
+Quinn = { poke = "Q", dash = "E", autos = "P" }
+Rakan = { engage = "W", dash = "E", shield = "E" }
+Rammus = { point_cc = "E", engage = "Q" }
+RekSai = { engage = "W", dash = "E" }
+Rell = { engage = "W", shield = "W" }
+Renata = { bind = "Q", poke = "E", shield = "E" }
+Renekton = { point_cc = "W", dash = "E", sustain = "Q" }
+Rengar = { burst = "Q", dash = "P", sustain = "W" }
+Riven = { dash = "E", shield = "E", burst = "R" }
+Rumble = { poke = "E", shield = "W" }
+Ryze = { poke = "Q", point_cc = "W" }
+Samira = { proj_block = "W", dash = "E", burst = "R" }
+Sejuani = { engage = "Q", bind = "R" }
+Senna = { poke = "Q", autos = "P", sustain = "Q", bind = "W" }
+Seraphine = { poke = "Q", bind = "E", shield = "W" }
+Sett = { autos = "Q", shield = "W", true_dmg = "W" }
+Shaco = { blink = "Q", dodge = "R" }
+Shen = { auto_block = "W", engage = "E", dash = "E", shield = "P", pct_hp = "Q" }
+Shyvana = { autos = "Q", engage = "R" }
+Singed = { anti_dash = "W", point_cc = "E" }
+Sion = { engage = "R", shield = "W", poke = "E" }
+Sivir = { spell_shield = "E", poke = "Q", autos = "W" }
+Skarner = { engage = "R", shield = "W", pct_hp = "P" }
+Smolder = { poke = "Q", dash = "E" }
+Sona = { poke = "Q", sustain = "W", zone_cc = "R" }
+Soraka = { poke = "Q", zone_cc = "E" }
+Swain = { poke = "Q", bind = "E", sustain = "R" }
+Sylas = { sustain = "W", dash = "E", hook = "E", burst = "W" }
+Syndra = { poke = "Q", zone_cc = "E", burst = "R" }
+TahmKench = { bind = "Q", shield = "E", pct_hp = "P" }
+Taliyah = { poke = "Q", zone_cc = "W" }
+Talon = { burst = "Q", dash = "Q", poke = "W" }
+Taric = { sustain = "Q", armor_stack = "W", zone_cc = "E" }
+Teemo = { auto_block = "Q", poke = "E", autos = "E" }
+Thresh = { hook = "Q", shield = "W", anti_dash = "E" }
+Tristana = { autos = "Q", dash = "W", burst = "E" }
+Trundle = { autos = "Q", sustain = "P", pct_hp = "R" }
+Tryndamere = { autos = "P", dash = "E", sustain = "Q" }
+TwistedFate = { poke = "Q", point_cc = "W" }
+Twitch = { autos = "P", true_dmg = "P" }
+Udyr = { autos = "Q", shield = "W", sustain = "W" }
+Urgot = { autos = "W", engage = "E", poke = "Q", pct_hp = "P" }
+Varus = { poke = "Q", autos = "W", pct_hp = "W", bind = "R" }
+Vayne = { autos = "W", true_dmg = "W", dash = "Q", point_cc = "E" }
+Veigar = { poke = "Q", zone_cc = "E", burst = "R" }
+Velkoz = { poke = "Q", true_dmg = "P", zone_cc = "E" }
+Vex = { poke = "Q", shield = "W", burst = "R" }
+Vi = { engage = "Q", shield = "P", pct_hp = "W", point_cc = "R" }
+Viego = { autos = "Q", bind = "W" }
+Viktor = { poke = "E", shield = "Q", zone_cc = "W" }
+Vladimir = { poke = "Q", sustain = "Q", dodge = "W" }
+Volibear = { autos = "P", sustain = "W", shield = "E", point_cc = "Q" }
+Warwick = { sustain = "P", autos = "P", engage = "R" }
+Xayah = { autos = "W", dodge = "R", zone_cc = "E", poke = "Q" }
+Xerath = { poke = "Q", bind = "E" }
+XinZhao = { engage = "E", autos = "Q", sustain = "P" }
+Yasuo = { proj_block = "W", dash = "E", shield = "P", autos = "Q" }
+Yone = { dash = "E", autos = "Q", shield = "W", engage = "R" }
+Yorick = { poke = "E", sustain = "Q" }
+Yunara = { autos = "Q" }
+Yuumi = { poke = "Q", sustain = "E" }
+Zac = { engage = "E", sustain = "P", pct_hp = "W" }
+Zed = { poke = "Q", blink = "W", burst = "R", dodge = "R" }
+Zeri = { autos = "Q", dash = "E", poke = "W" }
+Ziggs = { poke = "Q", burst = "R" }
+Zilean = { poke = "Q", bind = "Q" }
+Zoe = { poke = "Q", bind = "E", blink = "R", burst = "Q" }
+Zyra = { poke = "Q", bind = "E" }

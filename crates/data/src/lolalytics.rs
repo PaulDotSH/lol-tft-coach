@@ -25,7 +25,7 @@
 use crate::num;
 use model_static::{
     Benchmarks, ChampKey, ChampStats, Champion, EarlySet, ItemId, ItemStat, Lane, LengthWin, Matchup, MatchupBuild, Mode, RuneData,
-    RunePage, RuneStat, TierEntry,
+    RunePage, RuneStat, SkillMax, TierEntry,
 };
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -109,6 +109,7 @@ pub async fn champ_stats(
         skill_order_games: page.skill_order_games,
         skill_priority: page.skill_priority,
         by_length: page.by_length,
+        start: page.start,
     })
 }
 
@@ -372,6 +373,8 @@ pub struct PageStats {
     pub skill_order_games: u32,
     pub skill_priority: String,
     pub by_length: Vec<LengthWin>,
+    /// Most played starting items (`pick.items.start.set`).
+    pub start: Vec<ItemId>,
 }
 
 /// Header and per-minute benchmarks from a build page; missing parts are None.
@@ -389,8 +392,9 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
         .unwrap_or_default();
     let hist = q.find_map(3, &["time", "timeWin"], |v| Some((avg_minutes(&v["time"])?, by_length(&v))));
     let minutes = hist.as_ref().map(|h| h.0);
-    let pick = q.find_map(3, &["pick", "win"], |v| v["pick"]["skillorder"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
+    let pick = q.find_map(5, &["pick", "win"], |v| v["pick"]["skillorder"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
     let (skill_order, skill_order_games) = skill_order(&pick);
+    let start = pick["items"]["start"]["set"].as_array().into_iter().flatten().filter_map(|x| num(x).map(|n| n as ItemId)).collect();
     let per_min = |keys: &[&str]| {
         let total: Option<f64> = keys.iter().map(|k| averages.get(*k).copied()).sum();
         Some((total? / minutes?) as f32)
@@ -410,18 +414,47 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
         skill_order_games,
         skill_priority: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
         by_length: hist.map_or(vec![], |h| h.1),
+        start,
     })
 }
 
-/// Matchup page: the header (`vs`, `vsLane`, `n`, `wr`) and the most played
+/// Matchup page: the header (`vs`, `vsLane`, `n`, `wr`, `usualWinRate`) and the most played
 /// `summary.pick`: `items` (`start` set, then `item1`..`item3` with `id`), `runes.set`,
-/// `sums.ids` and `skillpriority.id`.
+/// `sums.ids` and `skillpriority.id` (the highest win rate one from `summary.win`); the
+/// "Item 1" and "Boots" tables (rows `[id, win rate, pick rate, games, minute]`), the
+/// games by length (`time`, `timeWin`) and both summaries' `item1`..`item6` as build paths
+/// (slots from the fourth on are lists: their first row).
 pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBuild> {
     let q = crate::qwik::parse(html).ok_or_else(|| anyhow::anyhow!("no qwik/json state"))?;
-    let (games, win_rate) = q
-        .find_map(2, &["vs", "vsLane", "n", "wr"], |h| Some((num(&h["n"])? as u32, num(&h["wr"])? as f32)))
+    let (games, win_rate, usual_wr) = q
+        .find_map(2, &["vs", "vsLane", "n", "wr"], |h| Some((num(&h["n"])? as u32, num(&h["wr"])? as f32, num(&h["usualWinRate"]).map(|w| w as f32))))
         .ok_or_else(|| anyhow::anyhow!("no matchup header"))?;
-    let pick = q.find_map(6, &["pick", "win"], |v| v["pick"]["items"]["start"].is_object().then(|| v["pick"].clone())).unwrap_or_default();
+    let (pick, win) = q.find_map(6, &["pick", "win"], |v| v["pick"]["items"]["start"].is_object().then(|| (v["pick"].clone(), v["win"].clone()))).unwrap_or_default();
+    let table = |kind: &str, slot: Option<f64>| -> Vec<ItemStat> {
+        let rows = |v: Value| {
+            let row = |r: &Value| {
+                let (wr, n) = (num(&r[1])?, num(&r[3])?);
+                Some(ItemStat { id: num(&r[0])? as ItemId, games: n as u32, wins: (wr * n / 100.0).round() as u32 })
+            };
+            (v["type"] == kind && slot.is_none_or(|s| num(&v["n"]) == Some(s))).then(|| v["data"].as_array().into_iter().flatten().filter_map(row).collect())
+        };
+        q.find_map(3, &["data", "title", "type"], rows).unwrap_or_default()
+    };
+    let max = |s: &Value| {
+        let p = &s["skillpriority"];
+        Some(SkillMax { order: p["id"].as_str().filter(|o| !o.is_empty())?.to_owned(), win_rate: num(&p["wr"])? as f32, games: num(&p["n"])? as u32 })
+    };
+    let path = |s: &Value| -> Vec<ItemStat> {
+        let step = |k: &&str| {
+            let v = &s["items"][*k];
+            let r = if v.is_array() { &v[0] } else { v };
+            let (wr, n) = (num(&r["wr"])?, num(&r["n"])?);
+            Some(ItemStat { id: num(&r["id"])? as ItemId, games: n as u32, wins: (wr * n / 100.0).round() as u32 })
+        };
+        ["item1", "item2", "item3", "item4", "item5", "item6"].iter().map_while(step).collect()
+    };
+    let mut skill_max: Vec<SkillMax> = max(&pick).into_iter().chain(max(&win)).collect();
+    skill_max.dedup_by(|b, a| a.order == b.order);
     let ids = |v: &Value| -> Vec<u32> { v.as_array().into_iter().flatten().filter_map(|x| num(x).map(|n| n as u32)).collect() };
     // item1..3 are single rows; later slots are lists of rows.
     let first_id = |v: &Value| num(if v.is_array() { &v[0]["id"] } else { &v["id"] }).map(|n| n as ItemId);
@@ -442,6 +475,13 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
         skills: pick["skillpriority"]["id"].as_str().unwrap_or_default().to_owned(),
         skill_order,
         skill_order_games,
+        usual_wr,
+        first_items: table("itemItem", Some(1.0)),
+        boots: table("boots", None),
+        skill_max,
+        by_length: q.find_map(3, &["time", "timeWin"], |v| Some(by_length(&v))).unwrap_or_default(),
+        path: path(&pick),
+        best_path: path(&win),
     })
 }
 
@@ -598,6 +638,26 @@ mod tests {
         assert_eq!((p.shards.as_slice(), p.win_rate, p.games), ([5005, 5001, 5001].as_slice(), 57.95, 1648));
         assert_eq!((m.summoners.as_slice(), m.skills.as_str()), ([4, 7].as_slice(), "QEW"));
         assert_eq!((m.skill_order.as_str(), m.skill_order_games), ("QEWQQRQEQEREEWW", 301));
+        assert_eq!(m.skill_max.iter().map(|s| s.order.as_str()).collect::<Vec<_>>(), ["QEW"], "most played and best are the same");
+    }
+
+    #[test]
+    fn matchup_page_tables() {
+        let m = parse_matchup_page(&fixture("lolalytics-vs-malphite-sett.html"), 875).unwrap();
+        assert_eq!((m.games, m.win_rate, m.usual_wr), (4231, 55.07, Some(53.39)));
+        let rows = |v: &[ItemStat]| v.iter().take(4).map(|i| (i.id, i.games, i.wins)).collect::<Vec<_>>();
+        // Sunfire 55.23% of 2198, Malignance 56.84% of 906, Frozen Heart 56.07% of 560, Thornmail 50.96% of 261.
+        assert_eq!(rows(&m.first_items), [(3068, 2198, 1214), (3118, 906, 515), (3110, 560, 314), (3075, 261, 133)]);
+        // Steelcaps 55.87% of 3295, Mercury's 48.33% of 420, Sorcerer's 61.2% of 317.
+        assert_eq!(rows(&m.boots)[..3], [(3047, 3295, 1841), (3111, 420, 203), (3020, 317, 194)]);
+        let max: Vec<(&str, f32, u32)> = m.skill_max.iter().map(|s| (s.order.as_str(), s.win_rate, s.games)).collect();
+        assert_eq!(max, [("QEW", 55.72, 2482), ("WQE", 59.77, 261)]);
+        let length: Vec<(u32, u32, u32)> = m.by_length.iter().map(|w| (w.from_min, w.games, w.wins)).collect();
+        assert_eq!(length, [(0, 40, 19), (15, 282, 171), (20, 653, 373), (25, 1412, 778), (30, 1151, 636), (35, 508, 275), (40, 185, 78)]);
+        // Most played: Sunfire, Steelcaps, Thornmail, Kaenic Rookern, Unending Despair; best: Malignance, Sorcerer's, Sunfire, Thornmail, Randuin's.
+        assert_eq!(rows(&m.path)[..3], [(3068, 2198, 1214), (3047, 3296, 1841), (3075, 1232, 679)]);
+        assert_eq!(m.path.iter().map(|i| i.id).take(5).collect::<Vec<_>>(), [3068, 3047, 3075, 2504, 6665]);
+        assert_eq!(m.best_path.iter().map(|i| i.id).take(5).collect::<Vec<_>>(), [3118, 3020, 3068, 3075, 3143]);
     }
 
     #[test]
@@ -676,6 +736,14 @@ mod tests {
         assert_eq!(row("1321".into()), (String::new(), 0), "shorter than 6 levels");
         assert_eq!(row(1321514.into()), (String::new(), 0), "digit outside 1-4");
         assert_eq!(row(Value::Null), (String::new(), 0));
+    }
+
+    #[test]
+    fn build_page_start_items() {
+        let p = parse_build_page(&fixture("lolalytics-build-thresh-support.html")).unwrap();
+        assert_eq!(p.start, [3865, 2003, 2003], "World Atlas and two potions");
+        let p = parse_build_page(&fixture("lolalytics-build-ahri-middle.html")).unwrap();
+        assert!(p.start.is_empty(), "no summary on this page");
     }
 
     #[test]

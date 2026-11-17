@@ -23,7 +23,7 @@ development; remote is github.com/PaulDotSH/lol-tft-coach (branch `master`).
   TFT loop (`tft.rs`), native overlay windows (`overlay/`), commands, tray.
 - `crates/model` re-exports `model-core/static/game/live/draft/review`: shared
   types. `data`: Data Dragon, lolalytics, u.gg, Coachless, disk cache (hand-written
-  `champ_notes.toml`, `matchup_notes.toml`, `traits.toml`). `clients`: League
+  `champ_notes.toml`, `matchup_notes.toml`, `kits.toml`, `traits.toml`). `clients`: League
   client (LCU), Riot Client (standalone TFT client presence), Live Client API. `coach`: pure decisions, tuning in
   `consts.rs`, `modes.toml`, `augments.toml`. `ocr`: GDI capture + Windows OCR.
   `tft-model/data/coach/vision/embed/choncc`: the TFT side.

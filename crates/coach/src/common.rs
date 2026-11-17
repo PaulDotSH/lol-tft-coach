@@ -78,6 +78,33 @@ pub fn build_source(stats: Option<&ChampStats>) -> String {
     }
 }
 
+/// The start set: the build page's most played one, else the most played opening among the
+/// early sets (they run on into the first back, so each is cut at starting gold).
+pub fn opening(sd: &StaticData, stats: &ChampStats) -> Vec<ItemId> {
+    if !stats.start.is_empty() {
+        return stats.start.clone();
+    }
+    let mut openings: Vec<(Vec<ItemId>, u32)> = Vec::new();
+    for e in &stats.early {
+        let mut gold = 0;
+        let open: Vec<ItemId> = e
+            .items
+            .iter()
+            .copied()
+            .take_while(|id| {
+                gold += sd.items.get(id).map_or(0, |i| i.cost);
+                gold <= START_GOLD
+            })
+            .collect();
+        match openings.iter_mut().find(|(o, _)| *o == open) {
+            Some((_, g)) => *g += e.games,
+            None if !open.is_empty() => openings.push((open, e.games)),
+            None => {}
+        }
+    }
+    openings.into_iter().max_by_key(|(_, g)| *g).map(|(o, _)| o).unwrap_or_default()
+}
+
 pub fn lolalytics_source(s: &ChampStats) -> String {
     if s.patch.contains('.') { format!("lolalytics {}", s.patch) } else { format!("lolalytics, last {} days", s.patch) }
 }

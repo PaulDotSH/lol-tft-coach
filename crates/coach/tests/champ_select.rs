@@ -101,6 +101,12 @@ fn tier_board_ranks_counters_to_the_lane_opponent() {
     assert_eq!((syndra.tier.as_deref(), syndra.vs_wr, syndra.vs_games), (Some("S+"), Some(48.0), 3_000));
     assert_eq!(t.best[0].vs_wr, Some(50.0));
 
+    // An enemy outside my lane (their bot laner for a support): their win rates against my lane's champions.
+    let inp = ChampSelectInput { cs: &c, sd: &sd(), mine: None, enemies: &[], tier_list: &tiers, mayhem: None, draft: Default::default() };
+    let other = coach::tier_counters(&inp, &[matchup(AHRI, 44.0, 900, Lane::Middle), matchup(LUX, 53.0, 2_000, Lane::Middle), matchup(SYNDRA, 40.0, 10, Lane::Middle), matchup(VLADIMIR, 30.0, 5_000, Lane::Middle)]);
+    assert_eq!(other.iter().map(|p| (p.champ, p.vs_wr)).collect::<Vec<_>>(), [(AHRI, Some(56.0)), (LUX, Some(47.0))], "few games and banned left out");
+    assert!(t.others.is_empty(), "filled in once their matchups are fetched");
+
     // Zed plays top: no lane opponent, the tier list alone.
     let mut z = zed_stats();
     z.lanes = [(Lane::Top, 90.0)].into();
@@ -172,6 +178,8 @@ fn build_plan_once_champ_known() {
     assert!(b.core.iter().any(|p| p.item == MORELLO), "healers revealed: {:?}", b.core);
     assert_eq!(b.boots.map(|p| p.item), Some(SORCS));
     assert_eq!(a.my_champ, Some(AHRI));
+    let page = ChampStats { start: vec![1055, 2003], ..st };
+    assert_eq!(run(&c, Some(&page), &[], &mid_tiers(), None).build.unwrap().start, vec![1055, 2003], "the build page's start set wins");
 
     // Stats for a different champion are ignored.
     c.my_pick = Some(LUX);
@@ -368,6 +376,13 @@ fn runes_against_the_lane_opponent_come_first() {
         skills: String::new(),
         skill_order: String::new(),
         skill_order_games: 0,
+        usual_wr: None,
+        first_items: vec![],
+        boots: vec![],
+        skill_max: vec![],
+        by_length: vec![],
+        path: vec![],
+        best_path: vec![],
     };
     let a = champ_select_runes(&inp, &VsRunes { vs: ZED, coachless: Some(&vs_cl), lolalytics: Some(&lola_vs) }).unwrap();
     assert_eq!(

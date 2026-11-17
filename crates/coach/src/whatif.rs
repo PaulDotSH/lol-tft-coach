@@ -793,6 +793,7 @@ mod tests {
             skill_order_games: 0,
             skill_priority: String::new(),
             by_length: vec![],
+            start: vec![],
         }
     }
 

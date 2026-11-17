@@ -147,6 +147,7 @@ fn live_full_game() {
     assert_eq!(g.players.len(), 10);
     let champs: Vec<u32> = g.players.iter().map(|p| p.champ).collect();
     assert_eq!(champs, vec![86, 64, 103, 222, 412, 62, 254, 238, 145, 111]);
+    assert_eq!(g.players[0].keystone, Some(8112), "Electrocute");
 
     let me = &g.players[2];
     assert_eq!((me.riot_id.as_str(), me.team, me.position, me.level), ("Mid Main#EUW", Team::Order, Some(Lane::Middle), 11));

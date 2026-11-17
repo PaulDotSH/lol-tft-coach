@@ -484,6 +484,7 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
     };
     let mut advice = coach::champ_select_advice(&input);
+    crate::draft::tier_others(sh, sd, &input, &mut advice);
     // Rune pages against my lane opponent need the lanes the draft report placed.
     if let Some(v) = mine.as_deref().and_then(|m| crate::draft::vs_runes(sh, sd, cs, &advice, m.win_rate)) {
         let vs = coach::VsRunes { vs: v.vs, coachless: v.coachless.as_deref().and_then(Option::as_ref), lolalytics: v.lolalytics.as_deref() };
@@ -613,6 +614,7 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let spells = crate::ingame::spells(sh, sd, &faced);
     let notes = crate::draft::lane_notes();
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
+    coach::matchup_numbers(&mut advice.matchup, sd, vs_page.as_deref());
     coach::posture(&mut advice, &mut memo.posture, snap, sd);
     let watch = snap.mode == Mode::Rift && settings.gank_warn;
     *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx {

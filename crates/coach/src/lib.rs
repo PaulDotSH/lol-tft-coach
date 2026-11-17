@@ -23,6 +23,7 @@ mod matchups;
 mod memory;
 mod modes;
 mod needs;
+pub mod pair_tips;
 mod picks;
 mod plan;
 mod posture;
@@ -50,7 +51,7 @@ pub mod winprob;
 
 pub use analysis::{analyze_match, compare_past};
 pub use augments::offer_places;
-pub use lane_matchup::{CardData, PlanInput as MatchupInput, opposing as opposing_lanes, plan as matchup_plan};
+pub use lane_matchup::{CardData, PlanInput as MatchupInput, card as matchup_card, numbers as matchup_numbers, opposing as opposing_lanes, plan as matchup_plan};
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use memory::matchup_memory;
@@ -156,6 +157,9 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
     let my_lane = stats.and_then(|s| s.lane);
     let gold_diff = gold::gold_diff(snap, sd, a.lane_opp, my_lane, me_stats.item_gold_vs_opp, win.as_ref().map(|w| w.base), gold_history);
     let path_ids: Vec<ItemId> = b.path.iter().map(|s| s.id).collect();
+    let opening = me
+        .filter(|p| snap.mode == Mode::Rift && (snap.time < consts::OPENING_UNTIL_S || !p.items.iter().any(|i| sd.items.contains_key(i))))
+        .map(|_| stats.map_or(vec![], |s| common::opening(sd, s)));
     let what_if = ctx.sim.as_ref().map_or(vec![], |s| b.path.first().into_iter().chain(&b.alts).filter_map(|x| sd.items.get(&x.id)).map(|it| s.eval(it)).collect());
     GameAdvice {
         time: snap.time,
@@ -174,7 +178,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         defense: resists::defense(snap.my_stats.as_ref(), &a.foes, est, notes),
         threats: a.threats,
         gold: gold_diff,
-        shopping: me.map_or_else(ShoppingList::default, |p| shop::shopping(sd, snap.mode, p, snap.my_gold, &path_ids)),
+        shopping: me.map_or_else(ShoppingList::default, |p| shop::shopping(sd, snap.mode, p, snap.my_gold, &path_ids, opening.as_deref())),
         gold_eta: me.filter(|_| !path_ids.is_empty()).map(|p| shop::eta(sd, snap.mode, p, snap.my_gold, &path_ids, None)),
         deaths: windows::deaths(snap),
         my_augments: my_augments.to_vec(),
@@ -245,7 +249,8 @@ pub fn live_extras(advice: &mut GameAdvice, input: &LiveInput) {
     tips::annotate(advice, snap, sd, tracker);
     jungle::annotate(advice, snap, sd, tracker);
     let me = snap.players.get(snap.me).map_or(0, |p| p.champ);
-    advice.matchup = lane_matchup::laning(advice, snap, &CardData { sd, notes, me, spells, memory });
+    let keystone = snap.players.get(snap.me).and_then(|p| p.keystone);
+    advice.matchup = lane_matchup::laning(advice, snap, &CardData { sd, notes, me, keystone, spells, memory });
 }
 
 /// After [`live_extras`]: the posture read from `advice.win` (None without it), kept steady by
@@ -273,6 +278,8 @@ pub struct ChampSelectInput<'a> {
 pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
     champ_select::advice(input)
 }
+
+pub use champ_select::tier_counters;
 
 /// `champ_select_advice`'s rune pages with the pages against my lane opponent added.
 pub fn champ_select_runes(input: &ChampSelectInput, vs: &VsRunes) -> Option<RuneAdvice> {

@@ -351,6 +351,7 @@ pub fn player(champ: ChampKey, team: Team, position: Option<Lane>) -> Player {
         respawn_in: 0.0,
         smite: false,
         spells: vec![],
+        keystone: None,
     }
 }
 
@@ -485,5 +486,6 @@ pub fn ahri_stats() -> ChampStats {
         skill_order_games: 5_000,
         skill_priority: "QWE".into(),
         by_length: vec![],
+        start: vec![],
     }
 }
