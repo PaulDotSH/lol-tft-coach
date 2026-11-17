@@ -196,6 +196,7 @@ fn comp_spikes_lane_and_record_lines() {
         note: Some(note(false, "Q poke and E stun")),
         pair: None,
         pair_more: vec![],
+        ai: vec![],
         kit: vec![],
         numbers: vec![],
         path: vec![],

@@ -37,14 +37,10 @@ pub fn card(d: &CardData, champ: ChampKey, vs: Option<(f32, u32)>, level: Option
     let id = |c: ChampKey| d.sd.champs.get(&c).map(|c| c.id.as_str());
     let note = id(champ).and_then(|i| d.notes.champs.get(i));
     let watch = note.map_or("", |n| n.watch.as_str());
-    let keystone = d.keystone.and_then(|k| d.sd.runes.get(&k)).map(|r| r.name.as_str());
     let pair = id(d.me).zip(id(champ)).map_or(&[][..], |(m, t)| d.notes.pair(m, t));
     // A hand-written list says what the kit rules would, better.
     let hand_written = pair.len() > 1;
-    let mut tips = pair
-        .iter()
-        .filter(|t| t.keystone.as_deref().zip(keystone).is_none_or(|(theirs, mine)| theirs.eq_ignore_ascii_case(mine)))
-        .map(|t| t.keystone.as_ref().map_or(t.text.clone(), |k| format!("{k}: {}", t.text)));
+    let mut tips = shown(pair, d.sd, d.keystone).into_iter();
     let spells = d.spells.get(&champ).map_or(vec![], |s| {
         s.iter()
             .zip(KEYS)
@@ -63,12 +59,40 @@ pub fn card(d: &CardData, champ: ChampKey, vs: Option<(f32, u32)>, level: Option
         note: note.cloned(),
         pair: tips.next(),
         pair_more: tips.collect(),
+        ai: vec![],
         kit: if hand_written { vec![] } else { crate::pair_tips::kit(d.sd, d.notes, d.me, champ) },
         numbers: vec![],
         path: vec![],
         best_path: vec![],
         spells,
         record: d.memory.iter().find(|m| m.champ == champ).cloned(),
+    }
+}
+
+/// Pair tips as the card shows them: a keystone's tip under the keystone's name, and only when
+/// that keystone is mine or mine isn't known.
+fn shown(tips: &[PairTip], sd: &StaticData, keystone: Option<RuneId>) -> Vec<String> {
+    let mine = keystone.and_then(|k| sd.runes.get(&k)).map(|r| r.name.as_str());
+    tips.iter()
+        .filter(|t| t.keystone.as_deref().zip(mine).is_none_or(|(theirs, mine)| theirs.eq_ignore_ascii_case(mine)))
+        .map(|t| t.keystone.as_ref().map_or(t.text.clone(), |k| format!("{k}: {}", t.text)))
+        .collect()
+}
+
+/// Queues the model is asked for tips in: ranked solo/duo, ranked flex and Clash, and custom
+/// games, which have no queue (0 or less). Not normal draft, Swiftplay or ARAM modes.
+pub fn ai_queue(queue: i64) -> bool {
+    queue <= 0 || [420, 440, 700].contains(&queue)
+}
+
+/// Tips the model wrote for me against `champ` onto that opponent's card, in place of the
+/// lines made from both kits.
+pub fn ai_tips(cards: &mut [MatchupCard], sd: &StaticData, champ: ChampKey, tips: &[PairTip], keystone: Option<RuneId>) {
+    if let Some(c) = cards.iter_mut().find(|c| c.champ == champ) {
+        c.ai = shown(tips, sd, keystone);
+        if !c.ai.is_empty() {
+            c.kit.clear();
+        }
     }
 }
 

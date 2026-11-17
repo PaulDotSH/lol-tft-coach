@@ -44,6 +44,8 @@ const RECORD_EVERY: Duration = Duration::from_secs(30);
 struct Memo {
     mode: Option<Mode>,
     my_lane: Option<Lane>,
+    /// The game's queue from champ select or the loading screen (0 or less: a custom game); None when neither was seen.
+    queue: Option<i64>,
     queue_checked: bool,
     /// The running game is not League (TFT): no live coaching.
     not_lol: bool,
@@ -209,6 +211,7 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
                         Ok(Some(cs)) => {
                             memo.mode = Some(cs.mode);
                             memo.my_lane = cs.my_lane;
+                            memo.queue = Some(cs.queue_id);
                             debug::dump("champ-select", Duration::from_secs(2), &cs);
                             let mut advice = champ_select_advice(&sh, &sd, &cs);
                             let games = macro_sync.games();
@@ -228,10 +231,16 @@ pub async fn run(app: AppHandle, sh: Arc<Shared>) {
             Phase::Loading | Phase::NoClient | Phase::Idle => {
                 if matches!(phase, Phase::Loading) && !memo.queue_checked
                     && let Some(c) = &lcu {
-                        if let Ok(Some((q, game_mode))) = c.queue().await {
-                            memo.not_lol = game_mode == "TFT";
-                            memo.mode = Some(Mode::from_queue_mode(q, &game_mode));
-                            tracing::info!("queue {q} ({game_mode}) → {:?}", memo.mode);
+                        match c.queue().await {
+                            Ok(Some((q, game_mode))) => {
+                                memo.not_lol = game_mode == "TFT";
+                                memo.mode = Some(Mode::from_queue_mode(q, &game_mode));
+                                memo.queue = Some(q);
+                                tracing::info!("queue {q} ({game_mode}) → {:?}", memo.mode);
+                            }
+                            // A session without a queue is a custom game.
+                            Ok(None) => memo.queue = memo.queue.or(Some(0)),
+                            Err(_) => {}
                         }
                         memo.queue_checked = true;
                     }
@@ -630,6 +639,13 @@ fn game_advice(sh: &Arc<Shared>, sd: &StaticData, snap: &GameSnapshot, settings:
     let notes = crate::draft::lane_notes();
     coach::live_extras(&mut advice, &coach::LiveInput { snap, sd, tracker: &memo.tracker, ults: &ults, notes, spells: &spells, memory: &memory });
     coach::matchup_numbers(&mut advice.matchup, sd, vs_page.as_deref());
+    if let (Some(l), Some(queue)) = (lane, memo.queue) {
+        for p in snap.players.iter().filter(|p| p.team != me.team && faced.contains(&p.champ)) {
+            if let Some(tips) = crate::draft::ai_tips(sh, sd, queue, me.champ, p.champ, l, p.position.unwrap_or(l)) {
+                coach::matchup_ai(&mut advice.matchup, sd, p.champ, &tips, me.keystone);
+            }
+        }
+    }
     coach::posture(&mut advice, &mut memo.posture, snap, sd);
     let watch = snap.mode == Mode::Rift && settings.gank_warn;
     *sh.gank_ctx.lock().unwrap() = watch.then(|| crate::state::GankCtx {

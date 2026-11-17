@@ -45,6 +45,12 @@ win_prob: boolean,
  */
 posture_calls: boolean, 
 /**
+ * Ask Claude (the Claude Code CLI on this PC, with its login) for tips on a lane pairing that has
+ * no hand-written ones, once per pairing, in ranked, Clash and custom games; they are kept
+ * under `%APPDATA%\lol-coach\ai-tips`.
+ */
+ai_tips: boolean, 
+/**
  * Address of the minipc service (`https://host`); empty keeps everything on this PC.
  */
 server_url: string, 

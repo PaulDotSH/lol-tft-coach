@@ -14,7 +14,7 @@ import { fullBuildSinks, mayhemDefense, mayhemPicks, riftDefense } from './items
 import { riftPlan } from './plan';
 import { asheCard, asheLaning, ezrealCard, nautilusCard, zedCard, zedLaning, zoeCard, zoeLaning } from './matchup';
 
-export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, server_url: '', server_token: '' };
+export const settings: Settings = { tier: 'emerald_plus', region: 'all', ocr_enabled: true, record_fixtures: false, goals, audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, ai_tips: true, server_url: '', server_token: '' };
 
 const rp = (id: number, name: string, icon: string, reason: string | null = null) => ({ id, name, icon: `perk-images/${icon}`, reason });
 const electrocute = rp(8112, 'Electrocute', 'Styles/Domination/Electrocute/Electrocute.png');

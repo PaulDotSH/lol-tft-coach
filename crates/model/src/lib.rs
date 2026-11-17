@@ -77,6 +77,11 @@ data! {
         /// Speak the posture's stance changes as calls. Off by default: the app is silent unless asked.
         #[serde(default)]
         pub posture_calls: bool,
+        /// Ask Claude (the Claude Code CLI on this PC, with its login) for tips on a lane pairing that has
+        /// no hand-written ones, once per pairing, in ranked, Clash and custom games; they are kept
+        /// under `%APPDATA%\lol-coach\ai-tips`.
+        #[serde(default = "yes")]
+        pub ai_tips: bool,
         /// Address of the minipc service (`https://host`); empty keeps everything on this PC.
         #[serde(default)]
         pub server_url: String,
@@ -185,6 +190,6 @@ fn yes() -> bool {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, server_url: String::new(), server_token: String::new() }
+        Settings { tier: "emerald_plus".into(), region: "all".into(), ocr_enabled: true, record_fixtures: false, goals: vec![], audio: true, overlay: false, gank_warn: true, game_note: true, tft_crops: false, win_prob: true, posture_calls: false, ai_tips: true, server_url: String::new(), server_token: String::new() }
     }
 }

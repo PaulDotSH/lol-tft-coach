@@ -51,7 +51,9 @@ pub mod winprob;
 
 pub use analysis::{analyze_match, compare_past};
 pub use augments::offer_places;
-pub use lane_matchup::{CardData, PlanInput as MatchupInput, card as matchup_card, numbers as matchup_numbers, opposing as opposing_lanes, plan as matchup_plan};
+pub use lane_matchup::{
+    CardData, PlanInput as MatchupInput, ai_queue, ai_tips as matchup_ai, card as matchup_card, numbers as matchup_numbers, opposing as opposing_lanes, plan as matchup_plan,
+};
 pub use gold::{GoldHistory, HISTORY_MAX, SAMPLE_STEP};
 pub use macro_coach::MAX_PATTERNS;
 pub use memory::matchup_memory;

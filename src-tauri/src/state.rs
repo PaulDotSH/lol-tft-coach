@@ -80,6 +80,9 @@ pub struct Shared {
     /// Matchup card: my counters against an opposing lane, and matchup pages.
     pub vs_counters: Cache<(ChampKey, Lane, Lane), Vec<Matchup>>,
     pub matchups: Cache<(ChampKey, ChampKey, Lane, Lane), MatchupBuild>,
+    /// Tips Claude wrote for (me, them, my lane), read from disk or asked once, and the last outcome.
+    pub ai_tips: Cache<(ChampKey, ChampKey, Lane), Vec<PairTip>>,
+    pub ai_ok: Mutex<Option<bool>>,
     /// ARAM tier list (all champions) for the ARAM / Mayhem bench.
     pub aram_tiers: Cache<(), Vec<TierEntry>>,
     /// Data Dragon R cooldowns per champion, and the last fetch outcome.
@@ -166,6 +169,8 @@ impl Shared {
             team: Mutex::default(),
             vs_counters: Mutex::default(),
             matchups: Mutex::default(),
+            ai_tips: Mutex::default(),
+            ai_ok: Mutex::new(None),
             aram_tiers: Mutex::default(),
             ults: Mutex::default(),
             spells: Mutex::default(),

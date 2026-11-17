@@ -29,6 +29,10 @@ pair: string | null,
  */
 pair_more: Array<string>, 
 /**
+ * Tips Claude wrote for this pairing (asked once, kept on disk); empty until they are there.
+ */
+ai: Array<string>, 
+/**
  * Lines from my kit against theirs (`coach::pair_tips`); empty when no rule fits.
  */
 kit: Array<string>, 
