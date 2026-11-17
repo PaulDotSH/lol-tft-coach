@@ -16,6 +16,8 @@ pub struct CardData<'a> {
     pub notes: &'a LaneNotes,
     /// My champion (pair notes).
     pub me: ChampKey,
+    /// My keystone when known (in game): pair tips for another keystone are left out.
+    pub keystone: Option<RuneId>,
     /// Data Dragon Q W E R per champion, as fetched so far.
     pub spells: &'a HashMap<ChampKey, Vec<SpellInfo>>,
     /// My record against each enemy (`matchup_memory`).
@@ -35,6 +37,14 @@ pub fn card(d: &CardData, champ: ChampKey, vs: Option<(f32, u32)>, level: Option
     let id = |c: ChampKey| d.sd.champs.get(&c).map(|c| c.id.as_str());
     let note = id(champ).and_then(|i| d.notes.champs.get(i));
     let watch = note.map_or("", |n| n.watch.as_str());
+    let keystone = d.keystone.and_then(|k| d.sd.runes.get(&k)).map(|r| r.name.as_str());
+    let pair = id(d.me).zip(id(champ)).map_or(&[][..], |(m, t)| d.notes.pair(m, t));
+    // A hand-written list says what the kit rules would, better.
+    let hand_written = pair.len() > 1;
+    let mut tips = pair
+        .iter()
+        .filter(|t| t.keystone.as_deref().zip(keystone).is_none_or(|(theirs, mine)| theirs.eq_ignore_ascii_case(mine)))
+        .map(|t| t.keystone.as_ref().map_or(t.text.clone(), |k| format!("{k}: {}", t.text)));
     let spells = d.spells.get(&champ).map_or(vec![], |s| {
         s.iter()
             .zip(KEYS)
@@ -51,9 +61,24 @@ pub fn card(d: &CardData, champ: ChampKey, vs: Option<(f32, u32)>, level: Option
         games: vs.map_or(0, |v| v.1),
         tags: note.map_or(vec![], tags),
         note: note.cloned(),
-        pair: id(d.me).zip(id(champ)).and_then(|(m, t)| d.notes.pair(m, t)).cloned(),
+        pair: tips.next(),
+        pair_more: tips.collect(),
+        kit: if hand_written { vec![] } else { crate::pair_tips::kit(d.sd, d.notes, d.me, champ) },
+        numbers: vec![],
+        path: vec![],
+        best_path: vec![],
         spells,
         record: d.memory.iter().find(|m| m.champ == champ).cloned(),
+    }
+}
+
+/// The matchup page's numbers and build paths onto the card of the opponent it is about.
+pub fn numbers(cards: &mut [MatchupCard], sd: &StaticData, build: Option<&MatchupBuild>) {
+    if let Some(b) = build.filter(|b| b.games >= MIN_MATCHUP_GAMES)
+        && let Some(c) = cards.iter_mut().find(|c| c.champ == b.vs)
+    {
+        c.numbers = crate::pair_tips::numbers(sd, b);
+        (c.path, c.best_path) = crate::pair_tips::paths(b);
     }
 }
 
@@ -95,7 +120,7 @@ pub fn plan(i: &PlanInput) -> Option<MatchupPlan> {
         _ => None,
     };
     let partner = other.and_then(|o| at(o).and_then(|x| x.ally).or_else(|| cs.ally_lanes.iter().find(|x| x.1 == o).map(|x| x.0)));
-    let cards: Vec<MatchupCard> = opposing(lane)
+    let mut cards: Vec<MatchupCard> = opposing(lane)
         .iter()
         .filter_map(|&l| {
             let e = at(l)?.enemy?;
@@ -103,6 +128,7 @@ pub fn plan(i: &PlanInput) -> Option<MatchupPlan> {
             Some(card(&i.card, e, vs, None))
         })
         .collect();
+    numbers(&mut cards, i.card.sd, i.build);
     let build = i.build.filter(|m| m.games >= MIN_MATCHUP_GAMES && cards.iter().any(|c| c.champ == m.vs)).cloned();
     let runes = build.as_ref().map_or(vec![], |b| {
         b.runes

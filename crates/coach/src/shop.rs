@@ -91,8 +91,18 @@ impl Sim<'_> {
     }
 }
 
-fn simulate<'a>(sd: &'a StaticData, mode: Mode, me: &Player, gold: u32, path: &[ItemId], extras: bool) -> Sim<'a> {
+/// `opening`: the start set while it is still being bought (see [`shopping`]).
+fn simulate<'a>(sd: &'a StaticData, mode: Mode, me: &Player, gold: u32, path: &[ItemId], extras: bool, opening: Option<&[ItemId]>) -> Sim<'a> {
     let mut s = Sim { sd, inv: me.items.clone(), gold, spent: 0, buys: vec![], next: None };
+    if let Some(open) = opening {
+        let mut left = open.to_vec();
+        let mut held = me.items.iter().filter(|i| sd.items.contains_key(i));
+        if held.all(|i| left.iter().position(|o| o == i).map(|p| left.remove(p)).is_some()) {
+            for it in left.iter().filter_map(|id| sd.items.get(id)) {
+                s.buy(it, BuyKind::Full, None);
+            }
+        }
+    }
     for it in path.iter().take(SHOP_PATH_DEPTH).filter_map(|id| sd.items.get(id)) {
         if !s.buy(it, BuyKind::Full, None) {
             s.components(it);
@@ -101,7 +111,7 @@ fn simulate<'a>(sd: &'a StaticData, mode: Mode, me: &Player, gold: u32, path: &[
     if !extras {
         return s;
     }
-    if let Some(w) = sd.items.get(&CONTROL_WARD).filter(|w| map_ok(w, mode))
+    if let Some(w) = sd.items.get(&CONTROL_WARD).filter(|w| opening.is_none() && map_ok(w, mode))
         && !s.inv.contains(&CONTROL_WARD)
     {
         s.buy(w, BuyKind::Extra, None);
@@ -127,10 +137,12 @@ fn elixir(c: &Champion) -> ItemId {
     }
 }
 
-/// `path`: remaining build, buy next first.
-pub fn shopping(sd: &StaticData, mode: Mode, me: &Player, gold: f32, path: &[ItemId]) -> ShoppingList {
+/// `path`: remaining build, buy next first. `opening`: Some at the start of the game, with the
+/// start set (empty when unknown): what is left of it is bought first, unless something else is
+/// already held, and no Control Ward is added.
+pub fn shopping(sd: &StaticData, mode: Mode, me: &Player, gold: f32, path: &[ItemId], opening: Option<&[ItemId]>) -> ShoppingList {
     let gold = gold.max(0.0) as u32;
-    let s = simulate(sd, mode, me, gold, path, true);
+    let s = simulate(sd, mode, me, gold, path, true, opening);
     ShoppingList { gold, leftover: s.gold, buys: s.buys, dead: me.dead, respawn_in: if me.dead { me.respawn_in } else { 0.0 } }
 }
 
@@ -143,14 +155,14 @@ pub fn eta(sd: &StaticData, mode: Mode, me: &Player, gold: f32, path: &[ItemId],
     let missing = next.map_or(0, |it| price(sd, it, &mut me.items.clone()).saturating_sub(gold));
     let ids = |s: &Sim| s.buys.iter().map(|b| b.item).collect::<Vec<_>>();
     let (mut backs, mut at) = (Vec::new(), gold);
-    let mut sim = simulate(sd, mode, me, at, path, false);
+    let mut sim = simulate(sd, mode, me, at, path, false, None);
     let mut prev = ids(&sim);
     // Each step jumps to the exact gold at which the greedy list changes.
     while backs.len() < BACK_PLANS
         && let Some(n) = sim.next.filter(|&n| n > at && n < gold + missing)
     {
         at = n;
-        sim = simulate(sd, mode, me, at, path, false);
+        sim = simulate(sd, mode, me, at, path, false, None);
         let items = ids(&sim);
         if items != prev {
             backs.push(BackPlan { gold: at, in_s: secs(at - gold), items: items.clone() });

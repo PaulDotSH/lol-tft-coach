@@ -255,6 +255,7 @@ mod tests {
             respawn_in: 0.0,
             smite: false,
             spells: vec![],
+            keystone: None,
         }
     }
 

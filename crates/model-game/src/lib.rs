@@ -50,6 +50,9 @@ data! {
         /// Summoner spells by internal name ("SummonerFlash", "SummonerDot"); empty when the API omits them.
         #[serde(default)]
         pub spells: Vec<String>,
+        /// Keystone rune id; None when the API omits it.
+        #[serde(default)]
+        pub keystone: Option<RuneId>,
     }
 
     pub struct GameSnapshot {

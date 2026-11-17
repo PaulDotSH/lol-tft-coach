@@ -10,4 +10,8 @@ smite: boolean,
 /**
  * Summoner spells by internal name ("SummonerFlash", "SummonerDot"); empty when the API omits them.
  */
-spells: Array<string>, };
+spells: Array<string>, 
+/**
+ * Keystone rune id; None when the API omits it.
+ */
+keystone: number | null, };

@@ -1,11 +1,10 @@
 <script lang="ts">
   // Champ select: my lane opponent(s) with tips (bot lane: both of theirs), synergy with my
   // bot lane partner, and the matchup page against my direct opponent (runes, summoners,
-  // skill order, starting and first items).
+  // skill order; its build path is on the opponent's card).
   import type { MatchupPlan } from '../../lib/bindings/MatchupPlan';
   import { store } from '../../lib/store.svelte';
   import { LANE_NAMES, SUMMONERS, champName, runeIcon, signed, summonerIcon } from '../../lib/ui';
-  import Icon from '../Icon.svelte';
   import MatchupCard from '../MatchupCard.svelte';
 
   let { plan }: { plan: MatchupPlan } = $props();
@@ -44,15 +43,6 @@
           {#if store.ui && SUMMONERS[s]}<img class="sum" src={summonerIcon(store.ui, s)} alt={SUMMONERS[s][1]} title={SUMMONERS[s][1]} width="26" height="26" />{/if}
         {/each}
         {#if b.skills}<span class="num skills" title="Skill max order">{b.skills.split('').join(' › ')}</span>{/if}
-      </div>
-      <div class="row">
-        <span class="muted">Start</span>
-        {#each b.start as id, i (`${id}-${i}`)}<Icon kind="item" {id} size={28} />{/each}
-        <span class="muted small">{b.start_wr.toFixed(1)}% · {games(b.start_games)}</span>
-        {#if b.core.length}
-          <span class="muted">then</span>
-          {#each b.core as id (id)}<Icon kind="item" {id} size={28} />{/each}
-        {/if}
       </div>
     </div>
   {/if}

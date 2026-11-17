@@ -8,6 +8,8 @@ use model::*;
 use std::collections::HashMap;
 
 const PATH: [ItemId; 2] = [ZHONYAS, SORCS];
+const DORANS_RING: ItemId = 1056;
+const START: [ItemId; 3] = [DORANS_RING, 2003, 2003];
 
 fn me(items: &[ItemId]) -> Player {
     player(AHRI, Team::Order, Some(Lane::Middle)).items(items)
@@ -38,6 +40,8 @@ fn with_extras() -> StaticData {
         consumable(2138, "Elixir of Iron", 500, true, true),
         consumable(2139, "Elixir of Sorcery", 500, true, true),
         consumable(2140, "Elixir of Wrath", 500, true, true),
+        consumable(2003, "Health Potion", 50, true, true),
+        Item { tags: vec![], ..consumable(DORANS_RING, "Doran's Ring", 400, true, true) },
     ] {
         sd.items.insert(it.id, it);
     }
@@ -48,14 +52,14 @@ fn with_extras() -> StaticData {
 
 #[test]
 fn exact_gold_buys_the_full_item_with_nothing_left() {
-    let l = shopping(&sd(), Mode::Aram, &me(&[LUDENS, RABADONS, BOOTS]), 3250.0, &PATH);
+    let l = shopping(&sd(), Mode::Aram, &me(&[LUDENS, RABADONS, BOOTS]), 3250.0, &PATH, None);
     assert_eq!(bought(&l), [(ZHONYAS, 3250, BuyKind::Full)]);
     assert_eq!((l.gold, l.leftover), (3250, 0));
 }
 
 #[test]
 fn one_gold_short_buys_biggest_components_then_spends_leftover_on_the_next_item() {
-    let l = shopping(&sd(), Mode::Aram, &me(&[LUDENS, RABADONS, BOOTS]), 3249.0, &PATH);
+    let l = shopping(&sd(), Mode::Aram, &me(&[LUDENS, RABADONS, BOOTS]), 3249.0, &PATH, None);
     // Seeker's (1000) before Blasting Wand (850); Sorcerer's costs 800 with Boots held.
     assert_eq!(
         bought(&l),
@@ -67,7 +71,7 @@ fn one_gold_short_buys_biggest_components_then_spends_leftover_on_the_next_item(
 
 #[test]
 fn held_components_discount_the_full_item() {
-    let l = shopping(&sd(), Mode::Aram, &me(&[SEEKERS, WAND]), 1400.0, &PATH);
+    let l = shopping(&sd(), Mode::Aram, &me(&[SEEKERS, WAND]), 1400.0, &PATH, None);
     assert_eq!(bought(&l)[0], (ZHONYAS, 3250 - 1000 - 850, BuyKind::Full));
     assert_eq!(l.leftover, 0);
 }
@@ -76,26 +80,66 @@ fn held_components_discount_the_full_item() {
 fn full_inventory_cannot_take_components_but_can_finish_an_item() {
     let full = [LUDENS, RABADONS, VOID_STAFF, BANSHEES, BOOTS, TOME];
     // Tome sits in Seeker's: buying Seeker's frees its slot, a lone Wand does not fit.
-    let l = shopping(&sd(), Mode::Aram, &me(&full), 900.0, &PATH);
+    let l = shopping(&sd(), Mode::Aram, &me(&full), 900.0, &PATH, None);
     assert_eq!(bought(&l), [(SEEKERS, 600, BuyKind::Component)], "{l:?}");
-    let l = shopping(&sd(), Mode::Aram, &me(&full), 500.0, &PATH);
+    let l = shopping(&sd(), Mode::Aram, &me(&full), 500.0, &PATH, None);
     assert!(l.buys.is_empty(), "{l:?}");
 }
 
 #[test]
 fn control_ward_on_the_rift_only_and_elixir_once_the_build_is_done() {
     let sd = with_extras();
-    let l = shopping(&sd, Mode::Rift, &me(&[LUDENS, RABADONS, BOOTS]), 3330.0, &PATH);
+    let l = shopping(&sd, Mode::Rift, &me(&[LUDENS, RABADONS, BOOTS]), 3330.0, &PATH, None);
     assert_eq!(bought(&l), [(ZHONYAS, 3250, BuyKind::Full), (2055, 75, BuyKind::Extra)]);
     assert_eq!(l.leftover, 5);
-    let l = shopping(&sd, Mode::Aram, &me(&[LUDENS, RABADONS, BOOTS]), 3330.0, &PATH);
+    let l = shopping(&sd, Mode::Aram, &me(&[LUDENS, RABADONS, BOOTS]), 3330.0, &PATH, None);
     assert_eq!(bought(&l), [(ZHONYAS, 3250, BuyKind::Full)]);
 
     let done = me(&[LUDENS, RABADONS, ZHONYAS, VOID_STAFF, BANSHEES, SORCS]).lvl(16);
-    let l = shopping(&sd, Mode::Aram, &done, 1200.0, &[]);
+    let l = shopping(&sd, Mode::Aram, &done, 1200.0, &[], None);
     assert_eq!(bought(&l), [(2139, 500, BuyKind::Extra)], "AP champion drinks Sorcery");
-    let l = shopping(&sd, Mode::Aram, &done.clone().lvl(8), 1200.0, &[]);
+    let l = shopping(&sd, Mode::Aram, &done.clone().lvl(8), 1200.0, &[], None);
     assert!(l.buys.is_empty(), "elixirs need level 9");
+}
+
+#[test]
+fn game_start_buys_the_start_set_instead_of_components_and_a_ward() {
+    let sd = with_extras();
+    let full = [(DORANS_RING, 400, BuyKind::Full), (2003, 50, BuyKind::Full), (2003, 50, BuyKind::Full)];
+    let l = shopping(&sd, Mode::Rift, &me(&[]), 500.0, &PATH, Some(&START));
+    assert_eq!(bought(&l), full);
+    assert_eq!(l.leftover, 0);
+    let l = shopping(&sd, Mode::Rift, &me(&[]), 500.0, &PATH, None);
+    assert!(l.buys.iter().any(|b| b.item == 2055) && l.buys.iter().all(|b| b.item != DORANS_RING), "later in the game: {l:?}");
+
+    let l = shopping(&sd, Mode::Rift, &me(&[DORANS_RING]), 100.0, &PATH, Some(&START));
+    assert_eq!(bought(&l), full[1..], "the rest of a start set bought in part");
+    let l = shopping(&sd, Mode::Rift, &me(&[DORANS_RING, 2003, 2003]), 80.0, &PATH, Some(&START));
+    assert!(l.buys.is_empty(), "start set held: {l:?}");
+    let l = shopping(&sd, Mode::Rift, &me(&[TOME]), 100.0, &PATH, Some(&START));
+    assert!(l.buys.is_empty(), "another opening was bought: {l:?}");
+    let l = shopping(&sd, Mode::Rift, &me(&[]), 500.0, &PATH, Some(&[]));
+    assert!(!l.buys.is_empty() && l.buys.iter().all(|b| b.kind == BuyKind::Component), "start set unknown: {l:?}");
+}
+
+#[test]
+fn start_set_reaches_the_shopping_list_only_at_the_start_of_a_rift_game() {
+    let sd = with_extras();
+    let stats = ChampStats { start: START.to_vec(), ..ahri_stats() };
+    let list = |time: f32, items: &[ItemId], gold: f32, mode: Mode| {
+        let mut p = lobby(STANDARD);
+        p[0] = p[0].clone().items(items);
+        let mut s = snap(p, vec![]);
+        (s.time, s.my_gold, s.mode) = (time, gold, mode);
+        game_advice(&GameInput { snap: &s, sd: &sd, stats: Some(&stats), augments: None, offered: &[], gold_history: &[], my_augments: &[], enemy_augments: Default::default(), keep: None, matchup: None, curves: &Default::default(), income: None, winprob: None, situations: &Default::default() }).shopping
+    };
+    let ids = |l: &ShoppingList| l.buys.iter().map(|b| b.item).collect::<Vec<_>>();
+    assert_eq!(ids(&list(5.0, &[], 500.0, Mode::Rift)), START);
+    assert_eq!(ids(&list(60.0, &[DORANS_RING], 100.0, Mode::Rift)), START[1..]);
+    assert_eq!(ids(&list(400.0, &[], 500.0, Mode::Rift)), START, "nothing bought yet");
+    let back = list(400.0, &[DORANS_RING], 1300.0, Mode::Rift);
+    assert!(!back.buys.is_empty() && back.buys.iter().all(|b| b.item != 2003), "first back: {back:?}");
+    assert!(ids(&list(5.0, &[], 1400.0, Mode::Aram)).iter().all(|i| !START.contains(i)), "ARAM starts on components");
 }
 
 #[test]

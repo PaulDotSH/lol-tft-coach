@@ -109,6 +109,16 @@ data! {
         pub counters: Vec<TierPick>,
         /// The tier list, best first; my champion last when not among them.
         pub best: Vec<TierPick>,
+        /// The same ranking against the other enemies in the lanes I face (bot lane: their
+        /// bot laner for a support, their support for a bot laner), as far as fetched.
+        #[serde(default)]
+        pub others: Vec<TierVs>,
+    }
+
+    /// My lane's tier list ranked by win rate against one enemy outside my own lane.
+    pub struct TierVs {
+        pub vs: ChampKey,
+        pub counters: Vec<TierPick>,
     }
 
     pub struct TierPick {
@@ -157,12 +167,34 @@ data! {
         pub tags: Vec<String>,
         /// Hand-written notes on this champion; None when missing from the notes.
         pub note: Option<ChampNote>,
-        /// Hand-written note for exactly my champion against them.
+        /// Hand-written note for exactly my champion against them: the main tip.
         pub pair: Option<String>,
+        /// The other hand-written tips for the pairing; keystone tips start with the keystone's name.
+        #[serde(default)]
+        pub pair_more: Vec<String>,
+        /// Lines from my kit against theirs (`coach::pair_tips`); empty when no rule fits.
+        #[serde(default)]
+        pub kit: Vec<String>,
+        /// What the lolalytics matchup page's numbers say about this pairing; empty without the page.
+        #[serde(default)]
+        pub numbers: Vec<String>,
+        /// The matchup page's most played build: the starting set, then one item per slot.
+        #[serde(default)]
+        pub path: Vec<PathStep>,
+        /// Its highest win rate build (items only), when that is another build.
+        #[serde(default)]
+        pub best_path: Vec<PathStep>,
         /// Their Q W E R with base cooldowns; empty until Data Dragon answers.
         pub spells: Vec<SpellCd>,
         /// My past games against them.
         pub record: Option<MatchupMemory>,
+    }
+
+    /// One step of a matchup build path with the win rate (percent) of the games that took it.
+    pub struct PathStep {
+        pub items: Vec<ItemId>,
+        pub win_rate: f32,
+        pub games: u32,
     }
 
     pub struct SpellCd {

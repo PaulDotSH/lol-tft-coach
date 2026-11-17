@@ -61,6 +61,22 @@ pub fn matchup_page(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKe
     )
 }
 
+/// Tier board: my lane's champions ranked against the other enemies in the lanes I face (a
+/// support against their bot laner, a bot laner against their support), as far as fetched.
+pub fn tier_others(sh: &Arc<Shared>, sd: &StaticData, input: &coach::ChampSelectInput, advice: &mut ChampSelectAdvice) {
+    let ChampSelectAdvice { tiers: Some(board), draft: Some(draft), .. } = advice else { return };
+    let lane = board.lane;
+    board.others = coach::opposing_lanes(lane)
+        .iter()
+        .filter(|&&l| l != lane)
+        .filter_map(|&l| {
+            let vs = draft.lanes.iter().find(|x| x.lane == l)?.enemy?;
+            let theirs = counters_vs(sh, sd, vs, l, lane)?;
+            Some(TierVs { vs, counters: coach::tier_counters(input, &theirs) })
+        })
+        .collect();
+}
+
 /// Hand-written laning notes, parsed once (empty if the file is broken).
 pub fn lane_notes() -> &'static LaneNotes {
     static NOTES: OnceLock<LaneNotes> = OnceLock::new();
@@ -126,7 +142,7 @@ pub fn matchup(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &Cha
     let spells = crate::ingame::spells(sh, sd, &champs);
     coach::matchup_plan(&coach::MatchupInput {
         cs,
-        card: coach::CardData { sd, notes: lane_notes(), me, spells: &spells, memory: &advice.memory },
+        card: coach::CardData { sd, notes: lane_notes(), me, keystone: None, spells: &spells, memory: &advice.memory },
         lane,
         lanes,
         duos: draft.map_or(&[][..], |d| d.allies.duos.as_slice()),

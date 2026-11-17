@@ -48,6 +48,13 @@ fn build(vs: ChampKey, games: u32) -> MatchupBuild {
         rune_page: None,
         skill_order: String::new(),
         skill_order_games: 0,
+        usual_wr: None,
+        first_items: vec![],
+        boots: vec![],
+        skill_max: vec![],
+        by_length: vec![],
+        path: vec![],
+        best_path: vec![],
     }
 }
 
@@ -68,7 +75,18 @@ fn note(watch: &str, wins: &str) -> ChampNote {
 fn notes() -> LaneNotes {
     LaneNotes {
         champs: HashMap::from([("Thresh".to_string(), note("QE", "Hook from fog")), ("Zed".to_string(), note("WR", "Shadow poke"))]),
-        pairs: HashMap::from([("Leona".to_string(), HashMap::from([("Thresh".to_string(), "Walk up when his Q is down".to_string())]))]),
+        pairs: HashMap::from([(
+            "Leona".to_string(),
+            HashMap::from([(
+                "Thresh".to_string(),
+                vec![
+                    PairTip { text: "Walk up when his Q is down".into(), keystone: None },
+                    PairTip { text: "Stun him inside the shock zone".into(), keystone: Some("Aftershock".into()) },
+                    PairTip { text: "Stand in front of your ADC".into(), keystone: Some("Guardian".into()) },
+                ],
+            )]),
+        )]),
+        kits: HashMap::new(),
     }
 }
 
@@ -104,7 +122,7 @@ fn support_plan_against_their_duo() {
     let memory = [thresh_record.clone()];
     let against = [(Lane::Bottom, vec![vs(CAITLYN, 51.5, 3000)]), (Lane::Support, vec![vs(THRESH, 48.2, 90)])];
     let b = build(THRESH, 800);
-    let card = CardData { sd: &sd, notes: &notes, me: LEONA, spells: &spells, memory: &memory };
+    let card = CardData { sd: &sd, notes: &notes, me: LEONA, keystone: None, spells: &spells, memory: &memory };
     let input = MatchupInput { cs: &c, card, lane: Lane::Support, lanes: &lanes, duos: &duos, vs: &against, build: Some(&b) };
     let p = matchup_plan(&input).expect("plan");
     assert_eq!((p.lane, p.allies.as_slice()), (Lane::Support, [LEONA, JINX].as_slice()));
@@ -118,6 +136,12 @@ fn support_plan_against_their_duo() {
     assert_eq!(thresh.tags, ["strong level 2", "hard engage"]);
     assert_eq!(thresh.note.as_ref().map(|n| n.wins.as_str()), Some("Hook from fog"));
     assert_eq!(thresh.pair.as_deref(), Some("Walk up when his Q is down"));
+    // No keystone known in champ select: every keystone's tip, named.
+    assert_eq!(thresh.pair_more, ["Aftershock: Stun him inside the shock zone", "Guardian: Stand in front of your ADC"]);
+    // With a keystone only its tip stays.
+    let mine = CardData { keystone: Some(8439), ..card };
+    let c = coach::matchup_card(&mine, THRESH, None, None);
+    assert_eq!((c.pair.as_deref(), c.pair_more.as_slice()), (Some("Walk up when his Q is down"), ["Aftershock: Stun him inside the shock zone".to_string()].as_slice()));
     let keys: Vec<(&str, bool, Option<f32>)> = thresh.spells.iter().map(|s| (s.key.as_str(), s.watch, s.now)).collect();
     assert_eq!(keys, [("Q", true, None), ("W", false, None), ("E", true, None), ("R", false, None)]);
     assert_eq!(thresh.record, Some(thresh_record));
@@ -130,7 +154,7 @@ fn support_plan_against_their_duo() {
 #[test]
 fn solo_lane_partial_reveals_few_games_and_aram() {
     let (sd, notes, spells) = (sd(), notes(), spells());
-    let card = CardData { sd: &sd, notes: &notes, me: AHRI, spells: &spells, memory: &[] };
+    let card = CardData { sd: &sd, notes: &notes, me: AHRI, keystone: None, spells: &spells, memory: &[] };
     let mid = ChampSelect { my_lane: Some(Lane::Middle), my_pick: Some(AHRI), ally_lanes: vec![], ..cs() };
     let lanes = [lane(Lane::Middle, Some(AHRI), Some(ZED)), lane(Lane::Support, None, Some(THRESH))];
     let against = [(Lane::Middle, vec![vs(ZED, 47.0, 5000)])];

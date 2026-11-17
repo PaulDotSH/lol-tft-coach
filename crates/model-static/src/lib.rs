@@ -197,6 +197,9 @@ data! {
         /// lolalytics build page games and wins by game length, shortest first; empty when unknown.
         #[serde(default)]
         pub by_length: Vec<LengthWin>,
+        /// lolalytics build page most played starting items (two potions are two ids); empty when unknown.
+        #[serde(default)]
+        pub start: Vec<ItemId>,
     }
 
     /// One full rune page (lolalytics, or Coachless' best WPA).
@@ -300,6 +303,34 @@ data! {
         pub skill_order: String,
         #[serde(default)]
         pub skill_order_games: u32,
+        /// My champion's win rate over all its matchups in this lane, percent; None when the page had none.
+        #[serde(default)]
+        pub usual_wr: Option<f32>,
+        /// First completed items in this matchup, most played first.
+        #[serde(default)]
+        pub first_items: Vec<ItemStat>,
+        /// Boots in this matchup, most played first.
+        #[serde(default)]
+        pub boots: Vec<ItemStat>,
+        /// Skill max order of the most played build, then of the highest win rate build when it differs.
+        #[serde(default)]
+        pub skill_max: Vec<SkillMax>,
+        /// Games and wins by game length in this matchup, shortest first; empty when unknown.
+        #[serde(default)]
+        pub by_length: Vec<LengthWin>,
+        /// The most played build in this matchup, one item per slot in buying order (boots included).
+        #[serde(default)]
+        pub path: Vec<ItemStat>,
+        /// The same for the highest win rate build.
+        #[serde(default)]
+        pub best_path: Vec<ItemStat>,
+    }
+
+    /// A skill max order ("QEW") with its win rate (percent) and games.
+    pub struct SkillMax {
+        pub order: String,
+        pub win_rate: f32,
+        pub games: u32,
     }
 
     /// lolalytics `build-team` row: one teammate of `TeamSynergy::champ`.
@@ -387,17 +418,26 @@ pub struct ItemSituations {
     pub by: Vec<(Situation, f32, f64)>,
 }
 
+/// One hand-written tip for a pairing. `keystone`: it only holds with that keystone (English name).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PairTip {
+    pub text: String,
+    pub keystone: Option<String>,
+}
+
 /// Hand-written laning notes, keyed by Data Dragon id.
 #[derive(Debug, Clone, Default)]
 pub struct LaneNotes {
     pub champs: HashMap<String, ChampNote>,
-    /// My champion → their champion → one line for that pairing.
-    pub pairs: HashMap<String, HashMap<String, String>>,
+    /// My champion → their champion → the tips for that pairing, the main one first.
+    pub pairs: HashMap<String, HashMap<String, Vec<PairTip>>>,
+    /// Champion → kit tag → the spell behind it ("Q", "W", "E", "R" or "P"), from `kits.toml`.
+    pub kits: HashMap<String, HashMap<String, String>>,
 }
 
 impl LaneNotes {
-    pub fn pair(&self, me: &str, them: &str) -> Option<&String> {
-        self.pairs.get(me)?.get(them)
+    pub fn pair(&self, me: &str, them: &str) -> &[PairTip] {
+        self.pairs.get(me).and_then(|p| p.get(them)).map_or(&[], Vec::as_slice)
     }
 }
 

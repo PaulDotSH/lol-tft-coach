@@ -99,6 +99,7 @@ fn player(p: &Value, sd: &StaticData) -> Player {
             .filter(|r| !r.is_empty())
             .map(|r| r.trim_start_matches("GeneratedTip_SummonerSpell_").trim_end_matches("_DisplayName").to_string())
             .collect(),
+        keystone: id(&p["runes"]["keystone"]["id"]),
     }
 }
 

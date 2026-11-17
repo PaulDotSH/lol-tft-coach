@@ -1,5 +1,9 @@
-# Hand-written notes for one exact pairing: [my champion] then their champion = one line
-# (at most 180 characters). Keyed by Data Dragon id. Champion-wide notes live in champ_notes.toml.
+# Hand-written notes for one exact pairing: [my champion] then their champion = one line, or a
+# list of tips with the main one first (each at most 180 characters). A tip that only holds with
+# one keystone is written { keystone = "Grasp of the Undying", tip = "..." }: champ select shows
+# it under the keystone's name, the game only when that is my keystone. Keyed by Data Dragon id.
+# Champion-wide notes live in champ_notes.toml. A pair without a line here still gets the lines
+# `coach` writes from both kits (kits.toml) and from the lolalytics matchup page.
 
 [Sett]
 Zoe = "She out-ranges you and E sleeps you through fog: hide behind minions or in brush, then walk at her when E is down. Flash-E her before 6; after 6 she hops away with R."
@@ -11,7 +15,12 @@ Leona = "She wins level 2 if she lands E: back off until she uses it. Your W tru
 
 [Nautilus]
 Morgana = "Her E blocks your hook and R: wait for it, or hook her ADC instead. All-in when E is down; her Q binds you for long, stay behind minions."
-Braum = "His E shield blocks your hook: throw Q when E is down or from a side angle. Don't trade into four passive hits."
+Braum = [
+  "His E shield blocks your hook: throw Q when E is down or from a side angle. Don't trade into four passive hits.",
+  "After his E shield is used you have a long window: hook the ADC then.",
+  "Don't let four hits land: walk out after hook, root and E unless the kill is there.",
+  { keystone = "Aftershock", tip = "Hook, auto root, E: the Aftershock window covers their answer, then walk out." },
+]
 Thresh = "Both hooks hit at 2: hold yours for his missed Q. Your passive root plus R beats his box if you go first."
 Blitzcrank = "Stand behind minions; if he grabs you, your W shield and passive root punish him under your ADC."
 Leona = "She beats you if she lands E first: bait it, then hook her. Your R is longer range than her E-Q."
@@ -20,24 +29,384 @@ Janna = "Her Q and R stop your all-in: bait R with a fake engage, then hook her 
 Soraka = "Hook Soraka, not her ADC: her heals fall off when she is stunned. Buy Grievous Wounds early for your ADC."
 Yuumi = "Hook the ADC she sits on: Yuumi can't save them during your CC chain."
 Sett = "His W shields your burst back: hook him only when your ADC can follow. Don't stand between him and a wall."
+Ashe = [
+  "She has no dash: a hook is a kill at level 2 or 3 with Ignite. Stay behind minions against her W volley and come at her from the side brush.",
+  "Her autos slow you: don't walk at her in the open, hook from fog or after she has used W.",
+  "At 6 her arrow stuns from far away: stand to the side of your ADC so one arrow can't set up both of you.",
+  "Your R is point-and-click: she can't dodge it, and it carries you through her slow.",
+]
+Elise = [
+  "She wants to cocoon you or your ADC and burst: stand behind minions, the cocoon stops on them. Rappel in spider form dodges your hook: throw Q when she is human or just landed.",
+  "She has no sustain and no peel: if the cocoon misses, engage. Your W shield and R win a straight fight.",
+  "Her burst scales with your current and missing health: don't stay under half health in lane.",
+  "She falls off after laning: play even to 6.",
+]
+Nami = [
+  "Her bubble stops your engage: bait it by walking up, then hook. She heals poke back but not a hook into root, E and Ignite.",
+  "Hook Nami herself: she is squishy, has no dash, and the heals stop while she is locked down.",
+  "Her W bounces between you and your ADC: stand apart when you aren't fighting.",
+  "At 6 her R wave knocks you up mid-engage: go in from the side or after the wave.",
+  { keystone = "Aftershock", tip = "Hook, auto root, E: the Aftershock window covers their answer, then walk out." },
+]
+Neeko = [
+  "Her E root goes through the wave and lasts longer after the first target: don't stand in line behind minions. Hook her when E is down: she has no dash.",
+  "She can look like her ADC or a minion: an odd-walking minion is her.",
+  "Stand apart at 6 so her R can't catch both of you; your R or a hook as she lands lets your ADC kill her.",
+]
+Pyke = [
+  "Hook duel: whoever lands first wins. Stand behind minions against his charged Q; he heals back out of sight, so commit on a hook instead of poking.",
+  "His E stun comes back along his dash line: step to the side of it, not backwards.",
+  "He roams for kills: follow him, or shove the wave and ping. Your point-and-click R stops him on the way.",
+  "Below a third of your health at 6 he executes you: back off early, your W shield doesn't save you from R.",
+  "He is squishier than you: with both hooks down you win the straight all-in.",
+]
+Seraphine = [
+  "She pokes and has no escape: every hook is a kill threat. Walk up through brush; her E root is slow, sidestep it and hook.",
+  "Her W shield and heal come after a delay: burst the hooked target before the second pulse.",
+  "Stand apart from your ADC: Q and E hit both, and her R runs through one into the other.",
+  "At 6 use R on her: it can't miss and the knock-up cancels her answer.",
+  { keystone = "Aftershock", tip = "Hook, auto root, E: the Aftershock window covers their answer, then walk out." },
+]
+Sion = [
+  "His Q charge is slow: a hook or your passive root cancels it, or walk out sideways. He can't protect his ADC: hook the ADC and ignore him.",
+  "His E knocks a minion into you to slow and shred armour: stand off the line from a minion to you.",
+  "His R charges in from far away and stops on the first champion: step behind your wave or to the side.",
+  "Kill him last: his passive lets him fight on after he dies.",
+]
 
 [Thresh]
 Morgana = "Her E blocks hooks: throw Q only after E is used, or flay (E) her ADC instead. Lantern your ADC out of her Q bind."
-Braum = "His E blocks your hook: angle Q from the side or wait for E. His passive stacks fast, so keep trades short."
-Nautilus = "Hold your flay for his hook dash: E interrupts it. Lantern your ADC out if he lands R."
+Braum = [
+  "His E blocks your hook: angle Q from the side or wait for E. His passive stacks fast, so keep trades short.",
+  "Flay him away when he jumps to his ADC with W: that leaves the ADC alone for your hook.",
+  "Lantern your ADC out before the fourth passive hit lands.",
+]
+Nautilus = [
+  "Hold your flay for his hook dash: E interrupts it. Lantern your ADC out if he lands R.",
+  "Level 2 is his: stand behind minions and keep E ready. A flayed Nautilus in the middle of your wave loses the trade.",
+  "After his hook is down, a long cooldown early, walk up and hook his ADC.",
+  "His R can't be dodged: lantern shield as it arrives, and Box around your ADC so the follow-up is slowed.",
+  { keystone = "Aftershock", tip = "Flay or hook first, then stand on him: Aftershock lets you take the root and auto for free." },
+]
 Blitzcrank = "Lantern your ADC after he grabs them; flay him away. Stand behind minions yourself."
 Leona = "Flay (E) interrupts her E dash: save it for her engage, then hook back."
 Lux = "Hook her when Q is down; your lantern saves an ADC caught by her bind."
 Janna = "Her Q stops your hook dash: bait it, then hook again. Engage when her R is down."
 Sett = "Flay him away when he walks up; his E pulls you if you stand between him and minions."
+Karma = [
+  "She pokes with Mantra Q and runs with E: you can't out-trade her at range. Stand behind minions for Q and hook after she has used her E speed.",
+  "Her W tether roots if you stay in range: flay her away or walk out, don't fight inside it.",
+  "She is weakest right after Mantra is spent: that is the engage window.",
+  "Pick souls up from behind the wave, not by walking into Q.",
+]
+Maokai = [
+  "You can't flay his W in flight, he is untargetable: flay him away right after he lands, before the follow-up on your ADC.",
+  "Saplings wait in brush: don't face-check with your ADC, tank one yourself or walk around.",
+  "He has no way out after W: once he jumps in, hook his ADC or Box around him.",
+  "At 6 his R wall of roots is slow: flay yourself room sideways or lantern the ADC over it.",
+]
+Nami = [
+  "Her bubble stops your walk-up and her heals undo poke: you win by landing hooks. Hook her, not the ADC: she is squishy with no dash.",
+  "Bait the bubble by stepping forward and back, then hook during its long cooldown.",
+  "E forward when she steps up to auto: it pulls her into your ADC's range.",
+  "At 6 lantern your ADC out of the path of her R wave.",
+]
+Poppy = [
+  "Her W stops dashes: your Q2 pull-in and an ally's lantern ride both fail inside it. Don't reactivate Q into her W, and throw the lantern outside the circle.",
+  "Stay away from walls: her E stuns you or your ADC against them.",
+  "Her passive shield drops on the ground: stand on it so she can't pick it up.",
+  "She has no ranged poke: hook while her W is on cooldown, it is long early.",
+]
+Senna = [
+  "She out-ranges you and heals: you need the hook. She has no dash and stands still to attack: walk through brush and throw Q right after she autos.",
+  "Her W root is slow and spreads from the first target: don't stand next to minions or your ADC when it comes.",
+  "Flay her towards you when she kites; Box on top of her at 6, she is too slow to walk out.",
+  "Her R shields her team from anywhere: finish kills fast.",
+]
+Seraphine = [
+  "She has no dash: every hook is a kill threat. Her E root is slow: sidestep it, then hook while she is still casting.",
+  "Stand apart from your ADC: Q and E hit both, and her R runs on through the first target.",
+  "Her W shield and heal arrive late: burst the hooked target before the second pulse.",
+  "Pick souls up from behind your wave: her Q out-ranges you.",
+]
+Yuumi = [
+  "She sits on her ADC and can't be hooked: every hook goes on the ADC, and it is two of you against one body. All-in at levels 2 and 3, before her heals scale.",
+  "Her Q missile slows and stops on the first thing it hits: stand behind minions.",
+  "When she hops off to auto she is a free hook: watch for it.",
+  "Her E heals a lot later: early anti-heal on your ADC is worth it.",
+  "At 6 her R roots after several waves hit: walk sideways out of the beam.",
+]
+Zilean = [
+  "Two bombs on one target stun: when the first sticks to you, walk away from your ADC. He speeds himself or slows you with E: hook after he has used it.",
+  "He has no dash, only speed: flay him towards you and the hook is easy.",
+  "At 6 his R revives the target: kill Zilean first, or bait the ult and then finish.",
+  "He pokes hard at level 1 with Q: don't take free bombs for a soul.",
+]
 
 [Braum]
 Blitzcrank = "Your E blocks his hook: stand in front of your ADC with E ready. Punish a missed grab with Q passive stacks."
-Thresh = "Your E blocks his hook and lantern pull angles; keep E for his Q. Dodge his flay, then stack passive."
-Nautilus = "E blocks his hook and his R if you stand between him and your ADC. W to your ADC when he lands Q."
+Thresh = [
+  "Your E blocks his hook and lantern pull angles; keep E for his Q. Dodge his flay, then stack passive.",
+  "After a missed hook he has nothing for a long while: walk up, Q, and auto for the passive stun.",
+  "Stand on his lantern so his ADC can't click it.",
+  "His flay cancels your W jump: W to a minion or ally after he has used E.",
+  { keystone = "Guardian", tip = "Stay next to the ADC so Guardian pops when the hook lands." },
+]
+Nautilus = [
+  "E blocks his hook and his R if you stand between him and your ADC. W to your ADC when he lands Q.",
+  "His hook pulls him in as well: when it lands, Q him and stack your passive, he is in the middle of your team.",
+  "Stand in front of your ADC at level 2: he wants hook, auto root, E on them.",
+  "Your R knocks up his whole dive at 6: hold it for when he ults your ADC.",
+  { keystone = "Guardian", tip = "Stay next to the ADC so Guardian pops on his first hit." },
+]
 Leona = "Your E blocks her E dash: hold it for her engage. Q into four hits on her after she uses E."
 Lux = "E blocks her Q bind and her R: stand in front of your ADC. She can't trade back once Q is down."
 Zoe = "E blocks her Q and her E bubble. Stand in front of your ADC; walk up and stack passive when she uses E."
 Karma = "She out-pokes you early: keep E for her R-Q, and all-in at 2-3 with Q into your ADC's autos."
 Senna = "E blocks her Q and autos; engage on her with W to your ADC's target."
 Sett = "His E pulls and stuns you and your ADC if you stand on both sides of him: spread out. His W isn't a projectile, so E won't block it: step out of its centre."
+Pantheon = [
+  "He stuns your ADC with W at level 2 and bursts: stand close so your passive and Q answer at once. Your E blocks his thrown Q spear.",
+  "His E blocks your autos and Q from the front: walk around him or wait before you stack passive.",
+  "He falls off: play safe to 6 and trade when his W is down, it has a long cooldown early.",
+  "At 6 he roams with R: push the wave and ping.",
+  { keystone = "Guardian", tip = "Guardian soaks much of his point-and-click combo: hug the ADC while his W is up." },
+]
+
+[Malphite]
+Sett = [
+  "E when he winds up his Q punches: it cuts the attack speed he fights with. Poke with Q, and never R while his W is ready: he shields the burst and answers with true damage.",
+  "No long trades: his Grit bar fills as he takes damage and W turns it into a shield and true damage. Q, one auto, walk away.",
+  "Q steals his move speed: use it to step out of the centre of his W, or to leave E range before he pulls.",
+  "Q poke gets strong with Malignance or Lost Chapter: stay at Q range and wear him down before any all-in.",
+  { keystone = "Grasp of the Undying", tip = "Charge Grasp on minions or with a Q, walk up for the empowered auto, then leave before he can answer." },
+  { keystone = "Arcane Comet", tip = "Q's slow makes Comet land: Q whenever it is up and step back, don't follow with autos." },
+]
+Darius = "Poke with Q and walk away before he gets to five bleed stacks. Everything of his starts with the E pull: stay outside it. E if he reaches you; armour beats him after one item."
+Garen = "His passive heals your Q poke back whenever he leaves combat: poke to keep it off, not to win. He can't kill you through armour; only his R true damage hurts when you are low."
+Aatrox = [
+  "Sidestep the Q sweet spots, then Q and E him while his Q is on cooldown. He heals off every hit on you: keep trades short. Armour and an early Bramble Vest shut him down.",
+  "His three Qs have a long cooldown early: after the third you have several seconds to trade for free.",
+  "Stand close to him or far, never at the tip of the sword; walk towards him to dodge Q1 and Q2.",
+  "His glowing passive auto heals him and hits by your max health: back off when it is ready.",
+  { keystone = "Grasp of the Undying", tip = "Take a Grasp auto each time he misses a Q; with W up you win the short exchange." },
+  { keystone = "Arcane Comet", tip = "Q poke when his Qs are down: he can't heal it back without hitting you." },
+]
+Jax = "His E blocks autos, not spells: Q and E still land, then walk out before the stun. Your E cuts the attack speed he needs. He outscales you in a side lane: group and R his carries."
+Fiora = "She parries R with W and stuns you back: bait W before you ult. Her vitals are true damage by your max health, armour won't help: turn the vital away and keep trades short."
+Mordekaiser = [
+  "All magic damage: your W armour does nothing, get magic resist early. Sidestep his Q and E and poke with Q. At 6 his R takes you away from your team: ult before it or after.",
+  "His passive needs three hits on you: trade one Q and walk away before the ring starts; never fight inside it.",
+  "His Q hits hardest when it strikes you alone: stand in your minions.",
+  "His W shield turns stored damage into a heal: don't burn your combo into it, go when W was just used.",
+  "Magic resist first (Mercury's Treads, Negatron Cloak, Spectre's Cowl) does more here than armour.",
+  { keystone = "Grasp of the Undying", tip = "Grasp auto when his Q is down, then step out before his third passive hit." },
+  { keystone = "Arcane Comet", tip = "Q him whenever he walks up to last-hit: he has no sustain until his spells land on you." },
+]
+Renekton = "He wins short trades early with W stun and two dashes: poke with Q and back off when his Fury bar is red. E cuts his autos. With Steelcaps and one armour item he can't hurt you."
+Irelia = "She dashes through dying minions: don't fight next to a low wave. E when her passive is stacked, it cuts the attack speed she lives on. Armour first; R when she dashes onto you."
+Yone = "E when he comes in with spirit E: it cuts the attack speed his kit needs. He snaps back to his body, so don't chase. Armour first, R him after his Q3 dash is used."
+Teemo = "He out-ranges you and blinds autos, but your spells don't care: Q him when he steps up, it steals his speed. He has no escape: R at 6 kills with your jungler or Ignite."
+Tryndamere = "E the moment he spins onto you: it cuts his attack speed. Don't ult into his R, he can't die for 5 s: bait it, walk away, then fight. Armour and Steelcaps blunt him."
+
+[DrMundo]
+Darius = "Throw Q from range and never fight inside his bleed: five stacks kill you through R. Your passive eats his E pull once, back off when the canister drops. You outscale him."
+Fiora = "Her vitals are true damage by your max health: she is built to kill you. Q her when W is down, stay out of her R zone, and take an early Bramble Vest against her healing."
+Garen = "Neither of you kills the other early. Q him whenever he steps up so his passive never starts healing. His R is true damage by missing health: don't sit low, even with R on."
+Sett = "Q him as he walks up. His W shield grows with the damage he took: stop hitting when he lights up and step out of its centre. Your passive blocks one E stun."
+Aatrox = "Sidestep his Q edges and throw cleavers in between. He heals off you: an early Bramble Vest matters. Your passive blocks one Q knock-up: pick the canister back up."
+Mordekaiser = "Stay out of his passive ring, he wins long fights early. Q from range and pick up your canister. He takes a share of your stats in his R: press your R early in there."
+Gwen = "Her Q centre is true damage and her passive hits by your max health. Q her when she has used E, back off from the W mist, and get magic resist before more health."
+Vayne = "Her W is true damage by your max health: you can't trade autos. Q on cooldown, stay away from walls because of her E, and all-in only when her Q tumble is down."
+Teemo = "Cleavers out-trade his poke and you heal the rest back: Q on cooldown. His blind stops your E autos, not Q. With R and Ghost at 6 you can run him down."
+Camille = "Her second Q hit is true damage: walk away after the first one. Your passive blocks her E stun once. She wins early: farm with Q and outscale her."
+Pantheon = [
+  "He bullies you until 6 with empowered Q and the W stun. Farm with Q from range, give up CS for health and outscale: after Warmog's or Heartsteel he can't kill you.",
+  "Your passive blocks his W stun once: with the canister on you he can't start his combo. Pick it back up.",
+  "His E blocks damage from the front: don't throw Q into the shield, wait it out or hit him from the side.",
+  "His empowered spear hits much harder below 20% health: back off and heal before that, not after.",
+  "Armour early (Steelcaps, Bramble Vest against his healing) before you stack health.",
+  { keystone = "Grasp of the Undying", tip = "Grasp autos only when his W is down, or he stuns you and wins the trade." },
+]
+
+[Shen]
+Darius = [
+  "W stops his autos, the W slow hit and bleed stacks from them, not Q's blade: use it when he is on you. Short trades with empowered Q, then leave; don't taunt in past level 3.",
+  "Stand inside the handle of his Q or fully outside: the blade edge heals him. Step in close when he spins.",
+  "Five bleed stacks give him Noxian Might: leave at three, the fight is lost at five.",
+  "Pull the spirit blade through him before trading: three empowered Q autos hit by his max health.",
+  "He has no dash: keep E to get away after a trade, not to start one.",
+  { keystone = "Grasp of the Undying", tip = "Grasp auto plus an empowered Q auto, then out through your W zone: that is the whole trade. Never stay for a second round." },
+]
+Garen = "W blocks his Q strike, not the E spin. Drag the blade through him and trade when his W is down. He heals when out of combat for a while: hit him often."
+Mordekaiser = "W does nothing against his spells: stay out of the passive ring and sidestep Q. Short trades with empowered Q. At 6 he can take you to his realm: use R on a teammate early."
+Sett = "W blocks his Q punches: hold it for when he winds them up. Don't taunt into him while his W is ready, the shield and true damage win that trade. Pull the blade through him."
+Aatrox = "E through or away from his Q sweet spots, then hit him with empowered Q while his Q is down. W only stops autos. He heals off you: short trades."
+Jax = "His E blocks your empowered Q autos and your W blocks his: wait his E out, then W when he jumps on you. He outscales you 1v1: use R to win fights elsewhere."
+Fiora = "She parries your taunt with W and stuns you: bait W first, then E. W stops her autos for a moment when she goes for a vital. She outscales you: play for your team."
+Renekton = "His W stun is an auto: your W zone blocks it. Hold W for his dash-in, then taunt and Q back while his dashes are down. Don't trade when his Fury bar is red."
+Camille = "W blocks both Q hits; the second is the true damage one, save W for that. Taunt her as she flies in from a wall with E. She outscales you in a side lane."
+Riven = "Three Q hits, a stun and a shield on short cooldowns: don't trade into her full combo. W when she autos between Qs; taunt after her E shield is gone."
+
+[Morgana]
+Nautilus = "E whoever he aims at: it blocks the hook, his passive root and the R knock-up. With E down, stand behind minions. Q him after he hooks in: he can't get back out."
+Thresh = "E blocks hook and flay: put it on the target as the hook leaves his hand, not before. Punish a missed hook with W under him and Q when he walks up."
+Blitzcrank = "E blocks the grab: shield whoever he walks at, yourself when you stand in front. After a missed grab walk up and Q his ADC."
+Leona = [
+  "E the target as she flies in with E: it stops both stuns and her R. She has no range: W under her, Q when she walks out. Don't E early, she waits for it.",
+  "Levels 2 and 3 are hers: hold E, give up the push and stay out of Zenith Blade range.",
+  "When she stuns your ADC out of a Flash, shield first, then Q her: she can't leave.",
+  "At 6 E blocks her R stun too: stand apart so one R can't hit both of you.",
+  { keystone = "Arcane Comet", tip = "Comet lands on anyone you bind: Q, then W under them." },
+]
+Lux = "E blocks her Q bind and soaks E and R: keep it for Q. Her Q stops at the second target, so stand behind two minions. Throw your Q from the side, past the wave."
+Pyke = "E blocks his hook and his E stun: shield the one he charges Q at. He heals poke back out of sight: bind and commit. His R execute goes through E: don't sit low at 6."
+Alistar = "E stops his W-Q combo: put it on his target as he runs at you. He has no poke: keep W on him and the wave, Q him when he walks back out."
+Rakan = [
+  "E blocks his W knock-up and R charm: shield whoever he dashes at. He is slippery: Q after he has used W, when he has to walk or E to an ally to leave.",
+  "Stand apart from your ADC so one W can't knock both of you up.",
+  "He needs an ally near to E out: catch him when his ADC is far.",
+  "At 6 his R makes him fast and charms on touch: E the ADC as he runs in, bind him on the way out.",
+]
+Zyra = "E blocks her E root and soaks plant damage: use it when the root comes. Step off her seeds. She out-ranges you: bind her when her E is down."
+Brand = "E soaks his whole combo and stops the Q stun: shield whoever is ablaze. Stand apart so his R can't bounce. He has no escape: Q him when his Q is down."
+Karma = "She out-pokes you with Mantra Q: stand apart, behind minions. E blocks her W root and soaks Q. Look to bind her right after she has spent Mantra."
+Lulu = "E blocks her polymorph and soaks Q poke: save it for your ADC when she walks up to W. Her W and R stop all-ins: bind her first or fight when R is down."
+Mel = [
+  "Her W reflects your Q back at you: throw the bind only after she has used it, or at her ADC. Your E blocks her E root.",
+  "Her spells stack marks that let her R execute from anywhere: don't sit low in lane, back early.",
+  "She has no dash: a bind while her W is down is a kill with your ADC.",
+  "Your W pool can't be reflected: use it to keep her off the wave.",
+]
+Nami = [
+  "E blocks her bubble and the R wave knock-up: hold it for the bubble aimed at your ADC. She heals poke back, so trade only off a landed Q.",
+  "Her bubble is slow: sidestep it and throw your Q back while she is still casting.",
+  "Her W bounces between you and your ADC: stand apart.",
+  "She has no escape: bind her while the bubble is down and any follow-up kills her.",
+  { keystone = "Arcane Comet", tip = "Comet lands on anyone you bind: Q, then W under them." },
+]
+Seraphine = [
+  "E blocks her E root and the R charm: keep it for those. Her poke out-ranges you: stand apart so Q and E don't hit both of you.",
+  "Her E roots only targets that are already slowed: step out of line after the first cast.",
+  "She has no escape: bind her when she walks up to shield or poke.",
+  "Her R travels further through every champion it hits: don't line up with your ADC behind you.",
+]
+
+[Sylas]
+Ahri = "Keep minions between you and her E charm, then E-W her while it is down. Her R is one of the best to steal: three dashes to chase or get out."
+Yasuo = "His Wind Wall blocks your E chain: dash with E1 and hold the chain until W is down. He dashes through the wave: fight away from his minions."
+Zed = "W heals his Q poke back; fight when his W shadow is down. When he ults he lands behind you: chain him there or dash away. His R works well stolen."
+Syndra = "She out-ranges you: last-hit with Q and wait. Her E knocks you out of your dash: bait it, then chain and W. Her R stolen is a kill at 6 if she is half health."
+Orianna = "She pokes and shields: don't chip, all-in when the ball is far from her. Stolen Shockwave wins team fights: take it every time it is up."
+Viktor = "Sidestep the E laser and walk out of W before it stuns. He can't run: chain him, then W, when his Q shield is down."
+Akali = "Don't fight inside her shroud: wait at its edge and chain her when she shows. W heals her Q poke early. Trade when her energy is low; respect her 6."
+Katarina = "Stand away from her daggers. Your E chain interrupts her R: hold it for that. You beat her in melee early with passive autos and W."
+Malzahar = [
+  "Break his passive shield with Q or an auto first: it blocks your chain. Your Q and W clear his voidlings. His R stolen is a point-and-click suppress for ganks.",
+  "His E spreads from dying minions onto you: step away from low minions that carry it.",
+  "At 6 he holds you still for 2.5 s: don't walk past the middle of the lane while his jungler is unseen.",
+  "All-in at level 3 to 5 when the shield is down and his E is on cooldown: he has no escape and you heal with W.",
+  "Kill the voidlings with passive autos first, or they chew you up in a long trade.",
+  { keystone = "Conqueror", tip = "E in and auto between every spell for the passive: Conqueror stacks fast once the voidlings are dead." },
+  { keystone = "Electrocute", tip = "E2, auto, Q pops Electrocute in one go; get out before his W and E tick." },
+]
+Veigar = "Wait for his cage, then dash in past it or stand still in the middle. He has no escape and you heal with W. His R stolen hits harder the lower the target."
+Lux = "Dodge Q behind minions, then chain her: she has no escape and her shield is small early. Stolen Final Spark is a ranged finisher on a short cooldown."
+Yone = [
+  "He out-trades you after spirit E: back off, then chain him when he snaps back to his body. W heals his poke. His R stolen is a good engage.",
+  "His Q3 whirlwind dash is his only engage without E: sidestep it or E away, then punish.",
+  "His W shield grows with every target it hits: fight away from your minions.",
+  "Before his first item you win short trades with E2, auto, W, auto; after it avoid long auto fights.",
+  { keystone = "Conqueror", tip = "Fight only while his E is down, so the long trade is on your terms." },
+]
+
+[Ahri]
+Syndra = [
+  "She out-ranges you and her E knocks you out of your R dashes: bait E before you go in. Charm her when she walks up to last-hit.",
+  "Her spheres stay on the ground: don't stand in line behind one, E pushes it into you and stuns.",
+  "Her R is point-and-click and hits harder with more spheres out: stay above half health once she is 6.",
+  "She has no escape: a landed charm with your jungler there is a kill.",
+  { keystone = "Electrocute", tip = "Charm, Q, auto pops Electrocute, W for the rest. Trade only while her E is on cooldown." },
+]
+Zed = [
+  "He all-ins with R at 6: hold charm for the moment he appears behind you, then walk away from his shadows. Before 6 push him in and poke when his W is down.",
+  "His W shadow has a long cooldown early: once it is used he has no poke and no escape. That is your window.",
+  "Dodge the Q thrown from the shadow by moving sideways, not back.",
+  "Zhonya's (Seeker's Armguard first) beats his R: press it after the mark lands, not before.",
+  "Your R dashes get you out of his shadow triangle: keep one charge for that.",
+  { keystone = "Electrocute", tip = "E, Q, auto while his W shadow is down: he heals nothing back." },
+]
+
+[Malzahar]
+Cassiopeia = [
+  "She out-damages you in long trades: keep max range, push with E and voidlings, and R her only with your jungler or when she is under half health.",
+  "Her E spam needs you poisoned: sidestep Q and she has no damage.",
+  "Turn away the moment she casts R, or you are stunned instead of slowed.",
+  "Your passive blocks one spell and its poison: wait for it to come back before you step up.",
+  { keystone = "Arcane Comet", tip = "E on a low minion next to her spreads onto her and brings Comet down; she can't dodge it." },
+]
+Sylas = [
+  "He wants to chain onto you with E and heal with W: stand behind your voidlings and minions, they block the chain. Your passive shield blocks it once too.",
+  "He steals your R: after 6 assume he has a suppress, and stay near your tower when his jungler is around.",
+  "Push hard with Q, E and voidlings: his wave clear is poor early and he loses CS under tower.",
+  "Your Q silence stops his combo midway: cast it as he dashes in.",
+]
+Yasuo = [
+  "His Wind Wall blocks your Q only: E and R go through and voidlings ignore it. Push with E and keep the passive shield for his Q3 tornado.",
+  "He dashes through your voidlings and minions: fight where the wave is thin, or he reaches you for free.",
+  "R him when he dashes in: he can't combo while suppressed and the voidlings do the rest.",
+  "His passive shield comes back as he moves: break it with an E tick before a trade.",
+  "He wins long melee trades: keep your distance and let E and the wave do the work.",
+]
+
+[Orianna]
+Ahri = [
+  "Keep the ball between you and her: she has to walk past it to charm you. Dodge E from behind minions; poke with Q-W when she steps up.",
+  "At 6 she dashes onto you three times: hold E and R for that, Shockwave on top of yourself stops the all-in.",
+  "She roams well at 6: push the wave with Q-W before she leaves, and ping.",
+  { keystone = "Summon Aery", tip = "Auto and Q-W together when she last-hits: you out-trade her at range." },
+]
+
+[Yasuo]
+Yasuo = [
+  "Mirror: whoever has the Q3 tornado first engages. Wind Wall blocks his tornado: keep it for that, not for autos.",
+  "Fight inside your own wave: you need minions to dash through, and so does he.",
+  "Level 2 first wins the lane: stack Q on the first melee minions and push.",
+  "Don't dash into him while his Q3 is ready: dash away through a minion and trade when it is gone.",
+  { keystone = "Lethal Tempo", tip = "Long auto trades go to whoever started stacking first: start on a minion before you go in." },
+]
+
+[Zed]
+Sylas = [
+  "He heals poke back with W and wins long melee trades: poke with W-Q from range and don't stand next to him. Minions block his chain; W swap dodges it.",
+  "He steals Death Mark at 6: keep W shadow ready to get away when he uses it on you.",
+  "All-in while his W is on cooldown: without the heal he dies to R, E, Q.",
+  "He pushes badly early: shove the wave with Q-E and roam.",
+  { keystone = "Electrocute", tip = "W, E, Q from range pops Electrocute without ever touching him." },
+]
+
+[Leona]
+Renata = [
+  "Dodge her Q or she roots you and throws you away from your target: engage right after she misses it. She has no escape: E-Q her when her ADC is far.",
+  "Her W brings a dying ally back if they get a takedown while burning: kill that target fast or switch off it.",
+  "Her R cloud sends you berserk: don't stand in a line with your ADC once she is 6.",
+  { keystone = "Aftershock", tip = "E-Q in, then W: the Aftershock resists carry you through their first burst." },
+]
+
+[Senna]
+Seraphine = [
+  "You out-range her autos and heal through her poke with Q: trade autos and Q whenever she walks up. Her E roots if you are slowed: dodge the second cast.",
+  "Collect every soul: she can't contest them without stepping into your range.",
+  "Your W root is slow: throw it right after she casts, she has no dash.",
+  "Stand apart from your ADC against her Q and R.",
+  { keystone = "Fleet Footwork", tip = "Energised autos on her heal back what she pokes: auto her every time Fleet is charged." },
+]
+
+[Zilean]
+Nautilus = [
+  "Speed yourself or your ADC out of his hook line with E, or slow him as he walks up. Double bomb as he engages: the stun breaks his combo.",
+  "Stand behind minions: the hook is all he has at range.",
+  "Hold R for whoever he ults at 6: his R can't be dodged, your revive undoes it.",
+  "Level 2 is his: stay back until you have both Q and E.",
+  { keystone = "Summon Aery", tip = "One bomb on him whenever he steps up: he has no sustain." },
+]

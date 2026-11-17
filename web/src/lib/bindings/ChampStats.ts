@@ -49,4 +49,8 @@ skill_priority: string,
 /**
  * lolalytics build page games and wins by game length, shortest first; empty when unknown.
  */
-by_length: Array<LengthWin>, };
+by_length: Array<LengthWin>, 
+/**
+ * lolalytics build page most played starting items (two potions are two ids); empty when unknown.
+ */
+start: Array<number>, };

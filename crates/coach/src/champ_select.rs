@@ -33,13 +33,13 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
     }
 }
 
-/// My lane's tier list, and its champions ranked by win rate against my lane opponent.
-fn tier_board(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) -> Option<TierBoard> {
-    let (cs, lane) = (inp.cs, inp.cs.my_lane?);
+/// My lane's tier list in its order, each champion with its win rate against the enemy whose
+/// win rates against them are `theirs`; banned and taken champions dropped.
+fn tier_rows(inp: &ChampSelectInput, mine: Option<ChampKey>, theirs: &[Matchup]) -> Vec<TierPick> {
+    let cs = inp.cs;
     let taken = |c: ChampKey| cs.bans.contains(&c) || cs.enemies.contains(&c) || (cs.allies.contains(&c) && Some(c) != mine);
-    let theirs = opp.and_then(|o| inp.enemies.iter().find(|s| s.champ == o));
     let row = |t: &TierEntry| {
-        let m = theirs.and_then(|s| s.counters.iter().find(|m| m.champ == t.champ && m.games >= MATCHUP_MIN_GAMES));
+        let m = theirs.iter().find(|m| m.champ == t.champ && m.games >= MATCHUP_MIN_GAMES);
         TierPick {
             champ: t.champ,
             tier: t.tier.clone(),
@@ -50,21 +50,40 @@ fn tier_board(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampK
             mine: Some(t.champ) == mine,
         }
     };
-    let best: Vec<TierPick> = inp.tier_list.iter().filter(|t| lane_ok(inp, t) && !taken(t.champ)).map(row).collect();
+    inp.tier_list.iter().filter(|t| lane_ok(inp, t) && !taken(t.champ)).map(row).collect()
+}
+
+/// The first TIER_ROWS, and my champion after them when it is further down.
+fn cut(mut v: Vec<TierPick>) -> Vec<TierPick> {
+    let me = v.iter().position(|p| p.mine).filter(|&i| i >= TIER_ROWS).map(|i| v.remove(i));
+    v.truncate(TIER_ROWS);
+    v.extend(me);
+    v
+}
+
+/// The rows with a win rate against the enemy, best against them first.
+fn ranked(rows: &[TierPick]) -> Vec<TierPick> {
+    let mut counters: Vec<TierPick> = rows.iter().filter(|p| p.vs_wr.is_some()).cloned().collect();
+    let key = |p: &TierPick| shrink(p.vs_wr.unwrap_or(50.0), p.vs_games, MATCHUP_SHRINK_K);
+    counters.sort_by(|a, b| key(b).total_cmp(&key(a)).then(a.champ.cmp(&b.champ)));
+    cut(counters)
+}
+
+/// My lane's tier list ranked against an enemy outside my own lane (their bot laner for a
+/// support): `theirs` is that enemy's win rate against champions in my lane.
+pub fn tier_counters(inp: &ChampSelectInput, theirs: &[Matchup]) -> Vec<TierPick> {
+    ranked(&tier_rows(inp, inp.cs.my_pick.or(inp.cs.my_hover), theirs))
+}
+
+/// My lane's tier list, and its champions ranked by win rate against my lane opponent.
+fn tier_board(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) -> Option<TierBoard> {
+    let lane = inp.cs.my_lane?;
+    let theirs = opp.and_then(|o| inp.enemies.iter().find(|s| s.champ == o));
+    let best = tier_rows(inp, mine, theirs.map_or(&[], |s| s.counters.as_slice()));
     if best.is_empty() {
         return None;
     }
-    let mut counters: Vec<TierPick> = best.iter().filter(|p| p.vs_wr.is_some()).cloned().collect();
-    let key = |p: &TierPick| shrink(p.vs_wr.unwrap_or(50.0), p.vs_games, MATCHUP_SHRINK_K);
-    counters.sort_by(|a, b| key(b).total_cmp(&key(a)).then(a.champ.cmp(&b.champ)));
-    // The first TIER_ROWS, and my champion after them when it is further down.
-    let cut = |mut v: Vec<TierPick>| {
-        let me = v.iter().position(|p| p.mine).filter(|&i| i >= TIER_ROWS).map(|i| v.remove(i));
-        v.truncate(TIER_ROWS);
-        v.extend(me);
-        v
-    };
-    Some(TierBoard { lane, vs: opp, counters: cut(counters), best: cut(best) })
+    Some(TierBoard { lane, vs: opp, counters: ranked(&best), best: cut(best), others: vec![] })
 }
 
 fn lane_ok(inp: &ChampSelectInput, t: &TierEntry) -> bool {
@@ -201,27 +220,7 @@ fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> 
     let needs = needs::needs(&foes);
     let mut ctx = items::Ctx::new(sd, Some(mine), champ(sd, champ_key), inp.cs.mode);
     let is_boots = |id: ItemId| sd.items.get(&id).is_some_and(|i| i.boots);
-    // Early sets include the first back; keep the opening purchases that fit in
-    // starting gold and pick the most played opening.
-    let mut openings: Vec<(Vec<ItemId>, u32)> = Vec::new();
-    for e in &mine.early {
-        let mut gold = 0;
-        let open: Vec<ItemId> = e
-            .items
-            .iter()
-            .copied()
-            .take_while(|id| {
-                gold += sd.items.get(id).map_or(0, |i| i.cost);
-                gold <= START_GOLD
-            })
-            .collect();
-        match openings.iter_mut().find(|(o, _)| *o == open) {
-            Some((_, g)) => *g += e.games,
-            None if !open.is_empty() => openings.push((open, e.games)),
-            None => {}
-        }
-    }
-    let start = openings.into_iter().max_by_key(|(_, g)| *g).map(|(o, _)| o).unwrap_or_default();
+    let start = opening(sd, mine);
     ctx.support = inp.cs.mode == Mode::Rift
         && (inp.cs.my_lane == Some(Lane::Support) || start.iter().any(|i| SUPPORT_QUEST.contains(i)));
     let b = items::build(&ctx, &[], &needs);

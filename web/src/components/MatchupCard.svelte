@@ -1,8 +1,10 @@
 <script lang="ts">
   // Tips against one lane opponent (champ select and the in-game laning panel): my win rate,
-  // their lane tags, the pair note, how they win / spike / when to trade, their spell
-  // cooldowns (spells to play around marked) and my record against them.
+  // their lane tags, the pair tips (hand-written, else from both kits), the matchup page's
+  // build path and numbers, how they win / spike / when to trade, their spell cooldowns
+  // (spells to play around marked) and my record against them.
   import type { MatchupCard } from '../lib/bindings/MatchupCard';
+  import type { PathStep } from '../lib/bindings/PathStep';
   import { store } from '../lib/store.svelte';
   import { champName, cooldownText, gold, signed, spellIcon } from '../lib/ui';
   import Icon from './Icon.svelte';
@@ -17,6 +19,18 @@
   const few = $derived(card.games < FEW);
 </script>
 
+{#snippet path(steps: PathStep[])}
+  <ol class="path">
+    {#each steps as s, i (i)}
+      <li>
+        {#each s.items as id, j (`${id}-${j}`)}<Icon kind="item" {id} size={26} />{/each}
+        <span class="num">{s.win_rate.toFixed(1)}%</span>
+        <span class="muted">{games(s.games)}</span>
+      </li>
+    {/each}
+  </ol>
+{/snippet}
+
 <article class="card">
   <div class="head">
     <Icon kind="champ" id={card.champ} size={40} />
@@ -28,8 +42,36 @@
     {#each card.tags as t (t)}<span class="tag">{t}</span>{/each}
   </div>
 
-  {#if card.pair}
-    <p class="pair"><span class="label">{me != null ? name(me) : 'You'} vs {name(card.champ)}</span>{card.pair}</p>
+  {#if card.pair || card.kit.length}
+    <div class="pair">
+      <span class="label">{me != null ? name(me) : 'You'} vs {name(card.champ)}</span>
+      {#if card.pair}<p>{card.pair}</p>{/if}
+      {#if card.pair_more.length || card.kit.length}
+        <ul>
+          {#each [...card.pair_more, ...card.kit] as l (l)}<li>{l}</li>{/each}
+        </ul>
+      {/if}
+    </div>
+  {/if}
+
+  {#if card.path.length}
+    <div class="pair numbers">
+      <span class="label">Build into {name(card.champ)} · win rate, games</span>
+      {@render path(card.path)}
+      {#if card.best_path.length}
+        <span class="label">Highest win rate build</span>
+        {@render path(card.best_path)}
+      {/if}
+    </div>
+  {/if}
+
+  {#if card.numbers.length}
+    <div class="pair numbers">
+      <span class="label">This matchup in numbers</span>
+      <ul>
+        {#each card.numbers as l (l)}<li class="num">{l}</li>{/each}
+      </ul>
+    </div>
   {/if}
 
   {#if card.note}
@@ -120,6 +162,46 @@
   .pair .label {
     display: block;
     color: var(--gold);
+  }
+  .pair p {
+    margin: 0;
+  }
+  .pair ul {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding-left: 16px;
+  }
+  .pair p + ul {
+    margin-top: 4px;
+  }
+  .numbers {
+    border-left-color: var(--line);
+    font-size: 13px;
+  }
+  .numbers .label {
+    color: var(--muted);
+  }
+  .pair .path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    padding: 0;
+    list-style: none;
+  }
+  .path li {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .path li + li::before {
+    content: '›';
+    margin-right: 3px;
+    color: var(--faint);
+  }
+  .path + .label {
+    margin-top: 6px;
   }
   dl {
     display: grid;

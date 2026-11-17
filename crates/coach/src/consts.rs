@@ -338,6 +338,9 @@ pub const ULT_LEVELS_4: [u32; 4] = [1, 6, 11, 16];
 
 // ---- shopping (Q1) / gold ETA (Q2) ----
 pub const INVENTORY_SLOTS: usize = 6;
+/// Before this game time (s), or with an empty inventory, the shopping list buys the start set
+/// first and no Control Ward.
+pub const OPENING_UNTIL_S: f32 = 120.0;
 /// Path items the shopping list spends on, in order (buy next, then the one after).
 pub const SHOP_PATH_DEPTH: usize = 2;
 pub const CONTROL_WARD: model::ItemId = 2055;

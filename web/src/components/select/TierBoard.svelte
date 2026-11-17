@@ -1,6 +1,7 @@
 <script lang="ts">
   // My lane's lolalytics tier list: counters to my lane opponent ranked by win rate against
-  // them, and the best champions in the lane in general.
+  // them (in bot lane also against the other enemy bot laner), and the best champions in the
+  // lane in general.
   import type { TierBoard } from '../../lib/bindings/TierBoard';
   import type { TierPick } from '../../lib/bindings/TierPick';
   import { store } from '../../lib/store.svelte';
@@ -10,10 +11,10 @@
   let { board }: { board: TierBoard } = $props();
   const name = (c: number) => (store.ui ? champName(store.ui, c) : '');
   const tierClass = (t: string | null) => (t ? (t.startsWith('S') ? 's' : t.startsWith('A') ? 'a' : t.startsWith('B') ? 'b' : 'c') : 'c');
-  const vsName = $derived(board.vs != null ? name(board.vs) : '');
+  const mainName = $derived(board.vs != null ? name(board.vs) : '');
 </script>
 
-{#snippet row(p: TierPick, vs: boolean)}
+{#snippet row(p: TierPick, vs: boolean, vsName: string)}
   <li class:mine={p.mine}>
     <span class="pic">
       <Icon kind="champ" id={p.champ} size={34} />
@@ -32,20 +33,30 @@
   </li>
 {/snippet}
 
-<section class="panel board">
+<section class="panel board" class:three={board.others.length > 0}>
   <div class="col">
-    <h2>{board.vs != null ? `Into ${vsName}` : 'Counters'}</h2>
+    <h2>{board.vs != null ? `Into ${mainName}` : 'Counters'}</h2>
     {#if board.vs == null}
       <p class="empty">Shown once your lane opponent is revealed.</p>
     {:else if !board.counters.length}
-      <p class="empty">No matchup data against {vsName} yet.</p>
+      <p class="empty">No matchup data against {mainName} yet.</p>
     {:else}
-      <ol>{#each board.counters as p (p.champ)}{@render row(p, true)}{/each}</ol>
+      <ol>{#each board.counters as p (p.champ)}{@render row(p, true, mainName)}{/each}</ol>
     {/if}
   </div>
+  {#each board.others as o (o.vs)}
+    <div class="col">
+      <h2>Into {name(o.vs)}</h2>
+      {#if !o.counters.length}
+        <p class="empty">No matchup data against {name(o.vs)} yet.</p>
+      {:else}
+        <ol>{#each o.counters as p (p.champ)}{@render row(p, true, name(o.vs))}{/each}</ol>
+      {/if}
+    </div>
+  {/each}
   <div class="col">
     <h2>Best in {LANE_NAMES[board.lane]}</h2>
-    <ol>{#each board.best as p (p.champ)}{@render row(p, false)}{/each}</ol>
+    <ol>{#each board.best as p (p.champ)}{@render row(p, false, mainName)}{/each}</ol>
   </div>
   <p class="note">lolalytics tier list for your lane; banned and picked champions left out. Win rate against them, with games.</p>
 </section>
@@ -55,6 +66,9 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 6px 20px;
+  }
+  .board.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   ol {
     margin: 0;
@@ -141,7 +155,8 @@
     color: var(--faint);
   }
   @media (max-width: 760px) {
-    .board {
+    .board,
+    .board.three {
       grid-template-columns: 1fr;
     }
   }
