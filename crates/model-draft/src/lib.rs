@@ -172,6 +172,9 @@ data! {
         /// The other hand-written tips for the pairing; keystone tips start with the keystone's name.
         #[serde(default)]
         pub pair_more: Vec<String>,
+        /// Tips Claude wrote for this pairing (asked once, kept on disk); empty until they are there.
+        #[serde(default)]
+        pub ai: Vec<String>,
         /// Lines from my kit against theirs (`coach::pair_tips`); empty when no rule fits.
         #[serde(default)]
         pub kit: Vec<String>,

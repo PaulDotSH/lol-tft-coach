@@ -61,6 +61,31 @@ pub fn matchup_page(sh: &Arc<Shared>, sd: &StaticData, me: ChampKey, vs: ChampKe
     )
 }
 
+/// Tips Claude wrote for me against `them`: kept under `%APPDATA%\lol-coach\ai-tips`, else asked
+/// once in the background through the Claude Code CLI (about half a minute). None until they are
+/// there, with the setting off, outside ranked and custom games (`queue`), before both champions'
+/// spells are known, or for a pairing that has a hand-written list.
+pub fn ai_tips(sh: &Arc<Shared>, sd: &StaticData, queue: i64, me: ChampKey, them: ChampKey, lane: Lane, vs_lane: Lane) -> Option<Arc<Vec<PairTip>>> {
+    let (a, b) = (sd.champs.get(&me)?, sd.champs.get(&them)?);
+    if !sh.settings().ai_tips || !coach::ai_queue(queue) || lane_notes().pair(&a.id, &b.id).len() > 1 {
+        return None;
+    }
+    let spells = crate::ingame::spells(sh, sd, &[me, them]);
+    let (mine, theirs) = (spells.get(&me)?.clone(), spells.get(&them)?.clone());
+    let patch = sh.patch()?;
+    let numbers = matchup_page(sh, sd, me, them, lane, vs_lane).map_or(vec![], |b| coach::pair_tips::numbers(sd, &b));
+    ensure(sh, |s| &s.ai_tips, |s| &s.ai_ok, (me, them, lane), move || {
+        let (a, b) = (a.clone(), b.clone());
+        let runes: Vec<String> = sd.runes.values().map(|r| r.name.clone()).collect();
+        let dir = crate::settings::config_dir().join("ai-tips");
+        async move {
+            let p = data::ai_tips::Pairing { me: &a.name, me_id: &a.id, them: &b.name, them_id: &b.id, lane, vs_lane, patch: &patch, my_spells: &mine, their_spells: &theirs, numbers: &numbers };
+            let runes: Vec<&str> = runes.iter().map(String::as_str).collect();
+            data::ai_tips::tips(&dir, &p, &runes).await
+        }
+    })
+}
+
 /// Tier board: my lane's champions ranked against the other enemies in the lanes I face (a
 /// support against their bot laner, a bot laner against their support), as far as fetched.
 pub fn tier_others(sh: &Arc<Shared>, sd: &StaticData, input: &coach::ChampSelectInput, advice: &mut ChampSelectAdvice) {
@@ -140,7 +165,7 @@ pub fn matchup(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &Cha
     let build = direct(lane, &faced).and_then(|(l, e)| matchup_page(sh, sd, me, e, lane, l));
     let champs: Vec<ChampKey> = faced.iter().map(|f| f.1).collect();
     let spells = crate::ingame::spells(sh, sd, &champs);
-    coach::matchup_plan(&coach::MatchupInput {
+    let mut plan = coach::matchup_plan(&coach::MatchupInput {
         cs,
         card: coach::CardData { sd, notes: lane_notes(), me, keystone: None, spells: &spells, memory: &advice.memory },
         lane,
@@ -148,7 +173,16 @@ pub fn matchup(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, advice: &Cha
         duos: draft.map_or(&[][..], |d| d.allies.duos.as_slice()),
         vs: &vs,
         build: build.as_deref(),
-    })
+    })?;
+    // Asked once my pick is made, not on every hover.
+    if cs.my_pick == Some(me) {
+        for &(l, e) in &faced {
+            if let Some(tips) = ai_tips(sh, sd, cs.queue_id, me, e, lane, l) {
+                coach::matchup_ai(&mut plan.cards, sd, e, &tips, None);
+            }
+        }
+    }
+    Some(plan)
 }
 
 /// ARAM win rates and tiers for the ARAM / Mayhem bench.

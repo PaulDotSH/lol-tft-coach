@@ -138,6 +138,27 @@ fn cards_carry_kit_lines_and_numbers_only_for_the_page_s_opponent() {
     matchup_numbers(&mut cards, &sd, None);
     assert!(cards[0].numbers.is_empty(), "a page from few games says nothing");
 
+    // Tips the model wrote: under the keystone's name, mine only once it is known, and the kit lines step aside.
+    let written = [
+        PairTip { text: "Poke with your Q at max range.".into(), keystone: None },
+        PairTip { text: "Q, then step back.".into(), keystone: Some("Arcane Comet".into()) },
+        PairTip { text: "Auto when Grasp is charged.".into(), keystone: Some("Grasp of the Undying".into()) },
+    ];
+    let mut sd_runes = sd.clone();
+    sd_runes.runes.insert(8437, RuneInfo { name: "Grasp of the Undying".into(), icon: String::new() });
+    let mut cards = vec![coach::matchup_card(&d, GAREN, None, None)];
+    assert!(!cards[0].kit.is_empty() && cards[0].ai.is_empty());
+    coach::matchup_ai(&mut cards, &sd_runes, GAREN, &written, None);
+    assert_eq!(cards[0].ai, ["Poke with your Q at max range.", "Arcane Comet: Q, then step back.", "Grasp of the Undying: Auto when Grasp is charged."]);
+    assert!(cards[0].kit.is_empty() && cards[0].pair.is_some());
+    coach::matchup_ai(&mut cards, &sd_runes, GAREN, &written, Some(8437));
+    assert_eq!(cards[0].ai, ["Poke with your Q at max range.", "Grasp of the Undying: Auto when Grasp is charged."]);
+    coach::matchup_ai(&mut cards, &sd_runes, SETT, &written, None);
+    assert_eq!(cards.len(), 1, "no card for that opponent");
+    // Asked in ranked solo/duo, flex, Clash and custom games only.
+    assert_eq!([420, 440, 700, 0, -1].map(coach::ai_queue), [true; 5]);
+    assert_eq!([400, 480, 490, 450, 2400].map(coach::ai_queue), [false; 5], "draft, Swiftplay, Quickplay, ARAM, Mayhem");
+
     // No tags, no hand-written line and no page: the champion note alone, as before.
     let bare = LaneNotes { champs: notes.champs.clone(), ..Default::default() };
     let d = CardData { notes: &bare, ..d };

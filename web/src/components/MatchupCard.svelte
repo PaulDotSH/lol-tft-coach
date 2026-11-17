@@ -42,13 +42,19 @@
     {#each card.tags as t (t)}<span class="tag">{t}</span>{/each}
   </div>
 
-  {#if card.pair || card.kit.length}
+  {#if card.pair || card.kit.length || card.ai.length}
     <div class="pair">
       <span class="label">{me != null ? name(me) : 'You'} vs {name(card.champ)}</span>
       {#if card.pair}<p>{card.pair}</p>{/if}
       {#if card.pair_more.length || card.kit.length}
         <ul>
           {#each [...card.pair_more, ...card.kit] as l (l)}<li>{l}</li>{/each}
+        </ul>
+      {/if}
+      {#if card.ai.length}
+        <span class="label by">Written by Claude for this matchup</span>
+        <ul>
+          {#each card.ai as l (l)}<li>{l}</li>{/each}
         </ul>
       {/if}
     </div>
@@ -174,6 +180,9 @@
   }
   .pair p + ul {
     margin-top: 4px;
+  }
+  .pair .by:not(:first-of-type) {
+    margin-top: 6px;
   }
   .numbers {
     border-left-color: var(--line);

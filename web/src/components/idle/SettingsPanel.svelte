@@ -49,6 +49,11 @@
     <button id="coachless" onclick={() => coachless(!signedIn)}>{signedIn ? 'Sign out' : 'Sign in'}</button>
     <label for="audio">Speak in-game calls aloud</label>
     <input id="audio" type="checkbox" checked={settings.audio} onchange={(e) => set('audio', e.currentTarget.checked)} />
+    <label for="aitips">
+      Matchup tips written by Claude
+      <small>in ranked, Clash and custom games, for a lane pairing without hand-written tips: asked once after you pick through the Claude Code CLI on this PC (about half a minute) and kept</small>
+    </label>
+    <input id="aitips" type="checkbox" checked={settings.ai_tips} onchange={(e) => set('ai_tips', e.currentTarget.checked)} />
     <label for="winprob">
       Win chance and posture in game
       <small>your team's chance from the scoreboard, what moves it, what the next objectives are worth and a read of the next minutes; needs a fitted model</small>

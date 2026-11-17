@@ -1,6 +1,7 @@
 //! Remote static and statistical data: Data Dragon, lolalytics, u.gg (Mayhem), Coachless.
 //! Every fetch goes through [`Http`], which keeps a disk cache.
 
+pub mod ai_tips;
 pub mod coachless;
 pub mod ddragon;
 pub mod icons;
