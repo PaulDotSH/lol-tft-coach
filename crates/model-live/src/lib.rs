@@ -138,6 +138,19 @@ data! {
         /// How the next minutes look, from `win`; None without it.
         #[serde(default)]
         pub posture: Option<Posture>,
+        /// Rift, not Swiftplay: when Emerald+ finish my next finished item (crawled games).
+        #[serde(default)]
+        pub pace: Option<BuildPace>,
+    }
+
+    /// The slot of my next finished item and its game times (s) over Emerald+ games:
+    /// 25th, 50th and 75th percentile.
+    pub struct BuildPace {
+        /// "first item", "second item", "third item".
+        pub slot: String,
+        pub early: u32,
+        pub median: u32,
+        pub late: u32,
     }
 
     /// A standing read of the game from the win probability (`coach::posture`): a read and

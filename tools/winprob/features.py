@@ -1,11 +1,17 @@
 """Rows for the win-probability fit: one per minute frame of each crawled game, from blue's side,
 with the features of `State::features` in crates/coach/src/winprob.rs.
 
-py -3.12 -I tools/winprob/features.py [--raw DIR] [--out rows.npz] [--mode rift|aram] [--patch 16.22] [--items item.json]
+py -3.12 -I tools/winprob/features.py [--raw DIR] [--out rows.npz] [--mode rift|aram] [--patch 16.22] [--items item.json] [--bands DIR]
 py -3.12 -I tools/winprob/features.py --check [--raw DIR] [--limit N]
 
 --check runs the plan T0b checks on crawled games (item gold rebuilt from the item events against
 each player's final items, event types seen, frame spacing) and writes nothing.
+
+--bands DIR: the service's patch directory; each crawl state file there (<platform>.json) may map
+match ids to the ladder band they were crawled from ("bands"); a game in none is TOP_BAND.
+
+The service runs the same rows from Rust (`lol-coach-server features`, crates/server/src/features.rs);
+this file is the reference it is checked against and the tool for a PC.
 """
 import argparse, collections, gzip, json, math, os, sys, zlib
 from pathlib import Path
@@ -42,6 +48,7 @@ LENGTH_FROM = (0, 15, 20, 25, 30, 35, 40)
 MIN_GAME_S = 300
 TEST_SHARE = 5
 FOLDS = 5
+TOP_BAND = "APEX"
 
 
 def respawn(level, t):
@@ -490,8 +497,25 @@ def outlook(game, minute, tables, own):
     return total
 
 
-def rows_of(games):
-    """Arrays for fit.py, with the outlook from the training games' length tables."""
+def read_bands(patch_dir):
+    """Match id → band from the `bands` of the crawl state files in `patch_dir`; the first file by
+    name wins. A file that cannot be read, or has no such key, adds nothing."""
+    out = {}
+    for p in sorted(Path(patch_dir).glob("*.json")):
+        try:
+            bands = json.loads(p.read_text(encoding="utf-8")).get("bands")
+        except (OSError, ValueError, AttributeError) as e:
+            print(f"{p} has no bands I can read ({e}); its games count as {TOP_BAND}", file=sys.stderr)
+            continue
+        if isinstance(bands, dict):
+            for mid, band in bands.items():
+                if isinstance(band, str) and band:
+                    out.setdefault(mid, band)
+    return out
+
+
+def rows_of(games, bands=None):
+    """Arrays for fit.py, with the outlook from the training games' length tables; `band` per game."""
     train = [g for g in games if not is_test(g.match_id)]
     tables = dict(length_tables(train))
     game, minute, y, X, test, folds = [], [], [], [], [], []
@@ -508,7 +532,7 @@ def rows_of(games):
     import numpy as np
     return dict(game=np.array(game, np.int64), minute=np.array(minute), y=np.array(y), X=np.array(X).reshape(-1, len(KEYS)),
                 test=np.array(test, bool), fold=np.array(folds, np.int8), match_ids=np.array([g.match_id for g in games]),
-                keys=np.array(KEYS), train_games=np.int64(len(train)))
+                keys=np.array(KEYS), train_games=np.int64(len(train)), band=np.array([(bands or {}).get(g.match_id, TOP_BAND) for g in games]))
 
 
 def save_rows(path, arrays, mode, patch, source):
@@ -624,6 +648,7 @@ def main(argv=None):
     ap.add_argument("--items", help="Data Dragon item.json (default: fetched for the patch)")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--limit", type=int, default=50)
+    ap.add_argument("--bands", help="patch directory whose crawl state files name each game's band")
     a = ap.parse_args(argv)
     pairs = list(raw_pairs(a.raw))
     if not pairs:
@@ -648,9 +673,10 @@ def main(argv=None):
             games.append(game)
         if (n + 1) % 500 == 0:
             print(f"{n + 1} of {len(pairs)} read", flush=True)
-    arrays = rows_of(games)
+    arrays = rows_of(games, read_bands(a.bands) if a.bands else None)
     save_rows(a.out, arrays, a.mode, patch, "riot")
-    print(f"{len(games)} games ({int(arrays['train_games'])} training), {len(arrays['y'])} rows to {a.out}; left out: {dict(skipped)}")
+    print(f"{len(games)} games ({int(arrays['train_games'])} training), {len(arrays['y'])} rows to {a.out}; left out: {dict(skipped)};"
+          f" bands: {dict(collections.Counter(arrays['band'].tolist()))}")
 
 
 if __name__ == "__main__":

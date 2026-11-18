@@ -128,7 +128,7 @@ fn detail() -> MatchDetail {
         mine: false,
         presence: None,
     }];
-    MatchDetail { game: past_game(), me: ME, players, frames, kills, marks }
+    MatchDetail { game: past_game(), me: ME, players, frames, kills, marks, purchases: vec![] }
 }
 
 #[test]

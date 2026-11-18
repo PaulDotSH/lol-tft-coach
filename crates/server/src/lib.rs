@@ -1,9 +1,12 @@
 pub mod account;
 pub mod auth;
+pub mod builds;
 pub mod config;
 pub mod crawl;
 pub mod error;
+pub mod features;
 pub mod lookup;
+pub mod npz;
 pub mod players;
 pub mod riot;
 pub mod routes;

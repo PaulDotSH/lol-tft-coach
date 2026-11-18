@@ -47,12 +47,23 @@ NEWTON_ITERS = 60
 NEWTON_TOL = 1e-9
 LEADS = (0.02, 0.05, 0.10, 0.20)
 BOOT = 1000
+BOOT_BATCH = 50
 BOOT_SPAN = (5, 95)
 
 
 def hat(minutes, knots=F.KNOTS):
     eye = np.eye(len(knots))
-    return np.stack([np.interp(minutes, knots, eye[j]) for j in range(len(knots))], axis=1)
+    out = np.empty((len(minutes), len(knots)))
+    for j in range(len(knots)):
+        out[:, j] = np.interp(minutes, knots, eye[j])
+    return out
+
+
+def take(A, rows=None, cols=None):
+    """`A[rows][:, cols]` with one copy at most; None takes all."""
+    if cols is None:
+        return A if rows is None else A[rows]
+    return A[:, cols] if rows is None else A[np.ix_(rows, cols)]
 
 
 def beta(knots, values, minute):
@@ -73,21 +84,27 @@ def _design(X, H):
     return (X[:, :, None] * H[:, None, :]).reshape(len(X), -1)
 
 
-def newton(X, H, y, w, lam):
+def newton(X, H, y, w, lam, rows=None, cols=None):
     """Coefficients (features × knots) minimising Σ w·logloss + lam/2·|v·rms(x)|²: the penalty is on
-    each feature's root-mean-square scale, so it does not depend on the feature's units."""
-    rms = np.sqrt(np.mean(X ** 2, axis=0))
+    each feature's root-mean-square scale, so it does not depend on the feature's units. With
+    `rows` (indices) and `cols`, it fits those rows and features of the arrays, read a chunk at a
+    time, so no copy of the selected rows is held while it runs."""
+    if cols is None:
+        rms = np.sqrt(np.mean(take(X, rows) ** 2, axis=0))
+    else:
+        rms = np.sqrt(np.array([np.mean(np.square(X[:, j] if rows is None else X[rows, j])) for j in cols]))
     rms = np.where(rms > 0, rms, 1.0)
-    X = X / rms
-    d = X.shape[1] * H.shape[1]
+    n = len(y) if rows is None else len(rows)
+    chunk = lambda A, s, c=None: take(A[s:s + CHUNK], None, c) if rows is None else take(A, rows[s:s + CHUNK], c)
+    d = len(rms) * H.shape[1]
     v = np.zeros(d)
 
     def loss_grad_hess(v, need_hess=True):
         loss, g, A = 0.5 * lam * v @ v, lam * v, lam * np.eye(d) if need_hess else None
-        for s in range(0, len(y), CHUNK):
-            Z = _design(X[s:s + CHUNK], H[s:s + CHUNK])
+        for s in range(0, n, CHUNK):
+            Z = _design(chunk(X, s, cols) / rms, chunk(H, s))
             z = Z @ v
-            p, ws, ys = sigmoid(z), w[s:s + CHUNK], y[s:s + CHUNK]
+            p, ws, ys = sigmoid(z), chunk(w, s), chunk(y, s)
             loss += np.sum(ws * (np.logaddexp(0.0, z) - ys * z))
             if need_hess:
                 g += Z.T @ (ws * (p - ys))
@@ -108,7 +125,7 @@ def newton(X, H, y, w, lam):
         if np.max(np.abs(t * step)) < NEWTON_TOL:
             break
         loss, g, A = loss_grad_hess(v)
-    return v.reshape(X.shape[1], H.shape[1]) / rms[:, None]
+    return v.reshape(len(rms), H.shape[1]) / rms[:, None]
 
 
 def predict(X, H, V):
@@ -175,13 +192,18 @@ def bootstrap(game, y, p, base=None, n=BOOT, seed=0):
     cell = g * BINS + np.minimum((p * BINS).astype(int), BINS - 1)
     off = (np.bincount(cell, p, G * BINS) - np.bincount(cell, y, G * BINS)).reshape(G, BINS)
     loss = lambda q: -(y * np.log(np.clip(q, 1e-12, 1 - 1e-12)) + (1 - y) * np.log(np.clip(1 - q, 1e-12, 1)))
-    draws = np.random.default_rng(seed).multinomial(G, np.full(G, 1.0 / G), size=n).astype(float)
-    rows = draws @ np.bincount(g, minlength=G)
-    mine = draws @ np.bincount(g, loss(p), G) / rows
-    stats = dict(ece=100.0 * np.abs(draws @ off).sum(axis=1) / rows, log_loss=mine)
-    if base is not None:
-        stats["gain"] = draws @ np.bincount(g, loss(base), G) / rows - mine
-    return {k: tuple(float(x) for x in np.percentile(v, BOOT_SPAN)) for k, v in stats.items()}
+    rng, sizes, losses = np.random.default_rng(seed), np.bincount(g, minlength=G), np.bincount(g, loss(p), G)
+    based = np.bincount(g, loss(base), G) if base is not None else None
+    stats = {k: [] for k in ("ece", "log_loss") + (("gain",) if base is not None else ())}
+    for s in range(0, n, BOOT_BATCH):
+        draws = rng.multinomial(G, np.full(G, 1.0 / G), size=min(BOOT_BATCH, n - s)).astype(float)
+        rows = draws @ sizes
+        mine = draws @ losses / rows
+        stats["ece"].append(100.0 * np.abs(draws @ off).sum(axis=1) / rows)
+        stats["log_loss"].append(mine)
+        if based is not None:
+            stats["gain"].append(draws @ based / rows - mine)
+    return {k: tuple(float(x) for x in np.percentile(np.concatenate(v), BOOT_SPAN)) for k, v in stats.items()}
 
 
 def buckets():
@@ -256,6 +278,18 @@ def print_scores(ev, what="held out"):
           f" log loss {s['log_loss'][0]:.4f} to {s['log_loss'][1]:.4f}" + (f", log loss under gold-only by {s['gain'][0]:.4f} to {s['gain'][1]:.4f}" if "gain" in s else ""))
     for r in ev["ungated"]:
         print(f"not gated: {r['lo']}-{'' if r['hi'] == math.inf else r['hi']} min has {r['games']} games (< {BUCKET_GATE_GAMES}), ECE {r['model']['ece']:.2f}")
+
+
+def by_band(band, game, y, p, base):
+    """Scores for each band that has games (`band` per row): (band, games, model, gold-only)."""
+    return [(str(b), len(np.unique(game[m])), scores(y[m], p[m]), scores(y[m], base[m])) for b in np.unique(band) for m in [band == b]]
+
+
+def print_bands(rows):
+    print("held out by band (report only, no gate):")
+    for b, games, s, g in rows:
+        print(f"  {b:<8} {games:>6} games {s['rows']:>7} rows | log loss {s['log_loss']:.4f} brier {s['brier']:.4f} ECE {s['ece']:.2f}"
+              f" acc {s['accuracy']:.3f} | gold-only log loss {g['log_loss']:.4f} ECE {g['ece']:.2f}")
 
 
 def fmt(v):
@@ -370,7 +404,8 @@ def main(argv=None):
         m = tr & (folds == f)
         if not m.any():
             sys.exit(f"fold {f} has no training games")
-        mb = mean_beta(X[m][:, col], H[m], newton(X[m][:, col], H[m], y[m], w[m], a.l2))
+        Vf = newton(X, H, y, w, a.l2, np.flatnonzero(m), col)
+        mb = mean_beta(X[m][:, col], H[m], Vf)
         for k, b in zip(keys, mb):
             fold_signs[k].append(float(b))
     if unknown := [k for k in a.keep if k not in keys]:
@@ -381,9 +416,10 @@ def main(argv=None):
     if "gold" not in kept:
         sys.exit("gold has no stable sign: the rows are wrong, not the model")
     kc = [F.KEYS.index(k) for k in kept]
-    V = newton(X[tr][:, kc], H[tr], y[tr], w[tr], a.l2)
+    ti = np.flatnonzero(tr)
+    V = newton(X, H, y, w, a.l2, ti, kc)
     gc = [F.KEYS.index("gold")]
-    Vg = newton(X[tr][:, gc], H[tr], y[tr], w[tr], a.l2)
+    Vg = newton(X, H, y, w, a.l2, ti, gc)
     p = predict(X[test][:, kc], H[test], V)
     base = predict(X[test][:, gc], H[test], Vg)
     ev = evaluate(minute[test], y[test], p, base, game[test], X[test][:, gc[0]])
@@ -391,6 +427,8 @@ def main(argv=None):
     print_fit(kept, V, dropped, fold_signs, forced)
     print_scores(ev)
     print(f"blue won {100 * won(tr):.1f} % of the training games and {100 * won(test):.1f} % of the held-out games")
+    if "band" in d:
+        print_bands(by_band(d["band"][game[test]], game[test], y[test], p, base))
     if ev["fails"]:
         print("\nGATES FAILED, nothing written:\n  " + "\n  ".join(ev["fails"]))
         return 1

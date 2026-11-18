@@ -1,6 +1,7 @@
 # Build tips from the crawled games
 
-Status: design approved by the user 2026-11-12; implementation started. Builds on the minipc service
+Status: built 2026-11-12, all four parts, tested offline. Not yet live on the minipc and not
+yet seen in the real app; the check against a real client timeline (Part 3) is still open. Builds on the minipc service
 (`2026-11-12-minipc-service-design.md`) and the win-probability tools
 (`2026-11-11-win-probability-design.md`).
 
@@ -58,7 +59,7 @@ table (service not set, pair too rare) both are absent and nothing else changes.
 
 ```
 minipc                                              PC
-crawl (two bands) -> raw games -> builds.py -> builds.json  --GET /v1/builds.json-->  app
+crawl (two bands) -> raw games -> lol-coach-server builds -> builds.json  --GET /v1/builds.json-->  app
                                                              coach::builds (pure) -> review, item card
 ```
 
@@ -95,19 +96,25 @@ The table carries no win rates.
 - The band is that of the player a game was found through, not of all ten players. No extra
   requests.
 
-`tools/winprob/features.py` takes `--bands <patch dir>`, reads `bands` from the state files and
-saves a band for each row; `fit.py` prints the held-out scores for each band. Report only, no
-gate. This answers the open question of whether the table holds below Master.
+A game that ended a player's list (older patch) is kept in `older`, so a later pass stops at it
+with no match request.
+
+The per-band fit report (held-out scores for each band, to see whether the table holds below
+Master) is not part of this work: it goes in with the port of `features.py` and `fit.py` to Rust,
+decided 2026-11-12.
 
 Tests: queue choice and caps (pure function), the old state file read as described, eviction
 keeping `bands` in step, the top queue starting over, against the saved Riot replies.
 
 ## Part 2: build tables
 
-`tools/winprob/builds.py`, standard library only, reads one game at a time and keeps counters.
+`crates/server/src/builds.rs` (changed from a Python tool on 2026-11-12, for memory and speed), a
+subcommand of the service binary. It reads one game at a time (gzip and JSON into structs with
+only the fields it needs) and keeps counters: a first pass over the match files for the damage
+shares, a second over matches and timelines.
 
 ```
-builds.py --raw <patch dir>/raw --bands <patch dir> --items items-<version>.json --patch 16.22 --out <patch dir>/builds.json
+lol-coach-server builds --raw <patch dir>/raw --bands <patch dir> --items items-<version>.json --patch 16.22 --out <patch dir>/builds.json
 ```
 
 Definitions, all from the match, the timeline and Data Dragon's item file:
@@ -146,11 +153,13 @@ and boots, each champion's magic share, the two damage cuts and the lead cut. Th
 these instead of deriving them, so both sides sort a game the same way. Times are seconds. Expected size:
 under 1 MB.
 
-Service: the builder runs on the fit's trigger, after the fit, whatever the fit's result, and
-its own failure is logged and changes nothing else. `GET /v1/builds.json` (no token) serves the
+Service: the builder runs on the fit's trigger, after the fit, whatever the fit's result, as a
+child process of the service's own executable through the fit's runner (its memory goes back when
+it exits, and a crash cannot take the service down); its own failure is logged and changes
+nothing else. `GET /v1/builds.json` (no token) serves the
 file of the newest patch that has one, so the previous patch's table stays up until the new
-patch reaches `fit_at` games. `deploy/minipc/install.sh` installs `builds.py` beside the other
-tools; going live is a new build on the minipc and the owner running the install script.
+patch reaches `fit_at` games. No new tool file is installed; going live is a new
+build on the minipc and the owner running the install script.
 
 Tests: hand-built timelines for each definition (undo, first back, a Manamune, a short game),
 percentiles and thresholds on small counts, one run over real games checked by hand for two
@@ -159,9 +168,9 @@ champions; the service's route and trigger with the fake runner.
 ## Part 3: review
 
 - `crates/clients/src/history.rs`: `MatchDetail` gains my purchases (time, item), undone ones
-  removed when the client's timeline has `ITEM_UNDO`. The first step is to save a real client
-  timeline as a fixture and read which item events it has; if it has no undo events, an undone
-  purchase counts, which the tips tolerate (it moves a time earlier by seconds).
+  removed when the client's timeline has `ITEM_UNDO`. Still open: no real client timeline is
+  saved, so the parser is tested on a hand-extended fixture; if the client sends no undo events,
+  an undone purchase counts, which the tips tolerate (it moves a time earlier by seconds).
 - `coach::builds` (pure): `Table::parse(json)`, and `review(detail, table, coachless)` giving,
   for my champion and role: my finished items with times beside the `all` and `top` percentiles, my
   first back beside the table's, and tips.
@@ -180,7 +189,7 @@ champions; the service's route and trigger with the fake runner.
 - Coachless first: `coachless` is the champion's Coachless build when the app has it. An order
   or situation tip is not shown when the item I took is one of Coachless' options for that
   slot, whatever the crawl says. Timing and first-back tips do not depend on it.
-- Summoner's Rift only, not Swiftplay (faster gold). No table entry for the pair: no section.
+- Summoner's Rift only, not Swiftplay (faster gold; told by queue 480 in the review). No table entry for the pair: no section.
 - `src-tauri/src/builds.rs`: downloads `{server_url}/v1/builds.json` at start and every 6
   hours through the disk cache, like the win-probability table; `LOL_COACH_BUILDS_URL` names
   another place. No server address: no table.

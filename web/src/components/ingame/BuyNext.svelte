@@ -1,9 +1,10 @@
 <script lang="ts">
+  import type { BuildPace } from '../../lib/bindings/BuildPace';
   import type { GoldEta as Eta } from '../../lib/bindings/GoldEta';
   import type { ItemPick } from '../../lib/bindings/ItemPick';
   import type { WhatIf } from '../../lib/bindings/WhatIf';
   import { store } from '../../lib/store.svelte';
-  import { itemName } from '../../lib/ui';
+  import { clockText, itemName } from '../../lib/ui';
   import Icon from '../Icon.svelte';
   import GoldEta from './GoldEta.svelte';
   import WhatIfFigure from './WhatIfFigure.svelte';
@@ -14,7 +15,8 @@
     eta = null,
     upgrade = null,
     whatIf = [],
-  }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null; upgrade?: ItemPick | null; whatIf?: WhatIf[] } = $props();
+    pace = null,
+  }: { pick: ItemPick | null; alternatives: ItemPick[]; eta?: Eta | null; upgrade?: ItemPick | null; whatIf?: WhatIf[]; pace?: BuildPace | null } = $props();
   const wi = (item: number) => whatIf.find((w) => w.item === item);
   const component = $derived(pick?.component_now ?? null);
   const componentCost = $derived(component != null ? (store.ui?.items[component]?.cost ?? null) : null);
@@ -30,6 +32,11 @@
         {#if pick.reason}<p class="reason">{pick.reason}</p>{/if}
         <WhatIfFigure w={wi(pick.item)} />
         {#if eta && eta.item === pick.item}<GoldEta {eta} />{/if}
+        {#if pace}
+          <p class="pace muted" title="Ranked Emerald+ games on this champion and role: half finish it between {clockText(pace.early)} and {clockText(pace.late)}">
+            {pace.slot}: Emerald+ by {clockText(pace.median)}
+          </p>
+        {/if}
       </div>
     </div>
     {#if component != null}
@@ -141,6 +148,10 @@
     grid-template-columns: 40px auto auto 1fr auto;
     align-items: center;
     column-gap: 10px;
+  }
+  .pace {
+    margin: 6px 0 0;
+    font-size: 15px;
   }
   .text :global(.whatif) {
     margin-top: 6px;

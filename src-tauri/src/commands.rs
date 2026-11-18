@@ -85,6 +85,8 @@ pub async fn analyze_game(sh: Sh<'_>, game_id: u64) -> Result<MatchAnalysis, Str
     let (no_fit, fetched) = (coach::winprob::Model::default(), sh.winprob.lock().unwrap().clone());
     let winprob = if sh.settings().win_prob { fetched.as_deref().unwrap_or(coach::winprob::Model::shipped()) } else { &no_fit };
     let mut a = coach::analyze_match(&d, &sd, stats.as_deref(), recap.as_ref(), winprob);
+    let builds = sh.builds.lock().unwrap().clone();
+    a.build = builds.and_then(|t| coach::builds::review(&d, &t, stats.as_deref(), &sd));
     let (past, phase, session) = {
         let ui = sh.ui.lock().unwrap();
         (ui.history.clone(), ui.phase, ui.trends.as_ref().and_then(|t| t.session.clone()))

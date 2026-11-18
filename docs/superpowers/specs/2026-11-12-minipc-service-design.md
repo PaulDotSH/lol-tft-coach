@@ -214,8 +214,17 @@ while the two patches hold more than `max_games` games, the oldest stored game o
 is deleted.
 
 Fit: with `fit_at` games of the newest patch and again every `refit_every` more, the service runs
-`<python> -I <tools_dir>/features.py --raw … --out … --patch …` and `fit.py --rows … --out … --cases …`
-as child processes (the fit stays in Python: numpy, tested, and it runs minutes a day). `fit.py`
+`<its own executable> features --raw … --out rows.npz --patch … --items … --bands <patch dir>` and
+`<python> -I <tools_dir>/fit.py --rows … --out … --cases …` as child processes (the fit stays in
+Python: numpy, tested, and it runs minutes a day). The `features` subcommand
+(`crates/server/src/features.rs`) is `features.py` in Rust, checked against it to the bit on the
+15,695 games of 16.22: it reads each game's match file once to pick the games and build the
+outlook tables, then each kept game's timeline once, writing rows to scratch files (four threads at
+most) and then `rows.npz` (a zip of deflated `.npy` members, written by hand) that `np.load`
+reads as before, with one member more, `band`. It holds
+about 0.4 KB a game (27 MB at 15,695 games against about 1 GB for `features.py`) and took 11 s
+there against 150 s. `--bands` reads `"bands": {match id: "DIAMOND" | "EMERALD"}` from the state
+files; other games are `APEX`, and `fit.py` reports the held-out scores for each band. `fit.py`
 writes the table only when its gates pass; `/v1/winprob.toml` then serves it. `/v1/status` shows
 games for each server and patch, the last fit and whether it passed.
 

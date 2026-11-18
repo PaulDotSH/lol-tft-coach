@@ -1,12 +1,27 @@
 // Match history samples: AppState.history and the analyze_game result.
 // analysis.json is the real review of a recorded flex game (`--example review`); its win curve
 // and swings come from the hand-set table (`fixtures/coach/winprob_handset.toml`), not a fit.
+import type { BuildReview } from '../lib/bindings/BuildReview';
 import type { JungleReview } from '../lib/bindings/JungleReview';
 import type { MatchAnalysis } from '../lib/bindings/MatchAnalysis';
 import type { PastGame } from '../lib/bindings/PastGame';
 import recorded from './analysis.json';
 
-const reviewed = recorded as unknown as MatchAnalysis;
+// Made-up numbers in the shape of the crawl's build table for Nautilus support.
+const build: BuildReview = {
+  patch: '16.22',
+  games: 1412,
+  top_games: 1188,
+  items: [
+    { slot: 'first item', item: 3190, time: 812, all: [655, 840], top: [640, 815] },
+    { slot: 'second item', item: 2504, time: 1310, all: [1020, 1230], top: [1000, 1205] },
+    { slot: 'third item', item: 3076, time: 1640, all: [1390, 1650], top: [1370, 1620] },
+    { slot: 'boots', item: 3047, time: 905, all: [560, 820], top: [540, 800] },
+  ],
+  back: { time: 290, gold: 980, all: [210, 300], all_gold: [420, 900], top: [205, 290], usual: 1028 },
+  tips: ['Second item at 21:50; Emerald+ finish it between 17:00 and 20:30.'],
+};
+const reviewed = { ...(recorded as unknown as MatchAnalysis), build };
 const HOUR = 3_600_000;
 const t0 = Date.now() - 2 * HOUR;
 

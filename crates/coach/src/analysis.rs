@@ -170,6 +170,7 @@ pub fn analyze_match(d: &MatchDetail, sd: &StaticData, stats: Option<&ChampStats
         note: None,
         jungle,
         swings: vec![],
+        build: None,
     };
     a.swings = swings(&a, d);
     a.takeaways = takeaways(&a, d, sd, team_kills);

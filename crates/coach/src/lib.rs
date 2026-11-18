@@ -4,6 +4,7 @@ mod analysis;
 mod augment_tags;
 mod augments;
 pub mod brief;
+pub mod builds;
 mod calls;
 mod champ_select;
 mod common;
@@ -196,6 +197,7 @@ pub fn game_advice(input: &GameInput) -> GameAdvice {
         jungle: None,
         win,
         posture: None,
+        pace: None,
     }
 }
 

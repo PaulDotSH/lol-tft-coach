@@ -13,7 +13,12 @@ pub fn router() -> Router<AppState> {
 }
 
 pub fn public() -> Router<AppState> {
-    Router::new().route("/v1/health", get(health)).route("/v1/winprob.toml", get(table))
+    Router::new().route("/v1/health", get(health)).route("/v1/winprob.toml", get(table)).route("/v1/builds.json", get(builds))
+}
+
+async fn builds(State(state): State<AppState>) -> AppResult<impl IntoResponse> {
+    let bytes = winprob::newest_builds(&state.config.data_dir).await?.ok_or(AppError::NotFound)?;
+    Ok(([(header::CONTENT_TYPE, "application/json")], bytes))
 }
 
 async fn health() -> Json<Value> {

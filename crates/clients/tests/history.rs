@@ -213,3 +213,17 @@ fn red_side_lanes_stay_put_and_bases_swap() {
     assert_eq!(seen(10000, 6500), BlueJungle);
     assert_eq!(seen(7400, 7400), Mid);
 }
+
+#[test]
+fn my_purchases_in_order_with_undone_ones_removed() {
+    let d = history::parse_match(&fixture("match_game.json"), Some(ME), Some(&fixture("match_timeline.json"))).unwrap();
+    let bought: Vec<(u32, u32)> = d.purchases.iter().map(|p| (p.time as u32, p.item)).collect();
+    assert_eq!(bought, [(15, 1056), (170, 1036), (174, 1001), (612, 6655)], "the undone Tear is gone, an undone sale adds nothing, others' purchases are not mine");
+    let mut tl = fixture("match_timeline.json");
+    for f in tl["frames"].as_array_mut().unwrap() {
+        f["events"].as_array_mut().unwrap().retain(|e| e["type"] != "ITEM_UNDO");
+    }
+    let d = history::parse_match(&fixture("match_game.json"), Some(ME), Some(&tl)).unwrap();
+    assert_eq!(d.purchases.len(), 5, "a timeline with no undo events counts every purchase");
+    assert!(history::parse_match(&fixture("match_game.json"), Some(ME), None).unwrap().purchases.is_empty());
+}

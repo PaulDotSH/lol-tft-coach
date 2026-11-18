@@ -426,6 +426,44 @@ data! {
         /// The five largest changes of `gold[i].win`, largest first; empty without a curve.
         #[serde(default)]
         pub swings: Vec<Swing>,
+        /// Rift, not Swiftplay, when the crawl's build table has my champion and role.
+        #[serde(default)]
+        pub build: Option<BuildReview>,
+    }
+
+    /// My item build beside what Emerald+ (all crawled games) and Master+ do on my champion and role.
+    pub struct BuildReview {
+        /// The table's patch and its games for my champion and role (Emerald+, Master+).
+        pub patch: String,
+        pub games: u32,
+        pub top_games: Option<u32>,
+        pub items: Vec<BuildRow>,
+        pub back: Option<BackRow>,
+        /// At most two, most important first.
+        pub tips: Vec<String>,
+    }
+
+    pub struct BuildRow {
+        /// "first item", "second item", "third item" or "boots".
+        pub slot: String,
+        pub item: ItemId,
+        /// Game time (s).
+        pub time: u32,
+        /// Middle half (25th to 75th percentile, s): the item's own when the table has it, else the slot's.
+        pub all: Option<(u32, u32)>,
+        pub top: Option<(u32, u32)>,
+    }
+
+    pub struct BackRow {
+        /// Game time (s) and gold in pocket.
+        pub time: u32,
+        pub gold: u32,
+        /// Middle half of the first back's time (s) and gold.
+        pub all: Option<(u32, u32)>,
+        pub all_gold: Option<(u32, u32)>,
+        pub top: Option<(u32, u32)>,
+        /// Emerald+'s most bought item on the first back.
+        pub usual: Option<ItemId>,
     }
 
     pub struct JungleReview {
