@@ -2,7 +2,7 @@
 
 mod common;
 
-use coach::{ChampSelectInput, VsRunes, champ_select_advice, champ_select_runes, consts::TIER_ROWS, recap};
+use coach::{ChampSelectInput, EnemyVs, VsRunes, champ_select_advice, champ_select_runes, consts::TIER_ROWS, recap};
 use common::*;
 use model::*;
 
@@ -52,34 +52,88 @@ fn zed_stats() -> ChampStats {
 
 fn run(c: &ChampSelect, mine: Option<&ChampStats>, enemies: &[ChampStats], tiers: &[TierEntry], mayhem: Option<&MayhemData>) -> ChampSelectAdvice {
     let sd = sd();
-    champ_select_advice(&ChampSelectInput { cs: c, sd: &sd, mine, enemies, tier_list: tiers, mayhem, draft: Default::default() })
+    champ_select_advice(&ChampSelectInput { cs: c, sd: &sd, mine, enemies, tier_list: tiers, mayhem, draft: Default::default(), vs: &[], pages: &[] })
+}
+
+/// With the enemies' lane-against-lane tables and my matchup pages.
+fn run_vs(c: &ChampSelect, mine: Option<&ChampStats>, vs: &[EnemyVs], pages: &[&MatchupBuild], tiers: &[TierEntry]) -> ChampSelectAdvice {
+    let sd = sd();
+    champ_select_advice(&ChampSelectInput { cs: c, sd: &sd, mine, enemies: &[], tier_list: tiers, mayhem: None, draft: Default::default(), vs, pages })
+}
+
+fn enemy(champ: ChampKey, lane: Lane, counters: &[Matchup]) -> EnemyVs<'_> {
+    EnemyVs { champ, lane, counters }
+}
+
+fn rows(v: &[PickSuggestion]) -> Vec<(ChampKey, &str)> {
+    v.iter().map(|p| (p.champ, p.reason.as_str())).collect()
 }
 
 #[test]
 fn picks_counter_the_lane_opponent() {
     let mut c = cs(Mode::Rift);
     c.enemies = vec![ZED];
-    let a = run(&c, None, &[zed_stats()], &mid_tiers(), None);
+    let z = zed_stats();
+    let a = run_vs(&c, None, &[enemy(ZED, Lane::Middle, &z.counters)], &[], &mid_tiers());
     assert_eq!(a.picks[0].champ, LUX, "{:?}", a.picks);
     assert_eq!(a.picks[0].reason, "55.0% vs Zed (lane)");
     assert!(a.picks.len() <= 5);
     assert!(!a.picks.iter().any(|p| p.champ == ZED || p.champ == MALPHITE), "picked or low-sample champ suggested");
     assert_eq!(a.enemies, vec![ZED]);
+    // For the lane: by win rate against Zed alone; champions without a row against him left out.
+    assert_eq!(a.lane_vs, [ZED]);
+    assert_eq!(rows(&a.lane_picks), [(LUX, "55.0% vs Zed · 3.0k games"), (AHRI, "50.0% vs Zed · 5.0k games"), (SYNDRA, "48.0% vs Zed · 3.0k games")]);
 }
 
 #[test]
-fn off_lane_enemies_weigh_less() {
+fn every_enemy_counts_the_same_in_their_lane() {
     let mut c = cs(Mode::Rift);
     c.enemies = vec![ZED];
-    // Fetched for my lane like every enemy, but played top: the draft places him there.
-    let mut z = zed_stats();
-    z.lanes = [(Lane::Top, 90.0), (Lane::Middle, 5.0)].into();
-    let lane = run(&c, None, &[zed_stats()], &mid_tiers(), None).picks[0].score;
-    let off = run(&c, None, &[z], &mid_tiers(), None);
-    assert_eq!(off.picks[0].champ, LUX);
-    assert!(off.picks[0].reason.ends_with("vs Zed"));
-    // Blend weight is the same with a single enemy; scores match.
-    assert!((off.picks[0].score - lane).abs() < 1e-3);
+    let z = zed_stats();
+    let lane = run_vs(&c, None, &[enemy(ZED, Lane::Middle, &z.counters)], &[], &mid_tiers());
+    // Zed plays top: the same edge in the game list, no lane opponent for the lane list.
+    let off = run_vs(&c, None, &[enemy(ZED, Lane::Top, &z.counters)], &[], &mid_tiers());
+    assert_eq!((off.picks[0].champ, off.picks[0].reason.as_str()), (LUX, "55.0% vs Zed"));
+    assert!((off.picks[0].score - lane.picks[0].score).abs() < 1e-3);
+    assert!(off.lane_picks.is_empty() && off.lane_vs.is_empty());
+
+    // Malphite top beats Lux and loses to Syndra by more than Zed does the other way: edges add up.
+    c.enemies = vec![ZED, MALPHITE];
+    let m = [matchup(LUX, 58.0, 3_000, Lane::Middle), matchup(SYNDRA, 40.0, 3_000, Lane::Middle)];
+    let both = run_vs(&c, None, &[enemy(ZED, Lane::Middle, &z.counters), enemy(MALPHITE, Lane::Top, &m)], &[], &mid_tiers());
+    assert_eq!((both.picks[0].champ, both.picks[0].reason.as_str()), (SYNDRA, "60.0% vs Malphite"), "{:?}", both.picks);
+    // Syndra: 52% in lane, 48% into Zed and 60% into Malphite, each over 3,000 games.
+    let syndra = 52.0 + (50.0 - 52.0) * 1.0 / 31.0 + 0.6 * ((48.0 - 52.0) + (60.0 - 52.0)) * 3_000.0 / 3_200.0;
+    assert!((both.picks[0].score - syndra).abs() < 1e-3, "{} vs {syndra}", both.picks[0].score);
+    assert_eq!(both.lane_picks[0].champ, LUX, "the lane list ignores Malphite");
+}
+
+#[test]
+fn picks_take_lolalytics_normalised_delta() {
+    let mut c = cs(Mode::Rift);
+    c.enemies = vec![MALPHITE];
+    // Malphite top against Ahri middle: 49.21% for him, 5.56 points under what both win rates predict.
+    let m = [Matchup { delta: Some(-5.56), ..matchup(AHRI, 49.21, 15_848, Lane::Middle) }];
+    let a = run_vs(&c, None, &[enemy(MALPHITE, Lane::Top, &m)], &[], &mid_tiers());
+    let ahri = 51.0 + (50.0 - 51.0) * 1.0 / 51.0 + 0.6 * 5.56 * 15_848.0 / 16_048.0;
+    assert_eq!((a.picks[0].champ, a.picks[0].reason.as_str()), (AHRI, "50.8% vs Malphite"));
+    assert!((a.picks[0].score - ahri).abs() < 1e-3, "{} vs {ahri}", a.picks[0].score);
+}
+
+#[test]
+fn lane_picks_in_bot_lane_take_both_of_theirs() {
+    let mut c = cs(Mode::Rift);
+    c.my_lane = Some(Lane::Support);
+    c.enemies = vec![SORAKA, EZREAL];
+    let tiers: Vec<TierEntry> = [THRESH, LEONA, SONA].iter().map(|&k| TierEntry { lane: Lane::Support, ..tier(k, 50.0, 5.0, 20_000) }).collect();
+    let ezreal = [matchup(THRESH, 46.0, 3_000, Lane::Support), matchup(SONA, 50.0, 3_000, Lane::Support), matchup(LEONA, 45.0, 3_000, Lane::Support)];
+    let soraka = [matchup(THRESH, 52.0, 3_000, Lane::Support), matchup(SONA, 44.0, 3_000, Lane::Support)];
+    let a = run_vs(&c, None, &[enemy(SORAKA, Lane::Support, &soraka), enemy(EZREAL, Lane::Bottom, &ezreal)], &[], &tiers);
+    assert_eq!(a.lane_vs, [EZREAL, SORAKA], "bot laner first");
+    assert_eq!(
+        rows(&a.lane_picks),
+        [(LEONA, "55.0% vs Ezreal · 3.0k games"), (SONA, "50.0% vs Ezreal · 3.0k games, 56.0% vs Soraka · 3.0k games"), (THRESH, "54.0% vs Ezreal · 3.0k games, 48.0% vs Soraka · 3.0k games")]
+    );
 }
 
 fn champs(v: &[TierPick]) -> Vec<ChampKey> {
@@ -87,32 +141,24 @@ fn champs(v: &[TierPick]) -> Vec<ChampKey> {
 }
 
 #[test]
-fn tier_board_ranks_counters_to_the_lane_opponent() {
+fn tier_board_lists_the_lane_with_win_rates_against_the_lane_opponent() {
     let mut c = cs(Mode::Rift);
     c.enemies = vec![ZED];
     c.bans = vec![VLADIMIR];
     let mut tiers = mid_tiers();
     tiers[1].tier = Some("S+".into());
-    let t = run(&c, None, &[zed_stats()], &tiers, None).tiers.unwrap();
+    let z = zed_stats();
+    let t = run_vs(&c, None, &[enemy(ZED, Lane::Middle, &z.counters)], &[], &tiers).tiers.unwrap();
     assert_eq!((t.lane, t.vs), (Lane::Middle, Some(ZED)));
     assert_eq!(champs(&t.best), [AHRI, SYNDRA, LUX], "tier list order; banned, picked and low-sample dropped");
-    assert_eq!(champs(&t.counters), [LUX, AHRI, SYNDRA], "by win rate against Zed");
-    let syndra = &t.counters[2];
+    let syndra = &t.best[1];
     assert_eq!((syndra.tier.as_deref(), syndra.vs_wr, syndra.vs_games), (Some("S+"), Some(48.0), 3_000));
     assert_eq!(t.best[0].vs_wr, Some(50.0));
 
-    // An enemy outside my lane (their bot laner for a support): their win rates against my lane's champions.
-    let inp = ChampSelectInput { cs: &c, sd: &sd(), mine: None, enemies: &[], tier_list: &tiers, mayhem: None, draft: Default::default() };
-    let other = coach::tier_counters(&inp, &[matchup(AHRI, 44.0, 900, Lane::Middle), matchup(LUX, 53.0, 2_000, Lane::Middle), matchup(SYNDRA, 40.0, 10, Lane::Middle), matchup(VLADIMIR, 30.0, 5_000, Lane::Middle)]);
-    assert_eq!(other.iter().map(|p| (p.champ, p.vs_wr)).collect::<Vec<_>>(), [(AHRI, Some(56.0)), (LUX, Some(47.0))], "few games and banned left out");
-    assert!(t.others.is_empty(), "filled in once their matchups are fetched");
-
     // Zed plays top: no lane opponent, the tier list alone.
-    let mut z = zed_stats();
-    z.lanes = [(Lane::Top, 90.0)].into();
-    let t = run(&c, None, &[z], &tiers, None).tiers.unwrap();
+    let t = run_vs(&c, None, &[enemy(ZED, Lane::Top, &z.counters)], &[], &tiers).tiers.unwrap();
     assert_eq!(t.vs, None);
-    assert!(t.counters.is_empty() && t.best.iter().all(|p| p.vs_wr.is_none()));
+    assert!(t.best.iter().all(|p| p.vs_wr.is_none()));
 }
 
 #[test]
@@ -184,6 +230,69 @@ fn build_plan_once_champ_known() {
     // Stats for a different champion are ignored.
     c.my_pick = Some(LUX);
     assert!(run(&c, Some(&ahri_stats()), &[], &mid_tiers(), None).build.is_none());
+}
+
+/// My matchup page against `vs`: nothing on it but its games and win rate.
+fn page_vs(vs: ChampKey, games: u32, win_rate: f32) -> MatchupBuild {
+    MatchupBuild {
+        vs,
+        games,
+        win_rate,
+        start: vec![],
+        start_games: 0,
+        start_wr: 0.0,
+        core: vec![],
+        runes: vec![],
+        rune_page: None,
+        summoners: vec![],
+        skills: String::new(),
+        skill_order: String::new(),
+        skill_order_games: 0,
+        usual_wr: None,
+        slots: vec![],
+        boots: vec![],
+        skill_max: vec![],
+        by_length: vec![],
+        path: vec![],
+        best_path: vec![],
+        patch: String::new(),
+    }
+}
+
+#[test]
+fn a_build_for_the_lane_and_one_for_the_game() {
+    let mut c = cs(Mode::Rift);
+    c.my_pick = Some(AHRI);
+    c.enemies = vec![ZED, SORAKA, VLADIMIR, AATROX, MUNDO];
+    let mut st = ahri_stats();
+    st.slots[2] = vec![row(VOID_STAFF, 8_000, 52.0), row(BANSHEES, 3_000, 52.0), row(ZHONYAS, 4_000, 51.0), row(MORELLO, 3_000, 51.0)];
+    let vs = [enemy(ZED, Lane::Middle, &[])];
+    // Into Zed the same items are bought, Zhonya's first far more often and winning more.
+    let mut slots = st.slots.clone();
+    slots[0] = vec![row(ZHONYAS, 3_000, 58.0), row(LUDENS, 1_000, 49.0)];
+    let zed = MatchupBuild { slots, boots: st.boots.clone(), start: vec![1055, 2003], patch: "30".into(), ..page_vs(ZED, 4_200, 47.0) };
+
+    let a = run_vs(&c, Some(&st), &vs, &[&zed], &mid_tiers());
+    let lane = a.lane_build.expect("lane build");
+    assert_eq!((lane.vs.as_slice(), lane.source.as_str()), ([ZED].as_slice(), "lolalytics, last 30 days · 4.2k games"));
+    assert_eq!((lane.core[0].item, lane.start.as_slice()), (ZHONYAS, [1055, 2003].as_slice()), "the page's first item and start set");
+    assert!(!lane.core.iter().any(|p| p.item == MORELLO), "Zed does not heal: {:?}", lane.core);
+    let game = a.build.expect("game build");
+    assert_eq!((game.vs.as_slice(), game.source.as_str()), ([ZED].as_slice(), "lolalytics 16.21 + lolalytics matchup pages"));
+    assert!(game.core.iter().any(|p| p.item == MORELLO), "their healers still count: {:?}", game.core);
+    assert_eq!(game.start, [1056, 2003, 2003], "my champion's own start set");
+
+    // No page yet: today's build from my own stats, and no lane build.
+    let a = run_vs(&c, Some(&st), &vs, &[], &mid_tiers());
+    assert!(a.lane_build.is_none());
+    assert_eq!((a.build.as_ref().unwrap().vs.len(), a.build.unwrap().source.as_str()), (0, "lolalytics 16.21"));
+    // Too few games of the pairing, or a page against someone who is not my lane opponent: no lane build.
+    let thin = MatchupBuild { games: 60, ..zed.clone() };
+    assert!(run_vs(&c, Some(&st), &vs, &[&thin], &mid_tiers()).lane_build.is_none());
+    let soraka = MatchupBuild { vs: SORAKA, ..zed.clone() };
+    let a = run_vs(&c, Some(&st), &vs, &[&soraka], &mid_tiers());
+    assert!(a.lane_build.is_none());
+    assert_eq!(a.build.unwrap().vs, [SORAKA]);
 }
 
 #[test]
@@ -358,32 +467,11 @@ fn runes_against_the_lane_opponent_come_first() {
     c.enemies = vec![ZED];
     let mine = sona_coachless();
     let sd = sd();
-    let inp = ChampSelectInput { cs: &c, sd: &sd, mine: Some(&mine), enemies: &[], tier_list: &[], mayhem: None, draft: Default::default() };
+    let inp = ChampSelectInput { cs: &c, sd: &sd, mine: Some(&mine), enemies: &[], tier_list: &[], mayhem: None, draft: Default::default(), vs: &[], pages: &[] };
     let vs_page = RunePage { primary: vec![8465, 8463, 8473, 8242], secondary: vec![8345, 8347], shards: vec![5008, 5008, 5001], win_rate: 49.0, games: 600 };
     let vs_cl = RuneData { popular: vs_page.clone(), best: vs_page, stats: Default::default() };
     // lolalytics' matchup page is its most played page: one option, both named.
-    let lola_vs = MatchupBuild {
-        vs: ZED,
-        games: 900,
-        win_rate: 47.0,
-        start: vec![],
-        start_games: 0,
-        start_wr: 0.0,
-        core: vec![],
-        runes: vec![],
-        rune_page: mine.runes.as_ref().map(|r| RunePage { games: 800, win_rate: 47.5, ..r.popular.clone() }),
-        summoners: vec![],
-        skills: String::new(),
-        skill_order: String::new(),
-        skill_order_games: 0,
-        usual_wr: None,
-        first_items: vec![],
-        boots: vec![],
-        skill_max: vec![],
-        by_length: vec![],
-        path: vec![],
-        best_path: vec![],
-    };
+    let lola_vs = MatchupBuild { rune_page: mine.runes.as_ref().map(|r| RunePage { games: 800, win_rate: 47.5, ..r.popular.clone() }), ..page_vs(ZED, 900, 47.0) };
     let a = champ_select_runes(&inp, &VsRunes { vs: ZED, coachless: Some(&vs_cl), lolalytics: Some(&lola_vs) }).unwrap();
     assert_eq!(
         labels(&a),

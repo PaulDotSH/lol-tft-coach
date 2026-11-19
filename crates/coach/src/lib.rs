@@ -44,6 +44,7 @@ mod threat;
 mod tips;
 mod timers;
 mod tracker;
+pub mod vs_build;
 mod trends;
 mod whatif;
 mod windows;
@@ -275,13 +276,23 @@ pub struct ChampSelectInput<'a> {
     pub mayhem: Option<&'a MayhemData>,
     /// Rift draft data (lane matchups, synergy); empty until fetched.
     pub draft: DraftData<'a>,
+    /// Rift with my lane known: each revealed enemy in the lane it is placed in, as far as fetched.
+    pub vs: &'a [EnemyVs<'a>],
+    /// My champion's lolalytics matchup pages against revealed enemies in their lanes, as far as fetched.
+    pub pages: &'a [&'a MatchupBuild],
+}
+
+/// A revealed enemy in the lane it plays, with its win rates against my lane's champions
+/// (lolalytics `counter` with `vslane`): ours ≈ 100 − theirs.
+pub struct EnemyVs<'a> {
+    pub champ: ChampKey,
+    pub lane: Lane,
+    pub counters: &'a [Matchup],
 }
 
 pub fn champ_select_advice(input: &ChampSelectInput) -> ChampSelectAdvice {
     champ_select::advice(input)
 }
-
-pub use champ_select::tier_counters;
 
 /// `champ_select_advice`'s rune pages with the pages against my lane opponent added.
 pub fn champ_select_runes(input: &ChampSelectInput, vs: &VsRunes) -> Option<RuneAdvice> {

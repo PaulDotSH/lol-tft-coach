@@ -423,7 +423,7 @@ pub fn row(id: ItemId, games: u32, wr_pct: f32) -> ItemStat {
 }
 
 pub fn matchup(champ: ChampKey, vs_wr: f32, games: u32, lane: Lane) -> Matchup {
-    Matchup { champ, vs_wr, games, default_lane: Some(lane) }
+    Matchup { champ, vs_wr, games, default_lane: Some(lane), delta: None }
 }
 
 pub fn ahri_stats() -> ChampStats {

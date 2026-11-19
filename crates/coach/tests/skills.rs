@@ -81,12 +81,13 @@ fn vs_zed(games: u32) -> MatchupBuild {
         skill_order: "QEWQQRQEQEREEWW".into(),
         skill_order_games: games,
         usual_wr: None,
-        first_items: vec![],
+        slots: vec![],
         boots: vec![],
         skill_max: vec![],
         by_length: vec![],
         path: vec![],
         best_path: vec![],
+        patch: String::new(),
     }
 }
 

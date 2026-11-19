@@ -97,7 +97,7 @@ fn matchup_page_numbers_for_malphite_into_sett() {
     // Nothing to say: same win rate as usual, one row per table, one max order, flat by length.
     let flat = MatchupBuild {
         usual_wr: Some(page.win_rate + 0.4),
-        first_items: page.first_items[..1].to_vec(),
+        slots: vec![page.slots[0][..1].to_vec()],
         boots: vec![],
         skill_max: page.skill_max[..1].to_vec(),
         by_length: page.by_length.iter().map(|l| LengthWin { wins: l.games / 2, ..l.clone() }).collect(),

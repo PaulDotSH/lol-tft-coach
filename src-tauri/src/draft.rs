@@ -86,20 +86,28 @@ pub fn ai_tips(sh: &Arc<Shared>, sd: &StaticData, queue: i64, me: ChampKey, them
     })
 }
 
-/// Tier board: my lane's champions ranked against the other enemies in the lanes I face (a
-/// support against their bot laner, a bot laner against their support), as far as fetched.
-pub fn tier_others(sh: &Arc<Shared>, sd: &StaticData, input: &coach::ChampSelectInput, advice: &mut ChampSelectAdvice) {
-    let ChampSelectAdvice { tiers: Some(board), draft: Some(draft), .. } = advice else { return };
-    let lane = board.lane;
-    board.others = coach::opposing_lanes(lane)
-        .iter()
-        .filter(|&&l| l != lane)
-        .filter_map(|&l| {
-            let vs = draft.lanes.iter().find(|x| x.lane == l)?.enemy?;
-            let theirs = counters_vs(sh, sd, vs, l, lane)?;
-            Some(TierVs { vs, counters: coach::tier_counters(input, &theirs) })
-        })
-        .collect();
+/// Rift with my lane known: the revealed enemies with the lane the draft places them in
+/// (`known`: the stats whose lane shares place them, as the draft report's).
+pub fn placed(cs: &ChampSelect, known: &[&ChampStats]) -> Faced {
+    if cs.mode != Mode::Rift || cs.my_lane.is_none() {
+        return vec![];
+    }
+    coach::draft_lineups(cs, known).1.iter().filter_map(|&(e, l)| Some((l?, e))).collect()
+}
+
+/// Each placed enemy's win rates against my lane's champions, lane against lane, as far as fetched.
+pub fn enemy_tables(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, placed: &[(Lane, ChampKey)]) -> Vec<(ChampKey, Lane, Arc<Vec<Matchup>>)> {
+    let Some(lane) = cs.my_lane else { return vec![] };
+    placed.iter().filter_map(|&(l, e)| Some((e, l, counters_vs(sh, sd, e, l, lane)?))).collect()
+}
+
+/// My matchup pages against the placed enemies, as far as fetched: my direct opponent's from the
+/// hover on, the others' only once my pick is made (four pages per hovered champion otherwise).
+pub fn my_pages(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect, placed: &[(Lane, ChampKey)]) -> Vec<Arc<MatchupBuild>> {
+    let (Some(me), Some(lane)) = (cs.my_pick.or(cs.my_hover), cs.my_lane) else { return vec![] };
+    let faced: Faced = coach::opposing_lanes(lane).iter().filter_map(|&l| placed.iter().find(|p| p.0 == l).copied()).collect();
+    let first = direct(lane, &faced);
+    placed.iter().filter(|&&p| cs.my_pick == Some(me) || Some(p) == first).filter_map(|&(l, e)| matchup_page(sh, sd, me, e, lane, l)).collect()
 }
 
 /// Hand-written laning notes, parsed once (empty if the file is broken).

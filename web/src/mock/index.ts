@@ -79,6 +79,7 @@ function lookup(champ: number, lane: ChampStats['lane'], mode: ChampStats['mode'
     vs_wr: 44 + r() * 12,
     games: Math.round(500 + r() * 9000),
     default_lane: lane,
+    delta: null,
   }));
   return {
     champ,

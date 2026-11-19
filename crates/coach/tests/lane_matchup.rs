@@ -30,7 +30,7 @@ fn lane(lane: Lane, ally: Option<ChampKey>, enemy: Option<ChampKey>) -> DraftLan
 }
 
 fn vs(champ: ChampKey, vs_wr: f32, games: u32) -> Matchup {
-    Matchup { champ, vs_wr, games, default_lane: None }
+    Matchup { champ, vs_wr, games, default_lane: None, delta: None }
 }
 
 fn build(vs: ChampKey, games: u32) -> MatchupBuild {
@@ -49,12 +49,13 @@ fn build(vs: ChampKey, games: u32) -> MatchupBuild {
         skill_order: String::new(),
         skill_order_games: 0,
         usual_wr: None,
-        first_items: vec![],
+        slots: vec![],
         boots: vec![],
         skill_max: vec![],
         by_length: vec![],
         path: vec![],
         best_path: vec![],
+        patch: String::new(),
     }
 }
 

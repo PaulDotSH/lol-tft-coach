@@ -1,6 +1,6 @@
 //! Champ select: counter-picks, bans, build plan (ARAM bench and team comp: `team`).
 
-use crate::{ChampSelectInput, common::*, consts::*, draft, items, needs, runes, team, threat};
+use crate::{ChampSelectInput, EnemyVs, common::*, consts::*, draft, items, lane_matchup::{self, MIN_MATCHUP_GAMES}, needs, runes, team, threat, vs_build};
 use model::*;
 
 /// Percent from a percent or a fraction.
@@ -13,15 +13,33 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
     let mine = cs.my_pick.or(cs.my_hover);
     let rift = cs.mode == Mode::Rift;
     let draft = if rift { draft::report(inp) } else { None };
-    // The enemy the draft report placed in my lane.
-    let opp = cs.my_lane.zip(draft.as_ref()).and_then(|(l, d)| d.lanes.iter().find(|x| x.lane == l)?.enemy);
+    let faced = if rift { faced(inp) } else { vec![] };
+    // The enemy placed in my own lane.
+    let opp = faced.iter().copied().find(|e| Some(e.lane) == cs.my_lane);
+    let stats = mine.and_then(|c| inp.mine.filter(|m| m.champ == c));
+    let pages: Vec<&MatchupBuild> = inp.pages.iter().copied().filter(|p| cs.enemies.contains(&p.vs)).collect();
+    let lane_vs: Vec<ChampKey> = faced.iter().map(|e| e.champ).collect();
+    let build = stats.and_then(|m| {
+        let source = if pages.is_empty() { build_source(Some(m)) } else { format!("{} + lolalytics matchup pages", build_source(Some(m))) };
+        build_plan(inp, &vs_build::game(m, &pages), &cs.enemies, pages.iter().map(|p| p.vs).collect(), source)
+    });
+    // Against my direct opponent: my own lane's, else (their support unknown) their bot laner.
+    let page = opp.or(faced.first().copied()).and_then(|e| pages.iter().find(|p| p.vs == e.champ && p.games >= MIN_MATCHUP_GAMES));
+    let lane_build = stats.zip(page).and_then(|(m, p)| {
+        let s = vs_build::lane(m, p);
+        let source = format!("{} · {} games", lolalytics_source(&s), fmt_games(p.games as u64));
+        build_plan(inp, &s, &lane_vs, vec![p.vs], source)
+    });
     ChampSelectAdvice {
         mode: cs.mode,
         my_lane: cs.my_lane,
         my_champ: mine,
-        picks: if rift { picks(inp, mine, opp) } else { vec![] },
+        picks: if rift { picks(inp, mine) } else { vec![] },
+        lane_picks: lane_picks(inp, mine, &faced),
+        lane_vs,
         bans: if rift { bans(inp, mine) } else { vec![] },
-        build: mine.and_then(|c| build_plan(inp, c)),
+        build,
+        lane_build,
         runes: rune_pages(inp, None),
         bench: if rift { vec![] } else { team::bench(inp, mine) },
         enemies: cs.enemies.clone(),
@@ -33,13 +51,26 @@ pub fn advice(inp: &ChampSelectInput) -> ChampSelectAdvice {
     }
 }
 
+/// The enemies placed in the lanes I face (both bot lanes for a support or bot laner), bot laner first.
+fn faced<'a>(inp: &'a ChampSelectInput) -> Vec<&'a EnemyVs<'a>> {
+    let lanes = inp.cs.my_lane.map_or(&[][..], lane_matchup::opposing);
+    lanes.iter().filter_map(|&l| inp.vs.iter().find(|e| e.lane == l)).collect()
+}
+
+fn taken(cs: &ChampSelect, mine: Option<ChampKey>, c: ChampKey) -> bool {
+    cs.bans.contains(&c) || cs.enemies.contains(&c) || (cs.allies.contains(&c) && Some(c) != mine)
+}
+
+/// An enemy's row against champion `c`, with enough games to count.
+fn row(table: &[Matchup], c: ChampKey) -> Option<&Matchup> {
+    table.iter().find(|m| m.champ == c && m.games >= MATCHUP_MIN_GAMES)
+}
+
 /// My lane's tier list in its order, each champion with its win rate against the enemy whose
 /// win rates against them are `theirs`; banned and taken champions dropped.
 fn tier_rows(inp: &ChampSelectInput, mine: Option<ChampKey>, theirs: &[Matchup]) -> Vec<TierPick> {
-    let cs = inp.cs;
-    let taken = |c: ChampKey| cs.bans.contains(&c) || cs.enemies.contains(&c) || (cs.allies.contains(&c) && Some(c) != mine);
-    let row = |t: &TierEntry| {
-        let m = theirs.iter().find(|m| m.champ == t.champ && m.games >= MATCHUP_MIN_GAMES);
+    let pick = |t: &TierEntry| {
+        let m = row(theirs, t.champ);
         TierPick {
             champ: t.champ,
             tier: t.tier.clone(),
@@ -50,40 +81,20 @@ fn tier_rows(inp: &ChampSelectInput, mine: Option<ChampKey>, theirs: &[Matchup])
             mine: Some(t.champ) == mine,
         }
     };
-    inp.tier_list.iter().filter(|t| lane_ok(inp, t) && !taken(t.champ)).map(row).collect()
+    inp.tier_list.iter().filter(|t| lane_ok(inp, t) && !taken(inp.cs, mine, t.champ)).map(pick).collect()
 }
 
-/// The first TIER_ROWS, and my champion after them when it is further down.
-fn cut(mut v: Vec<TierPick>) -> Vec<TierPick> {
-    let me = v.iter().position(|p| p.mine).filter(|&i| i >= TIER_ROWS).map(|i| v.remove(i));
-    v.truncate(TIER_ROWS);
-    v.extend(me);
-    v
-}
-
-/// The rows with a win rate against the enemy, best against them first.
-fn ranked(rows: &[TierPick]) -> Vec<TierPick> {
-    let mut counters: Vec<TierPick> = rows.iter().filter(|p| p.vs_wr.is_some()).cloned().collect();
-    let key = |p: &TierPick| shrink(p.vs_wr.unwrap_or(50.0), p.vs_games, MATCHUP_SHRINK_K);
-    counters.sort_by(|a, b| key(b).total_cmp(&key(a)).then(a.champ.cmp(&b.champ)));
-    cut(counters)
-}
-
-/// My lane's tier list ranked against an enemy outside my own lane (their bot laner for a
-/// support): `theirs` is that enemy's win rate against champions in my lane.
-pub fn tier_counters(inp: &ChampSelectInput, theirs: &[Matchup]) -> Vec<TierPick> {
-    ranked(&tier_rows(inp, inp.cs.my_pick.or(inp.cs.my_hover), theirs))
-}
-
-/// My lane's tier list, and its champions ranked by win rate against my lane opponent.
-fn tier_board(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) -> Option<TierBoard> {
+/// My lane's tier list: the first TIER_ROWS, and my champion after them when it is further down.
+fn tier_board(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<&EnemyVs>) -> Option<TierBoard> {
     let lane = inp.cs.my_lane?;
-    let theirs = opp.and_then(|o| inp.enemies.iter().find(|s| s.champ == o));
-    let best = tier_rows(inp, mine, theirs.map_or(&[], |s| s.counters.as_slice()));
+    let mut best = tier_rows(inp, mine, opp.map_or(&[], |e| e.counters));
     if best.is_empty() {
         return None;
     }
-    Some(TierBoard { lane, vs: opp, counters: ranked(&best), best: cut(best), others: vec![] })
+    let me = best.iter().position(|p| p.mine).filter(|&i| i >= TIER_ROWS).map(|i| best.remove(i));
+    best.truncate(TIER_ROWS);
+    best.extend(me);
+    Some(TierBoard { lane, vs: opp.map(|e| e.champ), best })
 }
 
 fn lane_ok(inp: &ChampSelectInput, t: &TierEntry) -> bool {
@@ -97,48 +108,40 @@ fn top(mut v: Vec<PickSuggestion>, n: usize) -> Vec<PickSuggestion> {
     v
 }
 
-/// `opp`: the enemy placed in my lane; the others weigh OTHER_ENEMY_W.
-fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) -> Vec<PickSuggestion> {
+/// My points against the enemy whose table has row `m`, beyond what both champions' win rates
+/// predict (lolalytics' delta 2; without it my win rate against them over my `usual`), shrunk by games.
+fn edge(m: &Matchup, usual: f32) -> f32 {
+    let d = m.delta.map_or(100.0 - pct(m.vs_wr) - usual, |d| -d);
+    d * m.games as f32 / (m.games as f32 + MATCHUP_SHRINK_K)
+}
+
+/// For the game: the tier list win rate, my edge against every revealed enemy in their lane
+/// (each counts the same; its size is in its own number), synergy and composition.
+fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>) -> Vec<PickSuggestion> {
     let (cs, sd) = (inp.cs, inp.sd);
-    let taken = |c: ChampKey| cs.bans.contains(&c) || cs.enemies.contains(&c) || (cs.allies.contains(&c) && Some(c) != mine);
-    let revealed: Vec<(&ChampStats, f32, bool)> = cs
-        .enemies
-        .iter()
-        .filter_map(|e| inp.enemies.iter().find(|s| s.champ == *e))
-        .map(|s| {
-            let lane = Some(s.champ) == opp;
-            (s, if lane { LANE_OPP_W } else { OTHER_ENEMY_W }, lane)
-        })
-        .collect();
     let lane_name = cs.my_lane.map_or("your role", Lane::as_str);
     let ctx = draft::pick_ctx(inp);
     let v = inp
         .tier_list
         .iter()
-        .filter(|t| lane_ok(inp, t) && !taken(t.champ))
+        .filter(|t| lane_ok(inp, t) && !taken(cs, mine, t.champ))
         .map(|t| {
             let base = shrink(pct(t.win_rate), t.games, TIER_SHRINK_K);
-            let (mut sw, mut s, mut best) = (0.0, 0.0, None::<(f32, f32, &ChampStats, bool)>);
-            for &(es, w, lane) in &revealed {
-                let Some(m) = es.counters.iter().find(|m| m.champ == t.champ && m.games >= MATCHUP_MIN_GAMES) else {
-                    continue;
-                };
-                let ours = 100.0 - shrink(pct(m.vs_wr), m.games, MATCHUP_SHRINK_K);
-                sw += w;
-                s += w * ours;
-                let key = w * (ours - 50.0);
-                if best.is_none_or(|b| key > b.0) {
-                    best = Some((key, 100.0 - pct(m.vs_wr), es, lane));
+            let (mut sum, mut best) = (0.0, None::<(f32, f32, &EnemyVs)>);
+            for e in inp.vs {
+                let Some(m) = row(e.counters, t.champ) else { continue };
+                let d = edge(m, pct(t.win_rate));
+                sum += d;
+                if best.is_none_or(|b| d > b.0) {
+                    best = Some((d, 100.0 - pct(m.vs_wr), e));
                 }
             }
-            let score = if sw > 0.0 { MATCHUP_BLEND * s / sw + (1.0 - MATCHUP_BLEND) * base } else { base };
             // Reasons: the terms that raised the score most (matchup, synergy, comp gap).
             let terms = draft::pick_terms(inp, &ctx, t.champ);
-            let score = score + terms.iter().map(|x| x.0).sum::<f32>();
+            let score = base + MATCHUP_BLEND * sum + terms.iter().map(|x| x.0).sum::<f32>();
             let mut why: Vec<(f32, String)> = terms.into_iter().filter(|x| x.0 > 0.0).collect();
-            if let Some((k, wr, es, lane)) = best.filter(|b| b.0 > 0.0) {
-                let what = format!("{wr:.1}% vs {}{}", sd.champ_name(es.champ), if lane { " (lane)" } else { "" });
-                why.push((MATCHUP_BLEND * k / sw, what));
+            if let Some((d, wr, e)) = best.filter(|b| b.0 > 0.0) {
+                why.push((MATCHUP_BLEND * d, format!("{wr:.1}% vs {}{}", sd.champ_name(e.champ), if Some(e.lane) == cs.my_lane { " (lane)" } else { "" })));
             }
             why.sort_by(|a, b| b.0.total_cmp(&a.0));
             let reason = match why.as_slice() {
@@ -147,6 +150,23 @@ fn picks(inp: &ChampSelectInput, mine: Option<ChampKey>, opp: Option<ChampKey>) 
                 [a, ..] => a.1.clone(),
             };
             PickSuggestion { champ: t.champ, score, reason }
+        })
+        .collect();
+    top(v, PICKS)
+}
+
+/// For the lane: my lane's tier list by win rate against the enemies I face there (shrunk by
+/// games; the mean over both in bot lane), nothing else.
+fn lane_picks(inp: &ChampSelectInput, mine: Option<ChampKey>, faced: &[&EnemyVs]) -> Vec<PickSuggestion> {
+    let v = inp
+        .tier_list
+        .iter()
+        .filter(|t| lane_ok(inp, t) && !taken(inp.cs, mine, t.champ))
+        .filter_map(|t| {
+            let rows: Vec<(&EnemyVs, &Matchup)> = faced.iter().filter_map(|&e| Some((e, row(e.counters, t.champ)?))).collect();
+            let score = rows.iter().map(|(_, m)| 100.0 - shrink(pct(m.vs_wr), m.games, MATCHUP_SHRINK_K)).sum::<f32>() / rows.len() as f32;
+            let reason = |(e, m): &(&EnemyVs, &Matchup)| format!("{:.1}% vs {} · {} games", 100.0 - pct(m.vs_wr), inp.sd.champ_name(e.champ), fmt_games(m.games as u64));
+            (!rows.is_empty()).then(|| PickSuggestion { champ: t.champ, score, reason: rows.iter().map(reason).collect::<Vec<_>>().join(", ") })
         })
         .collect();
     top(v, PICKS)
@@ -213,20 +233,22 @@ pub fn rune_pages(inp: &ChampSelectInput, vs: Option<&runes::VsRunes>) -> Option
     runes::advice(inp.sd, mine, &foes, vs)
 }
 
-fn build_plan(inp: &ChampSelectInput, champ_key: ChampKey) -> Option<BuildPlan> {
-    let mine = inp.mine.filter(|m| m.champ == champ_key)?;
+/// The item engine's build from `stats` (my champion's own, or `vs_build`'s against `vs`), with
+/// the item needs counted from `enemies`.
+fn build_plan(inp: &ChampSelectInput, stats: &ChampStats, enemies: &[ChampKey], vs: Vec<ChampKey>, source: String) -> Option<BuildPlan> {
     let sd = inp.sd;
-    let foes: Vec<threat::Foe> = inp.cs.enemies.iter().map(|&e| threat::generic_foe(champ(sd, e))).collect();
+    let foes: Vec<threat::Foe> = enemies.iter().map(|&e| threat::generic_foe(champ(sd, e))).collect();
     let needs = needs::needs(&foes);
-    let mut ctx = items::Ctx::new(sd, Some(mine), champ(sd, champ_key), inp.cs.mode);
+    let mut ctx = items::Ctx::new(sd, Some(stats), champ(sd, stats.champ), inp.cs.mode);
     let is_boots = |id: ItemId| sd.items.get(&id).is_some_and(|i| i.boots);
-    let start = opening(sd, mine);
+    let start = opening(sd, stats);
     ctx.support = inp.cs.mode == Mode::Rift
         && (inp.cs.my_lane == Some(Lane::Support) || start.iter().any(|i| SUPPORT_QUEST.contains(i)));
     let b = items::build(&ctx, &[], &needs);
     let pick = |s: &items::Scored| items::to_pick(&ctx, s, &needs, &foes, None);
     Some(BuildPlan {
-        source: crate::common::build_source(Some(mine)),
+        source,
+        vs,
         upgrade: items::support_upgrade(&ctx, &[]),
         start,
         core: b.path.iter().filter(|s| !is_boots(s.id)).take(CORE_ITEMS).map(pick).collect(),

@@ -498,6 +498,12 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
     let mayhem = if cs.mode == Mode::Mayhem { mayhem(sh, sd) } else { None };
     let known: Vec<&ChampStats> = mine.as_deref().into_iter().chain(&enemies).collect();
     let (lane_stats, synergy) = crate::draft::fetch(sh, sd, cs, &known);
+    // Enemies in the lanes the draft report places them in: their tables against my lane, my pages against them.
+    let placed = crate::draft::placed(cs, &known.iter().copied().chain(&lane_stats).collect::<Vec<_>>());
+    let tables = crate::draft::enemy_tables(sh, sd, cs, &placed);
+    let vs: Vec<coach::EnemyVs> = tables.iter().map(|(e, l, t)| coach::EnemyVs { champ: *e, lane: *l, counters: t.as_slice() }).collect();
+    let pages = crate::draft::my_pages(sh, sd, cs, &placed);
+    let pages: Vec<&MatchupBuild> = pages.iter().map(|p| &**p).collect();
     let input = coach::ChampSelectInput {
         cs,
         sd,
@@ -506,9 +512,10 @@ fn champ_select_advice(sh: &Arc<Shared>, sd: &StaticData, cs: &ChampSelect) -> C
         tier_list: tiers.as_deref().map_or(&[], |t| t.as_slice()),
         mayhem: mayhem.as_deref(),
         draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
+        vs: &vs,
+        pages: &pages,
     };
     let mut advice = coach::champ_select_advice(&input);
-    crate::draft::tier_others(sh, sd, &input, &mut advice);
     // Rune pages against my lane opponent need the lanes the draft report placed.
     if let Some(v) = mine.as_deref().and_then(|m| crate::draft::vs_runes(sh, sd, cs, &advice, m.win_rate)) {
         let vs = coach::VsRunes { vs: v.vs, coachless: v.coachless.as_deref().and_then(Option::as_ref), lolalytics: v.lolalytics.as_deref() };

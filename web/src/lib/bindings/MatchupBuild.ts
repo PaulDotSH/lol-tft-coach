@@ -45,9 +45,9 @@ skill_order: string, skill_order_games: number,
  */
 usual_wr: number | null, 
 /**
- * First completed items in this matchup, most played first.
+ * Completed items in this matchup by slot (`slots[0]` = first item … up to 5), most played first.
  */
-first_items: Array<ItemStat>, 
+slots: Array<Array<ItemStat>>, 
 /**
  * Boots in this matchup, most played first.
  */
@@ -67,4 +67,8 @@ path: Array<ItemStat>,
 /**
  * The same for the highest win rate build.
  */
-best_path: Array<ItemStat>, };
+best_path: Array<ItemStat>, 
+/**
+ * lolalytics patch the page is for ("16.23"), "30" for the last 30 days.
+ */
+patch: string, };

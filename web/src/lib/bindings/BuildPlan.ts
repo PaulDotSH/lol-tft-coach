@@ -9,4 +9,8 @@ upgrade: ItemPick | null, core: Array<ItemPick>, boots: ItemPick | null,
 /**
  * Where the item stats came from: "Coachless 16.20", "lolalytics 16.21".
  */
-source: string, };
+source: string, 
+/**
+ * The enemies whose matchup pages went into it; empty: my champion's own stats alone.
+ */
+vs: Array<number>, };

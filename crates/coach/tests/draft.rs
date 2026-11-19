@@ -84,8 +84,10 @@ struct Run<'a> {
     draft: DraftData<'a>,
 }
 
+/// Every enemy plays the lane its stats are for.
 fn run(r: Run) -> ChampSelectAdvice {
     let sd = sd();
+    let vs: Vec<coach::EnemyVs> = r.enemies.iter().filter_map(|s| Some(coach::EnemyVs { champ: s.champ, lane: s.lane?, counters: &s.counters })).collect();
     champ_select_advice(&ChampSelectInput {
         cs: r.cs,
         sd: &sd,
@@ -94,6 +96,8 @@ fn run(r: Run) -> ChampSelectAdvice {
         tier_list: r.tiers,
         mayhem: None,
         draft: r.draft,
+        vs: &vs,
+        pages: &[],
     })
 }
 

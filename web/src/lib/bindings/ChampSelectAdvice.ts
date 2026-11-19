@@ -11,7 +11,27 @@ import type { PickSuggestion } from "./PickSuggestion";
 import type { RuneAdvice } from "./RuneAdvice";
 import type { TierBoard } from "./TierBoard";
 
-export type ChampSelectAdvice = { mode: Mode, my_lane: Lane | null, my_champ: number | null, picks: Array<PickSuggestion>, bans: Array<PickSuggestion>, build: BuildPlan | null, 
+export type ChampSelectAdvice = { mode: Mode, my_lane: Lane | null, my_champ: number | null, 
+/**
+ * For the game: against every revealed enemy in their lane, with synergy and composition.
+ */
+picks: Array<PickSuggestion>, 
+/**
+ * For the lane: by win rate against `lane_vs` alone; empty until their matchups are fetched.
+ */
+lane_picks: Array<PickSuggestion>, 
+/**
+ * The enemies placed in the lanes I face (both of theirs in bot lane), bot laner first.
+ */
+lane_vs: Array<number>, bans: Array<PickSuggestion>, 
+/**
+ * For the game: from my champion's stats and my matchup pages against the revealed enemies.
+ */
+build: BuildPlan | null, 
+/**
+ * For the lane: from my matchup page against my direct opponent; None until it is there or from few games.
+ */
+lane_build: BuildPlan | null, 
 /**
  * Rift / ARAM rune page for my champion (Mayhem has no runes).
  */
@@ -37,6 +57,6 @@ memory: Array<MatchupMemory>,
  */
 matchup: MatchupPlan | null, 
 /**
- * Rift with my lane known: the lane's tier list and its counters to my lane opponent.
+ * Rift with my lane known: the lane's tier list.
  */
 tiers: TierBoard | null, };
