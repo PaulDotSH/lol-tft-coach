@@ -239,10 +239,10 @@ pub const TIER_MIN_GAMES: u32 = 500;
 pub const TIER_SHRINK_K: f32 = 1000.0;
 pub const MATCHUP_MIN_GAMES: u32 = 20;
 pub const MATCHUP_SHRINK_K: f32 = 200.0;
-pub const LANE_OPP_W: f32 = 1.0;
-pub const OTHER_ENEMY_W: f32 = 0.3;
-/// Share of the pick score from matchups (rest: tier-list win rate).
+/// How much of my edge against an enemy (points beyond both champions' win rates) a pick's score takes.
 pub const MATCHUP_BLEND: f32 = 0.6;
+/// Game build: games a matchup page (or my champion's own tables) counts for at most in one item slot.
+pub const GAME_PAGE_GAMES: u32 = 2000;
 pub const PICKS: usize = 5;
 /// Rows in each tier board column.
 pub const TIER_ROWS: usize = 8;

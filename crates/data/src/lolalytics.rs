@@ -39,6 +39,8 @@ pub const MIN_GAMES: u64 = 3000;
 const FALLBACK_PATCH: &str = "30";
 /// A lane page with fewer games by game length than this gives way to the champion's main lane.
 pub const LANE_MIN_GAMES: u64 = 1000;
+/// A matchup page with fewer games of the pairing than this gives way to the last 30 days.
+pub const VS_MIN_GAMES: u32 = 100;
 const LENGTH_FROM: [u32; 7] = [0, 15, 20, 25, 30, 35, 40];
 const MAX_EARLY: usize = 20;
 const TIERS: [&str; 15] = ["S+", "S", "S-", "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-"];
@@ -153,6 +155,7 @@ pub async fn length_stats(
 }
 
 /// My win rate against every champion in another lane: `vslane` (support vs bot laners).
+/// The last 30 days when the patch has under `MIN_GAMES` games over the whole table.
 pub async fn counters_vs(
     http: &crate::Http,
     champ: &Champion,
@@ -162,12 +165,21 @@ pub async fn counters_vs(
     region: &str,
     patch: &str,
 ) -> anyhow::Result<Vec<Matchup>> {
-    let q = Query { slug: &champ.slug, lane: Some(lane), mode: Mode::Rift, tier, region, patch: patch.to_owned() };
-    let url = format!("{}&vslane={}", q.mega("counter"), vs_lane.as_str());
-    Ok(http.get_parsed(&url, TTL, parse_counters).await?.counters)
+    let table = |patch: &str| {
+        let q = Query { slug: &champ.slug, lane: Some(lane), mode: Mode::Rift, tier, region, patch: patch.to_owned() };
+        let url = format!("{}&vslane={}", q.mega("counter"), vs_lane.as_str());
+        async move { Ok(http.get_parsed(&url, TTL, parse_counters).await?.counters) }
+    };
+    let games = |t: &Vec<Matchup>| t.iter().map(|m| m.games as u64).sum::<u64>();
+    let first = table(patch).await;
+    if patch == FALLBACK_PATCH || first.as_ref().is_ok_and(|t| games(t) >= MIN_GAMES) {
+        return first;
+    }
+    fuller(first, table(FALLBACK_PATCH).await, games)
 }
 
-/// The matchup page (`/lol/<me>/vs/<them>/build/`): win rate, starting and first items.
+/// The matchup page (`/lol/<me>/vs/<them>/build/`): win rate, starting items and the item tables.
+/// The last 30 days when the patch has under `VS_MIN_GAMES` games of the pairing (`patch` says which).
 #[allow(clippy::too_many_arguments)]
 pub async fn matchup(
     http: &crate::Http,
@@ -182,8 +194,29 @@ pub async fn matchup(
     let (l, vl) = (lane.as_str(), vs_lane.as_str());
     // The page 404s on "region=all" (its default): only a real region goes in.
     let region = if region == "all" { String::new() } else { format!("&region={region}") };
-    let url = format!("{SITE}/{}/vs/{}/build/?lane={l}&vslane={vl}&tier={tier}&patch={patch}{region}", me.slug, vs.slug);
-    http.get_parsed(&url, TTL, |h| parse_matchup_page(h, vs.key)).await
+    let page = |patch: &str| {
+        let url = format!("{SITE}/{}/vs/{}/build/?lane={l}&vslane={vl}&tier={tier}&patch={patch}{region}", me.slug, vs.slug);
+        let patch = patch.to_owned();
+        async move { Ok(MatchupBuild { patch, ..http.get_parsed(&url, TTL, |h| parse_matchup_page(h, vs.key)).await? }) }
+    };
+    let first = page(patch).await;
+    if patch == FALLBACK_PATCH || first.as_ref().is_ok_and(|b| b.games >= VS_MIN_GAMES) {
+        return first;
+    }
+    fuller(first, page(FALLBACK_PATCH).await, |b| b.games as u64)
+}
+
+/// The current patch's answer unless the last 30 days' has more games (or it alone came back).
+fn fuller<T>(first: anyhow::Result<T>, alt: anyhow::Result<T>, games: impl Fn(&T) -> u64) -> anyhow::Result<T> {
+    match (first, alt) {
+        (Ok(a), Ok(b)) => Ok(if games(&b) > games(&a) { b } else { a }),
+        (Ok(a), Err(e)) => {
+            tracing::warn!("lolalytics 30-day fallback: {e:#}");
+            Ok(a)
+        }
+        (Err(_), Ok(b)) => Ok(b),
+        (Err(e), Err(_)) => Err(e),
+    }
 }
 
 /// Tier list for one lane (meta bans, pick candidates).
@@ -348,6 +381,7 @@ pub fn parse_counters(json: &str) -> anyhow::Result<Counters> {
                         vs_wr: num(&c["vsWr"])? as f32,
                         games: num(&c["n"])? as u32,
                         default_lane: lane(&c["defaultLane"]),
+                        delta: num(&c["d2"]).map(|d| d as f32),
                     })
                 })
                 .collect()
@@ -421,7 +455,7 @@ pub fn parse_build_page(html: &str) -> anyhow::Result<PageStats> {
 /// Matchup page: the header (`vs`, `vsLane`, `n`, `wr`, `usualWinRate`) and the most played
 /// `summary.pick`: `items` (`start` set, then `item1`..`item3` with `id`), `runes.set`,
 /// `sums.ids` and `skillpriority.id` (the highest win rate one from `summary.win`); the
-/// "Item 1" and "Boots" tables (rows `[id, win rate, pick rate, games, minute]`), the
+/// "Item 1" to "Item 5" and "Boots" tables (rows `[id, win rate, pick rate, games, minute]`), the
 /// games by length (`time`, `timeWin`) and both summaries' `item1`..`item6` as build paths
 /// (slots from the fourth on are lists: their first row).
 pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBuild> {
@@ -461,6 +495,8 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
     let (it, set) = (&pick["items"], &pick["runes"]["set"]);
     let s = &it["start"];
     let (skill_order, skill_order_games) = skill_order(&pick);
+    let mut slots: Vec<Vec<ItemStat>> = (1..=5).map(|n| table("itemItem", Some(n as f64))).collect();
+    slots.truncate(slots.iter().rposition(|s| !s.is_empty()).map_or(0, |i| i + 1));
     Ok(MatchupBuild {
         vs,
         games,
@@ -476,12 +512,13 @@ pub fn parse_matchup_page(html: &str, vs: ChampKey) -> anyhow::Result<MatchupBui
         skill_order,
         skill_order_games,
         usual_wr,
-        first_items: table("itemItem", Some(1.0)),
+        slots,
         boots: table("boots", None),
         skill_max,
         by_length: q.find_map(3, &["time", "timeWin"], |v| Some(by_length(&v))).unwrap_or_default(),
         path: path(&pick),
         best_path: path(&win),
+        patch: String::new(),
     })
 }
 
@@ -647,7 +684,9 @@ mod tests {
         assert_eq!((m.games, m.win_rate, m.usual_wr), (4231, 55.07, Some(53.39)));
         let rows = |v: &[ItemStat]| v.iter().take(4).map(|i| (i.id, i.games, i.wins)).collect::<Vec<_>>();
         // Sunfire 55.23% of 2198, Malignance 56.84% of 906, Frozen Heart 56.07% of 560, Thornmail 50.96% of 261.
-        assert_eq!(rows(&m.first_items), [(3068, 2198, 1214), (3118, 906, 515), (3110, 560, 314), (3075, 261, 133)]);
+        assert_eq!(rows(&m.slots[0]), [(3068, 2198, 1214), (3118, 906, 515), (3110, 560, 314), (3075, 261, 133)]);
+        // Second item Thornmail, third Kaenic Rookern, fourth and fifth Unending Despair.
+        assert_eq!(m.slots.iter().map(|s| (s.len(), s[0].id, s[0].games, s[0].wins)).collect::<Vec<_>>()[1..], [(45, 3075, 1232, 679), (45, 2504, 524, 306), (41, 6665, 187, 110), (32, 6665, 41, 22)]);
         // Steelcaps 55.87% of 3295, Mercury's 48.33% of 420, Sorcerer's 61.2% of 317.
         assert_eq!(rows(&m.boots)[..3], [(3047, 3295, 1841), (3111, 420, 203), (3020, 317, 194)]);
         let max: Vec<(&str, f32, u32)> = m.skill_max.iter().map(|s| (s.order.as_str(), s.win_rate, s.games)).collect();
@@ -658,6 +697,17 @@ mod tests {
         assert_eq!(rows(&m.path)[..3], [(3068, 2198, 1214), (3047, 3296, 1841), (3075, 1232, 679)]);
         assert_eq!(m.path.iter().map(|i| i.id).take(5).collect::<Vec<_>>(), [3068, 3047, 3075, 2504, 6665]);
         assert_eq!(m.best_path.iter().map(|i| i.id).take(5).collect::<Vec<_>>(), [3118, 3020, 3068, 3075, 3143]);
+    }
+
+    #[test]
+    fn thin_patch_gives_way_to_the_fuller_30_days() {
+        let games = |n: &u64| *n;
+        let err = || Err::<u64, _>(anyhow::anyhow!("404"));
+        assert_eq!(fuller(Ok(59), Ok(16657), games).unwrap(), 16657);
+        assert_eq!(fuller(Ok(59), Ok(40), games).unwrap(), 59);
+        assert_eq!(fuller(Ok(59), err(), games).unwrap(), 59);
+        assert_eq!(fuller(err(), Ok(40), games).unwrap(), 40);
+        assert!(fuller(err(), err(), games).is_err());
     }
 
     #[test]

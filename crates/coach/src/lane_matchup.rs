@@ -6,7 +6,7 @@ use model::*;
 use std::collections::HashMap;
 
 /// Matchup pages from fewer games than this aren't worth showing.
-const MIN_MATCHUP_GAMES: u32 = 100;
+pub(crate) const MIN_MATCHUP_GAMES: u32 = 100;
 const KEYS: [&str; 4] = ["Q", "W", "E", "R"];
 
 /// What every card draws on besides the opponent.

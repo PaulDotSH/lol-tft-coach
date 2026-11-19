@@ -146,6 +146,9 @@ data! {
         pub vs_wr: f32,
         pub games: u32,
         pub default_lane: Option<Lane>,
+        /// Our win rate vs them beyond what both champions' win rates predict (lolalytics' delta 2), points.
+        #[serde(default)]
+        pub delta: Option<f32>,
     }
 
     /// lolalytics build page game-length bucket: games ending at `from_min` up to the next bucket's start.
@@ -306,9 +309,9 @@ data! {
         /// My champion's win rate over all its matchups in this lane, percent; None when the page had none.
         #[serde(default)]
         pub usual_wr: Option<f32>,
-        /// First completed items in this matchup, most played first.
+        /// Completed items in this matchup by slot (`slots[0]` = first item … up to 5), most played first.
         #[serde(default)]
-        pub first_items: Vec<ItemStat>,
+        pub slots: Vec<Vec<ItemStat>>,
         /// Boots in this matchup, most played first.
         #[serde(default)]
         pub boots: Vec<ItemStat>,
@@ -324,6 +327,9 @@ data! {
         /// The same for the highest win rate build.
         #[serde(default)]
         pub best_path: Vec<ItemStat>,
+        /// lolalytics patch the page is for ("16.23"), "30" for the last 30 days.
+        #[serde(default)]
+        pub patch: String,
     }
 
     /// A skill max order ("QEW") with its win rate (percent) and games.

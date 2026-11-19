@@ -5,4 +5,8 @@ export type Matchup = { champ: number,
 /**
  * Our win rate vs them, percent.
  */
-vs_wr: number, games: number, default_lane: Lane | null, };
+vs_wr: number, games: number, default_lane: Lane | null, 
+/**
+ * Our win rate vs them beyond what both champions' win rates predict (lolalytics' delta 2), points.
+ */
+delta: number | null, };

@@ -19,6 +19,21 @@
   const rift = $derived(cs.mode === 'rift');
   /** History vs enemies the matchup card doesn't already show. */
   const others = $derived(cs.memory.filter((m) => !cs.matchup?.cards.some((c) => c.champ === m.champ)));
+  const names = (v: number[]) => v.map((c) => (store.ui ? champName(store.ui, c) : '')).join(' and ');
+  /** My lane opponent(s), named. */
+  const laneVs = $derived(names(cs.lane_vs));
+  /** Rift with my lane known: picks and builds come for the game and for the lane. */
+  const lanes = $derived(rift && cs.my_lane != null);
+  const builds = $derived(
+    !cs.build
+      ? []
+      : !lanes
+        ? [{ title: '', plan: cs.build }]
+        : [
+            { title: 'Build for the game', plan: cs.build },
+            { title: 'Build for the lane', plan: cs.lane_build, note: laneVs ? `No matchup page against ${laneVs} yet, or under 100 games on it.` : 'Shown once your lane opponent is revealed.' },
+          ],
+  );
 </script>
 
 <div class="cs">
@@ -59,8 +74,16 @@
   {/if}
 
   {#if cs.picks.length || cs.bans.length}
-    <div class="pair">
-      <Suggestions title="Suggested picks" items={cs.picks} />
+    <div class="pair" class:three={lanes}>
+      <Suggestions title={lanes ? 'Picks for the game' : 'Suggested picks'} note={lanes && cs.enemies.length ? 'their whole team, each in their lane' : ''} items={cs.picks} />
+      {#if lanes}
+        <Suggestions
+          title="Picks for the lane"
+          note={laneVs ? `into ${laneVs} alone` : ''}
+          items={cs.lane_picks}
+          empty={laneVs ? `No matchup data against ${laneVs} yet.` : 'Shown once your lane opponent is revealed.'}
+        />
+      {/if}
       <Suggestions title="Suggested bans" items={cs.bans} ban />
     </div>
   {/if}
@@ -77,8 +100,8 @@
     <GamePlan plan={store.state.plan} full />
   {/if}
 
-  {#if cs.build}
-    <BuildPlan plan={cs.build} />
+  {#if builds.length}
+    <BuildPlan rows={builds} />
   {:else if !cs.picks.length}
     <p class="empty">Build plan appears once you lock in.</p>
   {/if}
@@ -117,8 +140,12 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--gap);
   }
+  .pair.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   @media (max-width: 760px) {
-    .pair {
+    .pair,
+    .pair.three {
       grid-template-columns: 1fr;
     }
   }

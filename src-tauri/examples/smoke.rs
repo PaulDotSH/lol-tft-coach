@@ -148,6 +148,19 @@ async fn main() -> anyhow::Result<()> {
         lane_stats.push(data::lolalytics_team::lane_stats(&http, &sd.champs[&c], Some(l), "emerald_plus", "all", &patch).await?);
         synergy.push(data::lolalytics_team::team(&http, &sd.champs[&c], l, "emerald_plus", "all", &patch).await?);
     }
+    // Lane against lane: each placed enemy's table against my lane, and my pages against them.
+    let (mut tables, mut pages) = (vec![], vec![]);
+    for &(e, l) in &en {
+        let Some(l) = l else { continue };
+        tables.push((e, l, data::lolalytics::counters_vs(&http, &sd.champs[&e], l, lane, "emerald_plus", "all", &patch).await?));
+        if let Some(m) = &mine {
+            match data::lolalytics::matchup(&http, &sd.champs[&m.champ], &sd.champs[&e], lane, l, "emerald_plus", "all", &patch).await {
+                Ok(p) => pages.push(p),
+                Err(err) => println!("no matchup page against {}: {err:#}", sd.champ_name(e)),
+            }
+        }
+    }
+    let vs: Vec<coach::EnemyVs> = tables.iter().map(|(e, l, t)| coach::EnemyVs { champ: *e, lane: *l, counters: t }).collect();
     let adv = coach::champ_select_advice(&coach::ChampSelectInput {
         cs: &cs,
         sd: &sd,
@@ -156,17 +169,24 @@ async fn main() -> anyhow::Result<()> {
         tier_list: &tiers,
         mayhem: None,
         draft: coach::DraftData { lane_stats: &lane_stats, synergy: &synergy },
+        vs: &vs,
+        pages: &pages.iter().collect::<Vec<_>>(),
     });
     println!("\n== Champ select {lane:?} vs {:?} ==", cs.enemies.iter().map(|e| sd.champ_name(*e)).collect::<Vec<_>>());
     for p in &adv.picks {
         println!("pick {:<12} {:5.1}  {}", sd.champ_name(p.champ), p.score, p.reason);
     }
+    for p in &adv.lane_picks {
+        println!("lane {:<12} {:5.1}  {}", sd.champ_name(p.champ), p.score, p.reason);
+    }
     for p in &adv.bans {
         println!("ban  {:<12} {:5.1}  {}", sd.champ_name(p.champ), p.score, p.reason);
     }
-    if let Some(b) = &adv.build {
-        println!("start {:?}", b.start.iter().map(|i| sd.item_name(*i)).collect::<Vec<_>>());
-        println!("core  {:?}", b.core.iter().map(|p| &p.name).collect::<Vec<_>>());
+    for (what, b) in [("game", &adv.build), ("lane", &adv.lane_build)] {
+        let Some(b) = b else { continue };
+        println!("{what} build vs {:?} ({})", b.vs.iter().map(|c| sd.champ_name(*c)).collect::<Vec<_>>(), b.source);
+        println!("  start {:?}", b.start.iter().map(|i| sd.item_name(*i)).collect::<Vec<_>>());
+        println!("  core  {:?} boots {:?}", b.core.iter().map(|p| &p.name).collect::<Vec<_>>(), b.boots.as_ref().map(|p| &p.name));
     }
     // ARAM / Mayhem bench: tier or ARAM win rate + team fit, my team only.
     let aram_tiers = data::lolalytics_aram::aram_tier_list(&http, "emerald_plus", "all", &patch).await?;
@@ -181,6 +201,8 @@ async fn main() -> anyhow::Result<()> {
             tier_list: &aram_tiers,
             mayhem: Some(&m),
             draft: Default::default(),
+            vs: &[],
+            pages: &[],
         });
         println!("
 == {mode:?} bench, allies {:?} ==", acs.allies.iter().map(|c| sd.champ_name(*c)).collect::<Vec<_>>());

@@ -4,12 +4,13 @@
   import { champName } from '../../lib/ui';
   import Icon from '../Icon.svelte';
 
-  let { title, items, ban = false }: { title: string; items: PickSuggestion[]; ban?: boolean } = $props();
+  // `note`: what the list is ranked against; `empty`: what to say while it has no rows.
+  let { title, items, ban = false, note = '', empty = 'Nothing to suggest yet.' }: { title: string; items: PickSuggestion[]; ban?: boolean; note?: string; empty?: string } = $props();
 </script>
 
 <section class="panel" class:ban>
-  <h2>{title}</h2>
-  {#if items.length === 0}<p class="empty">Nothing to suggest yet.</p>{/if}
+  <h2>{title}{#if note}<span class="note">{note}</span>{/if}</h2>
+  {#if items.length === 0}<p class="empty">{empty}</p>{/if}
   <ul>
     {#each items as s (s.champ)}
       <li>
@@ -35,6 +36,13 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+  .note {
+    margin-left: 6px;
+    font: 500 12px/1 var(--sans);
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--faint);
   }
   .name {
     font: 600 22px/1.1 var(--cond);

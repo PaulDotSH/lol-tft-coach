@@ -21,6 +21,9 @@ data! {
         /// Where the item stats came from: "Coachless 16.20", "lolalytics 16.21".
         #[serde(default)]
         pub source: String,
+        /// The enemies whose matchup pages went into it; empty: my champion's own stats alone.
+        #[serde(default)]
+        pub vs: Vec<ChampKey>,
     }
 
     pub struct RunePick {
@@ -76,9 +79,20 @@ data! {
         pub mode: Mode,
         pub my_lane: Option<Lane>,
         pub my_champ: Option<ChampKey>,
+        /// For the game: against every revealed enemy in their lane, with synergy and composition.
         pub picks: Vec<PickSuggestion>,
+        /// For the lane: by win rate against `lane_vs` alone; empty until their matchups are fetched.
+        #[serde(default)]
+        pub lane_picks: Vec<PickSuggestion>,
+        /// The enemies placed in the lanes I face (both of theirs in bot lane), bot laner first.
+        #[serde(default)]
+        pub lane_vs: Vec<ChampKey>,
         pub bans: Vec<PickSuggestion>,
+        /// For the game: from my champion's stats and my matchup pages against the revealed enemies.
         pub build: Option<BuildPlan>,
+        /// For the lane: from my matchup page against my direct opponent; None until it is there or from few games.
+        #[serde(default)]
+        pub lane_build: Option<BuildPlan>,
         /// Rift / ARAM rune page for my champion (Mayhem has no runes).
         pub runes: Option<RuneAdvice>,
         /// ARAM / Mayhem: you + bench, best first.
@@ -94,7 +108,7 @@ data! {
         /// Rift: my lane opponent(s) once my lane and champion are known.
         #[serde(default)]
         pub matchup: Option<MatchupPlan>,
-        /// Rift with my lane known: the lane's tier list and its counters to my lane opponent.
+        /// Rift with my lane known: the lane's tier list.
         #[serde(default)]
         pub tiers: Option<TierBoard>,
     }
@@ -104,21 +118,8 @@ data! {
         pub lane: Lane,
         /// My lane opponent once revealed and placed in my lane.
         pub vs: Option<ChampKey>,
-        /// Tier list champions best against `vs` (by win rate against them); my champion
-        /// last when not among them. Empty until their matchups are fetched.
-        pub counters: Vec<TierPick>,
         /// The tier list, best first; my champion last when not among them.
         pub best: Vec<TierPick>,
-        /// The same ranking against the other enemies in the lanes I face (bot lane: their
-        /// bot laner for a support, their support for a bot laner), as far as fetched.
-        #[serde(default)]
-        pub others: Vec<TierVs>,
-    }
-
-    /// My lane's tier list ranked by win rate against one enemy outside my own lane.
-    pub struct TierVs {
-        pub vs: ChampKey,
-        pub counters: Vec<TierPick>,
     }
 
     pub struct TierPick {

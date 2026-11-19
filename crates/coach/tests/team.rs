@@ -45,6 +45,8 @@ fn run(sd: &StaticData, c: &ChampSelect, tiers: &[TierEntry], m: Option<&MayhemD
         tier_list: tiers,
         mayhem: m,
         draft: Default::default(),
+        vs: &[],
+        pages: &[],
     })
 }
 

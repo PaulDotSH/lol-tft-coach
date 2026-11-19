@@ -173,7 +173,7 @@ pub fn numbers(sd: &StaticData, b: &MatchupBuild) -> Vec<String> {
             format!("{label}: {}", shown.iter().enumerate().map(cell).collect::<Vec<_>>().join(", "))
         })
     };
-    out.extend(table("First item", " take it", &b.first_items));
+    out.extend(table("First item", " take it", b.slots.first().map_or(&[], Vec::as_slice)));
     out.extend(table("Boots", " take them", &b.boots));
     if let [most, best] = b.skill_max.as_slice()
         && best.games >= SKILL_MIN_GAMES
